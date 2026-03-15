@@ -18,13 +18,19 @@ jobs:
       - name: Build Project
         run: |
           cd ~/projects/ShoxPosProFrontend
-          # Bir marta tozalab olish (Rollup xatosini yo'qotish uchun)
+          
+          # 1. ARVOH DEPENDENCY-NI O'CHIRISH (Jarrohlik amaliyoti)
+          # Bu buyruq package.json ichidan dataconnect qatorini qidirib topadi va o'chiradi
+          sed -i '/dataconnect-generated/d' package.json
+          
+          # 2. Tozalash
           rm -rf node_modules package-lock.json
-          # Standart o'rnatish (keshga tayanmasdan)
-          npm install
-          # Rollup uchun maxsus Linux paketini majburan o'rnatish
+          
+          # 3. Toza o'rnatish (Audit-siz tezroq ishlaydi)
+          npm install --no-audit
+          
+          # 4. Rollup va Build
           npm install @rollup/rollup-linux-x64-gnu
-          # Build qilish
           npm run build
 
       - name: Copy Build to Web Root
