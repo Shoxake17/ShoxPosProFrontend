@@ -1,0 +1,32 @@
+name: ShoxPosProFrontend
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Sync to Project Folder
+        run: |
+          rsync -avz --delete --exclude '.env' --exclude 'node_modules' --exclude '.git' --exclude 'dist' ./ ~/projects/ShoxPosProFrontend/
+
+      - name: Build Project
+        run: |
+          cd ~/projects/ShoxPosProFrontend
+          # Bir marta tozalab olish (Rollup xatosini yo'qotish uchun)
+          rm -rf node_modules package-lock.json
+          # Standart o'rnatish (keshga tayanmasdan)
+          npm install
+          # Rollup uchun maxsus Linux paketini majburan o'rnatish
+          npm install @rollup/rollup-linux-x64-gnu
+          # Build qilish
+          npm run build
+
+      - name: Copy Build to Web Root
+        run: |
+          sudo rsync -avz --delete ~/projects/ShoxPosProFrontend/dist/ /var/www/shoxpospro/
