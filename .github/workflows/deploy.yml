@@ -11,28 +11,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Sync to Project Folder
+      - name: Sync to Projects Folder
         run: |
+          # Runner papkasidagi kodni asosiy projects papkasiga nusxalash
           rsync -avz --delete --exclude '.env' --exclude 'node_modules' --exclude '.git' --exclude 'dist' ./ ~/projects/ShoxPosProFrontend/
 
-      - name: Build Project
+      - name: Deploy with Docker Compose
         run: |
-          cd ~/projects/ShoxPosProFrontend
+          cd ~/projects
           
-          # 1. ARVOH DEPENDENCY-NI O'CHIRISH (Jarrohlik amaliyoti)
-          # Bu buyruq package.json ichidan dataconnect qatorini qidirib topadi va o'chiradi
-          sed -i '/dataconnect-generated/d' package.json
+          # 1. Konteyner ichida xato bermasligi uchun package.json ni tozalash
+          sed -i '/dataconnect-generated/d' ./ShoxPosProFrontend/package.json || true
           
-          # 2. Tozalash
-          rm -rf node_modules package-lock.json
+          # 2. Faqat Frontend konteynerini qayta qurish (rebuild)
+          # Bu Dockerfile-dagi Stage 1 (Build) va Stage 2 (Nginx) ni ishga tushiradi
+          docker compose build frontend
           
-          # 3. Toza o'rnatish (Audit-siz tezroq ishlaydi)
-          npm install --no-audit
+          # 3. Frontend konteynerini yangilash
+          docker compose up -d frontend
           
-          # 4. Rollup va Build
-          npm install @rollup/rollup-linux-x64-gnu
-          npm run build
-
-      - name: Copy Build to Web Root
-        run: |
-          sudo rsync -avz --delete ~/projects/ShoxPosProFrontend/dist/ /var/www/shoxpospro/
+          # 4. Keraksiz (eski) imidjlarni o'chirish (disk joyini tejash uchun)
+          docker image prune -f
