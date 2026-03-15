@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      filename: 'manifest.webmanifest', // Fayl nomini qat'iy belgilash
+      filename: 'manifest.webmanifest', // Fayl nomini qat'iy belgilash shids
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       devOptions: {
