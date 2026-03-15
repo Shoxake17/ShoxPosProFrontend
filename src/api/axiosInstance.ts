@@ -38,13 +38,17 @@ const axiosInstance = axios.create({
 });
 
 // 🔄 REQUEST INTERCEPTOR: Har bir so'rovga CSRF token va timestamp qo'shish
+// 🔄 REQUEST INTERCEPTOR: Har bir so'rovga CSRF token va timestamp qo'shish
 axiosInstance.interceptors.request.use(
   (config) => {
-    // CSRF tokenni olish (cookie/localStorage/meta dan)
     const csrfToken = getClientCsrfToken();
+    
+    // config.method mavjudligini va GET emasligini tekshiramiz
     if (csrfToken && config.method && config.method.toLowerCase() !== 'get') {
-      config.headers = config.headers || {};
-      config.headers['CSRF-Token'] = csrfToken;
+      // Xatolikni oldini olish uchun "as any" yoki aniq o'zlashtirishdan foydalanamiz
+      if (config.headers) {
+        config.headers['CSRF-Token'] = csrfToken;
+      }
     }
 
     // 🛡️ Keshdan qochish uchun har bir GET so'roviga noyob ID qo'shish
