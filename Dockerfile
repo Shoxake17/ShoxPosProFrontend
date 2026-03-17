@@ -9,7 +9,6 @@ COPY package*.json ./
 # Shuningdek --include=optional bayrog'ini qo'shamiz
 RUN npm install --include=optional && \
     npm install @rollup/rollup-linux-x64-musl
-COPY .env .env.production
 COPY . .
 RUN npm run build
 
