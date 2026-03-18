@@ -3,6 +3,7 @@ name: CI/CD & Security Scan
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
 
@@ -38,6 +39,7 @@ jobs:
 
   zap_scan:
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     needs: deploy # FAQAT Deploy tugagandan keyin ishlaydi
     steps:
       - name: Checkout Code

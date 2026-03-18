@@ -425,7 +425,7 @@ export default function Login() {
                 {biometricEnabled ? <Fingerprint size={32} color="#fff" /> : <ScanFace size={32} color="#fff" />}
               </div>
               <h2 style={{ fontSize: "clamp(20px, 5vw, 24px)", fontWeight: 600, marginBottom: "8px" }}>
-                Xush kelibsiz!
+                Xush kelibsizmi!
               </h2>
               <p style={{ color: isDark ? "#8b92a7" : "#64748b", fontSize: "14px" }}>
                 {biometricEnabled ? `${biometricType} bilan kirish mumkin` : "Davom etish uchun hisobingizga kiring"}
