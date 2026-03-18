@@ -5,7 +5,6 @@ WORKDIR /app
 # Keshdan foydalanish uchun package fayllarni ko'chiramiz
 COPY package*.json ./
 
-COPY .env.production .env.production
 
 # MUHIM: Alpine Linux uchun kerakli Rollup binar faylini majburiy o'rnatish
 # Shuningdek --include=optional bayrog'ini qo'shamiz
