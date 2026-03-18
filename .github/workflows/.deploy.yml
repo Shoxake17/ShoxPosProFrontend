@@ -16,8 +16,8 @@ jobs:
         run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u shoxake17 --password-stdin
 
       - name: Build Frontend Image
-        run: docker build -t ghcr.io/shoxake17/shoxposprofrontend:latest .
-
+        run: docker build --no-cache -t ghcr.io/shoxake17/shoxposprofrontend:latest .
+      
       - name: Push Frontend Image
         run: docker push ghcr.io/shoxake17/shoxposprofrontend:latest
 
