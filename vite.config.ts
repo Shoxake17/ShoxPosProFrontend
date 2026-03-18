@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
+import obfuscator from 'vite-plugin-javascript-obfuscator';
 
 export default defineConfig({
   plugins: [
@@ -64,7 +65,19 @@ export default defineConfig({
           }
         ]
       }
-    })
+    }),
+    obfuscator({
+      options: {
+        controlFlowFlattening: true,
+        controlFlowFlatteningThreshold: 0.75,
+        numbersToExpressions: true,
+        simplify: true,
+        stringArray: true,
+        stringArrayThreshold: 0.75,
+        splitStrings: true,
+        unicodeEscapeSequence: false, 
+      },
+    }),
   ],
 
   resolve: {
