@@ -14,8 +14,6 @@ import Scan from "./pages/Hisobotlar";
 import Scanner from "./pages/Scanner";
 import Sotilgan from "./pages/Sotilgan";
 import Qarzlar from "./pages/Qarzlar";
-import SignIn from "./pages/SignIn";
-import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import KirimBazasi from './pages/KirimBazasi';
 import Ai from "./pages/Ai";
