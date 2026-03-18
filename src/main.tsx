@@ -112,8 +112,6 @@ function App() {
         <Routes>
           {/* ❌ Ochiq sahifalar */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
 
           {/* ✅ Himoyalangan sahifalar */}
