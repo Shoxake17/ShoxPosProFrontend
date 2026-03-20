@@ -1,4 +1,4 @@
-// Scanner.tsx — Birlashtirilgan to'liq versiya (Document 1 + Document 2)
+// Scanner.tsx — To'liq tuzatilgan versiya
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +11,7 @@ import { useTranslation, TranslationProvider } from '../components/languages/Sca
 import io from 'socket.io-client';
 import PrinterButton from '../components/PrinterButton';
 
-// ─── IndexedDB yordamchi funksiyalari (Document 1) ────────────────────────
+// ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
 const IDB_NAME = 'ShoxPosDB';
 const IDB_VERSION = 5;
 const PRODUCTS_STORE = 'products';
@@ -62,7 +62,7 @@ async function saveProductToIDB(product: any): Promise<void> {
   } catch { /* silent */ }
 }
 
-// ─── Reports DB (Document 1 + Document 2 birlashtirilgan) ─────────────────
+// ─── Reports DB ────────────────────────────────────────────────────────────
 let reportsDB: IDBDatabase | null = null;
 let productsDB: IDBDatabase | null = null;
 
@@ -122,7 +122,6 @@ function ScannerContent() {
   const [printerModel, setPrinterModel] = useState<string>('');
   const [checkingPrinter, setCheckingPrinter] = useState(false);
 
-  // IndexedDB mahsulotlari cache (Document 1)
   const [idbProducts, setIdbProducts] = useState<any[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -162,7 +161,6 @@ function ScannerContent() {
     return () => codeReader.current.reset();
   }, []);
 
-  // IndexedDB mahsulotlarini cache ga yuklash (Document 1)
   const loadIdbCache = async () => {
     const products = await getProductsFromIDB(login);
     setIdbProducts(products);
@@ -228,27 +226,36 @@ function ScannerContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // ─── normalizeText (Document 2) ─────────────────────────────────────────
+  // ─── normalizeText ──────────────────────────────────────────────────────
   const normalizeText = (text: string) => {
     return text.toLowerCase().trim().replace(/\s+/g, ' ');
   };
 
-  // ─── ASOSIY: Mahsulot qidirish — IndexedDB-first (Document 1) ────────
+  // ─── TUZATISH 2: Barcode yoki nom bo'yicha aqlli qidirish ─────────────
+  // 4 va undan ko'p raqamdan iborat bo'lsa — barcode deb hisoblaymiz,
+  // name.includes() ishlatilmaydi — noto'g'ri mahsulot topilmasligi uchun.
+  const isLikelyBarcode = (query: string): boolean => {
+    return /^\d{4,}$/.test(query.trim());
+  };
+
+  // ─── ASOSIY: Mahsulot qidirish — IndexedDB-first ──────────────────────
   const getProductByBarcodeOrName = async (query: string): Promise<any | null> => {
     query = query.trim();
     if (!query) return null;
 
     const q = query.toLowerCase();
+    const barcodeMode = isLikelyBarcode(query);
 
-    // 1️⃣ IndexedDB dan qidir (eng tez, offline ham ishlaydi)
+    // 1️⃣ IndexedDB dan qidir
     const localProducts = idbProducts.length > 0 ? idbProducts : await getProductsFromIDB(login);
     if (idbProducts.length === 0) setIdbProducts(localProducts);
 
-    const foundLocal = localProducts.find(
-      (p: any) =>
-        String(p.barcode).toLowerCase() === q ||
-        (p.name && p.name.toLowerCase().includes(q))
-    );
+    const foundLocal = localProducts.find((p: any) => {
+      const barcodeMatch = String(p.barcode).toLowerCase() === q;
+      // TUZATISH 2: Barcode rejimida name.includes() ishlatmaymiz
+      const nameMatch = !barcodeMode && p.name && p.name.toLowerCase().includes(q);
+      return barcodeMatch || nameMatch;
+    });
 
     if (foundLocal) {
       return { ...foundLocal, source: 'user' };
@@ -261,12 +268,13 @@ function ScannerContent() {
         if (userRes.ok) {
           const userProducts = await userRes.json();
           if (Array.isArray(userProducts)) {
-            const foundUser = userProducts.find((p: any) =>
-              String(p.barcode) === query ||
-              (p.name && p.name.toLowerCase().includes(q))
-            );
+            const foundUser = userProducts.find((p: any) => {
+              const barcodeMatch = String(p.barcode) === query;
+              // TUZATISH 2: Barcode rejimida name.includes() ishlatmaymiz
+              const nameMatch = !barcodeMode && p.name && p.name.toLowerCase().includes(q);
+              return barcodeMatch || nameMatch;
+            });
             if (foundUser) {
-              // IndexedDB ga ham saqlash (cache yangilash)
               await saveProductToIDB({ ...foundUser, login });
               setIdbProducts(prev => {
                 const exists = prev.find(p => p.barcode === foundUser.barcode);
@@ -336,9 +344,19 @@ function ScannerContent() {
         }
       }
 
-      // IndexedDB ni ham yangilaymiz
+      // IndexedDB ga saqlash
       await saveProductToIDB({ ...product, price: productPrice, login });
-      await loadIdbCache();
+
+      // TUZATISH 1: loadIdbCache() o'rniga state ni darhol yangilaymiz.
+      // loadIdbCache() async React state update — keyingi skanerlashda
+      // idbProducts hali price=0 bo'lib qolardi va prompt qayta chiqardi.
+      setIdbProducts(prev =>
+        prev.map(p =>
+          String(p.barcode) === String(product.barcode)
+            ? { ...p, price: productPrice }
+            : p
+        )
+      );
     }
 
     setSales(prev => {
@@ -470,7 +488,6 @@ function ScannerContent() {
 
       const payload = Array.from(groupedSales.values());
 
-      // Online bo'lsa MongoDB ga yuborish
       if (navigator.onLine) {
         const res = await fetch(`/api/sell-product/${login}`, {
           method: 'POST',
@@ -480,7 +497,7 @@ function ScannerContent() {
         if (!res.ok) throw new Error(t('saleSaveError'));
       }
 
-      // IndexedDB da quantity ni kamaytirish (Document 1)
+      // IndexedDB da quantity ni kamaytirish
       const updatedIdb = [...idbProducts];
       for (const item of payload) {
         const idx = updatedIdb.findIndex(p => p.barcode === item.barcode);
@@ -492,7 +509,6 @@ function ScannerContent() {
       }
       setIdbProducts(updatedIdb);
 
-      // Reports DB
       if (reportsDB) {
         const tx = reportsDB.transaction('reports', 'readwrite');
         const store = tx.objectStore('reports');
@@ -532,8 +548,6 @@ function ScannerContent() {
       <style>{toggleStyles}</style>
       <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('salesTerminal')}>
 
-        
-
         <section style={{ marginBottom: '32px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
 
@@ -566,9 +580,17 @@ function ScannerContent() {
                 </label>
               </div>
 
-              <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', borderRadius: 8, marginBottom: 16,
-                 transform: 'scaleX(-1)',
-                 WebkitTransform: 'scaleX(-1)' }} />
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{
+                  width: '100%', borderRadius: 8, marginBottom: 16,
+                  transform: 'scaleX(-1)',
+                  WebkitTransform: 'scaleX(-1)',
+                }}
+              />
 
               <select
                 value={selectedCamera || ''}
@@ -633,8 +655,6 @@ function ScannerContent() {
                 onKeyDown={handleNameInput}
                 style={{ width: '90%', padding: 16, marginBottom: 20, borderRadius: 12, background: theme === 'dark' ? '#0f1420' : '#f8f9ff', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, color: theme === 'dark' ? '#fff' : '#1a1f2e', fontSize: 15 }}
               />
-
-              
             </div>
 
             {/* ── Actions Card ── */}
@@ -710,9 +730,9 @@ function ScannerContent() {
                     </td>
                     <td style={{ padding: 12, textAlign: 'center', borderBottom: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
                       <input
-                        type="number" min="1"
+                        type="number" min="0"
                         value={item.count}
-                        onChange={e => updateCount(item.barcode, Number(e.target.value) || 1)}
+                          onChange={e => updateCount(item.barcode, Number(e.target.value))}
                         style={{ width: 80, padding: 8, borderRadius: 6, background: theme === 'dark' ? '#0f1420' : '#f8f9ff', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}
                       />
                     </td>

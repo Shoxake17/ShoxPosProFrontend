@@ -39,7 +39,7 @@ const menuItems: MenuItem[] = [
   { id: "reports", icon: BarChart3, labelKey: "reports" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
   { id: "debts", icon: CreditCard, labelKey: "debts" },
-  // { id: "ai", icon: Bot, labelKey: "ai" },
+  { id: "ai", icon: Bot, labelKey: "ai" },
   { id: "settings", icon: Settings, labelKey: "settings" },
 ];
 

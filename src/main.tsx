@@ -8,6 +8,7 @@ import { registerSW } from 'virtual:pwa-register';
 import Menu from "./pages/Menu";
 import Settings from "./pages/Settings";
 import Chatbot from "./pages/Ai";
+import Chat from "./pages/Chat";
 import MaxQoshish from "./pages/MaxQoshish";
 import MaxsulotBazasi from "./pages/MaxsulotBazasi";
 import Scan from "./pages/Hisobotlar";
@@ -25,9 +26,7 @@ import { getSocket, disconnectSocket } from "./utils/socket";
 
 registerSW({ immediate: true });
 
-// ====================================
 // ✅ GLOBAL SOCKET LISTENER COMPONENT
-// ====================================
 function GlobalSocketListener() {
   const navigate = useNavigate();
 
@@ -118,6 +117,7 @@ function App() {
           <Route path="/menu" element={<ProtectedRoute><Menu /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/ai" element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
+          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/add-product" element={<ProtectedRoute><MaxQoshish /></ProtectedRoute>} />
           <Route path="/products" element={<ProtectedRoute><MaxsulotBazasi /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Scan /></ProtectedRoute>} />

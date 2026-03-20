@@ -267,7 +267,7 @@ export default function GoogleAuth({
               fontWeight: 600,
               color: theme === 'dark' ? '#fff' : '#1a1f2e'
             }}>
-              {t('Authenticator') || 'Authenticator'}
+              {t('Authenticators') || 'Authenticator'}
             </h3>
 
             <p style={{
