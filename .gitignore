@@ -32,3 +32,4 @@ dist-ssr
 node_modules/
 dist/
 .env*
+dev-dist/
