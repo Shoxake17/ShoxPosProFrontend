@@ -1,6 +1,6 @@
 // components/menu/Chat.tsx
 import React from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageCircleMore, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../components/languages/Menu"; // yoki to'g'ri yo'l
 
@@ -36,7 +36,7 @@ const Chat: React.FC<ChatProps> = ({ theme }) => {
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      <MessageSquare color="#3b82f6" size={32} style={{ marginBottom: 12 }} />
+      <MessageCircleMore color="#3b82f6" size={32} style={{ marginBottom: 12 }} />
       <p
         style={{
           fontSize: 14,
