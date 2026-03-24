@@ -1,470 +1,481 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  Trash2, 
-  User, 
-  ChevronDown, 
-  Check, 
-  Zap, 
-  Orbit,
-  AlertCircle,
-  RefreshCw
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Bot, Send, Sparkles, Trash2, User, ChevronDown, Check,
+  Zap, Orbit, AlertCircle, RefreshCw, Brain, Diamond,
+  Database, MessageSquare
 } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
-import { useTranslation, TranslationProvider } from '../components/languages/Ai';
-import { useResponsive } from '../hooks/useResponsive';
+import GroqPanel from '../ai/Groq';
 
+// ─── Tiplar ───────────────────────────────────────────────────────────────────
 type MessageRole = 'user' | 'ai';
-type Message = { 
-  role: MessageRole; 
-  content: string; 
-  timestamp: string; 
+type Message = {
+  role: MessageRole;
+  content: string;
+  timestamp: string;
   modelName?: string;
   isError?: boolean;
   errorCode?: number;
+  storeMode?: boolean;
 };
+interface SaleItem {
+  barcode?: string; name?: string; quantity?: number; price?: number;
+  basePrice?: number; category?: string; total?: number; soldAt?: string;
+}
+interface ProductItem {
+  barcode?: string; name?: string; price?: number; basePrice?: number;
+  quantity?: number; category?: string; sold?: number;
+}
 
-// Model ma'lumotlari
+// ─── Model ma'lumotlari ───────────────────────────────────────────────────────
 const AI_MODELS = [
-  { id: 'openai', name: 'ShoxAI Pro', provider: 'ShoxAI', icon: <Sparkles size={18} />, color: '#10a37f' },
-  { id: 'gemini', name: 'Gemini Pro', provider: 'Google', icon: <Zap size={18} />, color: '#4285f4' },
-  { id: 'grok', name: 'Grok AI', provider: 'xAI', icon: <Orbit size={18} />, color: '#807b7b' },
+  { id: 'deepseek', name: 'Shox AI',    provider: 'ShoxPosPro', icon: <Bot size={18} />,      color: '#4f46e5' },
 ] as const;
 
-// ─── Foydalanuvchiga tushunarli xato xabarlari ────────────────────────────
-const getErrorMessage = (status?: number): { title: string; desc: string; icon: string } => {
-  if (!navigator.onLine) return {
-    icon: '📵',
-    title: 'Internet aloqasi yo\'q',
-    desc: 'Tarmoq ulanishingizni tekshirib, qayta urinib ko\'ring.',
-  };
+// ─── Tablar ───────────────────────────────────────────────────────────────────
+const TABS = [
+  { id: 'chat', label: 'AI Chat', icon: <Brain size={15} /> },
+  { id: 'groq', label: ' ShoxAi',  icon: <Zap size={15} />  },
+] as const;
+type TabId = (typeof TABS)[number]['id'];
+
+// ─── Xato xabarlari ───────────────────────────────────────────────────────────
+const getErrorMessage = (status?: number) => {
+  if (!navigator.onLine) return { icon: '📵', title: "Internet aloqasi yo'q", desc: "Tarmoqni tekshiring." };
   switch (status) {
-    case 400: return { icon: '✏️', title: 'Noto\'g\'ri so\'rov', desc: 'Xabaringizni biroz o\'zgartirib qayta yuboring.' };
-    case 401: return { icon: '🔑', title: 'API kalit noto\'g\'ri', desc: '.env faylida API kalitni tekshiring.' };
-    case 403: return { icon: '🚫', title: 'Kirish taqiqlangan', desc: 'API kalitda ruxsat yo\'q.' };
-    case 404: return { icon: '🔍', title: 'Xizmat topilmadi', desc: 'Server javob bermayapti. Keyinroq urinib ko\'ring.' };
-    case 429: return { icon: '⏳', title: 'Juda ko\'p so\'rov', desc: 'Bir oz kuting (30 soniya) va qayta urinib ko\'ring.' };
-    case 500: return { icon: '🛠️', title: 'Server xatosi', desc: 'Server vaqtincha ishlamayapti. 1-2 daqiqadan so\'ng qayta urinib ko\'ring.' };
-    case 502:
-    case 503: return { icon: '🔌', title: 'Ulanish muammosi', desc: 'Xizmat hozir band yoki ishlamayapti. Keyinroq urinib ko\'ring.' };
-    case 504: return { icon: '🕐', title: 'So\'rov muddati o\'tdi', desc: 'Server juda uzoq javob bermadi. Qayta urinib ko\'ring.' };
-    default: return { icon: '⚠️', title: 'Kutilmagan xatolik', desc: 'Muammo yuz berdi. Sahifani yangilab ko\'ring yoki qayta urinib ko\'ring.' };
+    case 429: return { icon: '⏳', title: "Juda ko'p so'rov",   desc: "Bir oz kuting." };
+    case 500: return { icon: '🛠️', title: 'Server xatosi',      desc: 'Server vaqtincha ishlamayapti.' };
+    case 402: return { icon: '💳', title: 'Balans tugagan',      desc: "Hisobingizni to'ldiring." };
+    default:  return { icon: '⚠️', title: 'Kutilmagan xatolik', desc: "Qayta urinib ko'ring." };
   }
 };
 
-// ─── Anthropic (ShoxAI Pro) ───────────────────────────────────────────────
-async function callAnthropic(question: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_KEY;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: 'Siz ShoxPOS tizimining yordamchi AI assistentisiz. Savdo, mahsulotlar va do\'kon boshqaruvi haqida yordam bering. Qisqa va aniq javob bering. O\'zbek tilida javob bering.',
-      messages: [{ role: 'user', content: question }],
-    }),
+// ─── Markdown tozalash ────────────────────────────────────────────────────────
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/`(.+?)`/g,       '<code style="background:rgba(79,70,229,0.15);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px;">$1</code>')
+    .replace(/#{1,3}\s(.+)/g,  '<div style="font-size:15px;font-weight:700;margin:12px 0 4px;color:#a5b4fc;">$1</div>')
+    .replace(/^[-•]\s(.+)/gm,  '<div style="padding-left:16px;margin:2px 0;">• $1</div>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g,   '<br/>');
+}
+
+// ─── Asosiy komponent ─────────────────────────────────────────────────────────
+export default function Ai() {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>('chat');
+
+  // 🔑 Do'kon rejimi: false = oddiy AI (bazasiz), true = do'kon tahlili
+  const [useStore, setUseStore] = useState(false);
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try { return JSON.parse(localStorage.getItem('ai_chat_history') || '[]'); } catch { return []; }
   });
-  if (!response.ok) throw Object.assign(new Error(), { status: response.status });
-  const data = await response.json();
-  return data.content?.[0]?.text || '';
-}
-
-// ─── Google Gemini ────────────────────────────────────────────────────────
-async function callGemini(question: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_KEY;
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: question }] }],
-        generationConfig: { maxOutputTokens: 1024 },
-      }),
-    }
-  );
-  if (!response.ok) throw Object.assign(new Error(), { status: response.status });
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-}
-
-// ─── xAI Grok ─────────────────────────────────────────────────────────────
-async function callGrok(question: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROK_KEY;
-  const response = await fetch('https://api.x.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'grok-3-fast',
-      messages: [{ role: 'user', content: question }],
-      max_tokens: 1024,
-    }),
-  });
-  if (!response.ok) throw Object.assign(new Error(), { status: response.status });
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-
-// ─── Model bo'yicha to'g'ri API ni chaqirish ─────────────────────────────
-async function callModel(modelId: string, question: string): Promise<string> {
-  switch (modelId) {
-    case 'openai': return callAnthropic(question);
-    case 'gemini': return callGemini(question);
-    case 'grok':   return callGrok(question);
-    default: throw new Error('Noma\'lum model');
-  }
-}
-
-function AiContent() {
-  const { t } = useTranslation();
-  const { sidebarOpen } = useResponsive();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [selectedAI, setSelectedAI] = useState<'openai' | 'gemini' | 'grok'>('openai');
+  const [input, setInput]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [selectedAI, setSelectedAI] = useState<'deepseek' | 'gemini' | 'grok' | 'openai'>('deepseek');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [theme] = useState<'dark' | 'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
-  
+  const [theme]     = useState<'dark' | 'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
+  const [userImage] = useState<string | null>(localStorage.getItem('userImage'));
+
+  const [salesData, setSalesData]       = useState<SaleItem[]>([]);
+  const [productsData, setProductsData] = useState<ProductItem[]>([]);
+  const [dataLoading, setDataLoading]   = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef    = useRef<HTMLDivElement | null>(null);
   const isInitialMount = useRef(true);
 
+  const user  = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+  const login = user?.login || localStorage.getItem('login') || localStorage.getItem('currentLogin') || '';
+
   useEffect(() => {
-    const saved = localStorage.getItem('ai_chat_history');
-    if (saved) setMessages(JSON.parse(saved));
-    
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    if (!login) { navigate('/'); return; }
+    loadAllData();
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setIsDropdownOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [login]);
 
   useEffect(() => {
     localStorage.setItem('ai_chat_history', JSON.stringify(messages));
-    if (!isInitialMount.current && messages.length > 0) {
+    if (!isInitialMount.current && messages.length > 0)
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
     isInitialMount.current = false;
   }, [messages]);
 
-  const activeModel = AI_MODELS.find(m => m.id === selectedAI) || AI_MODELS[0];
-
-  const cleanMarkdown = (text: string): string => {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/\*(.+?)\*/g, '$1')
-      .replace(/`(.+?)`/g, '$1')
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-      .replace(/^\s*[-*+]\s/gm, '• ')
-      .replace(/^\s*\d+\.\s/gm, '')
-      .trim();
+  // ─── Ma'lumotlarni yuklash ─────────────────────────────────────────────────
+  const loadAllData = async () => {
+    if (!login) return;
+    setDataLoading(true);
+    try {
+      const [sRes, pRes] = await Promise.allSettled([
+        fetch(`/api/sales/${login}`),
+        fetch(`/api/products/user-products/${login}`),
+      ]);
+      if (sRes.status === 'fulfilled' && sRes.value.ok) setSalesData(await sRes.value.json());
+      if (pRes.status === 'fulfilled' && pRes.value.ok) setProductsData(await pRes.value.json());
+    } catch (e) { console.error(e); }
+    finally { setDataLoading(false); }
   };
 
-  // ─── Xabar yuborish ───────────────────────────────────────────────────
+  // ─── Kontekst ─────────────────────────────────────────────────────────────
+  const buildContext = useCallback((): string => {
+    const now        = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart  = new Date(now); weekStart.setDate(now.getDate() - 7);
+    const monthStart = new Date(now); monthStart.setDate(now.getDate() - 30);
+
+    const calc = (arr: SaleItem[]) => ({
+      total:  arr.reduce((s, i) => s + (i.total  || 0), 0),
+      profit: arr.reduce((s, i) => s + ((i.price || 0) - (i.basePrice || 0)) * (i.quantity || 1), 0),
+      qty:    arr.reduce((s, i) => s + (i.quantity || 0), 0),
+      count:  arr.length,
+    });
+    const t = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= todayStart));
+    const w = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= weekStart));
+    const m = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= monthStart));
+
+    const pMap = new Map<string, { name: string; qty: number; total: number; profit: number }>();
+    salesData.forEach(s => {
+      const k = s.barcode || s.name || '';
+      const c = pMap.get(k) || { name: s.name || '', qty: 0, total: 0, profit: 0 };
+      c.qty += s.quantity || 0; c.total += s.total || 0;
+      c.profit += ((s.price || 0) - (s.basePrice || 0)) * (s.quantity || 1);
+      pMap.set(k, c);
+    });
+    const top10 = [...pMap.values()].sort((a, b) => b.total - a.total).slice(0, 10);
+
+    const cMap = new Map<string, { total: number; qty: number }>();
+    salesData.forEach(s => {
+      const cat = s.category || "Noma'lum";
+      const c = cMap.get(cat) || { total: 0, qty: 0 };
+      c.total += s.total || 0; c.qty += s.quantity || 0; cMap.set(cat, c);
+    });
+
+    const lowStock = productsData.filter(p => (p.quantity || 0) < 10).sort((a, b) => (a.quantity||0)-(b.quantity||0)).slice(0, 15);
+    const lossP    = productsData.filter(p => (p.price || 0) < (p.basePrice || 0));
+
+    return `
+=== ${login.toUpperCase()} DO'KONI — REAL MA'LUMOTLAR ===
+Sana: ${now.toLocaleDateString('uz-UZ')} ${now.toLocaleTimeString('uz-UZ')}
+
+BUGUN: Savdo ${t.total.toLocaleString()} so'm | Foyda ${t.profit.toLocaleString()} so'm | ${t.qty} dona | ${t.count} op.
+7 KUN: Savdo ${w.total.toLocaleString()} so'm | Foyda ${w.profit.toLocaleString()} so'm | ${w.qty} dona
+30 KUN: Savdo ${m.total.toLocaleString()} so'm | Foyda ${m.profit.toLocaleString()} so'm | ${m.qty} dona
+
+TOP 10: ${top10.map((p,i)=>`${i+1}. ${p.name}: ${p.total.toLocaleString()} so'm`).join(' | ')}
+KATEGORIYALAR: ${[...cMap.entries()].sort((a,b)=>b[1].total-a[1].total).map(([c,s])=>`${c}: ${s.total.toLocaleString()} so'm`).join(' | ')}
+KAM ZAXIRA: ${lowStock.length > 0 ? lowStock.map(p=>`${p.name}: ${p.quantity||0} dona`).join(', ') : 'Yetarli'}
+ZARAR: ${lossP.length > 0 ? lossP.map(p=>`${p.name} (sotuv:${p.price}, xarid:${p.basePrice})`).join(', ') : "Yo'q"}
+JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv
+`;
+  }, [salesData, productsData, login]);
+
+  // ─── API chaqiruvi ────────────────────────────────────────────────────────
+  const callAPI = async (modelId: string, question: string): Promise<string> => {
+    const endpoints: Record<string, string> = {
+      deepseek: '/api/ask-deepseek',
+    };
+    const res = await fetch(endpoints[modelId], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, login, useStore }),
+    });
+    if (!res.ok) throw Object.assign(new Error(), { status: res.status });
+    const data = await res.json();
+    return data.answer || "Javob olinmadi";
+  };
+
+  // ─── Xabar yuborish ───────────────────────────────────────────────────────
   const sendMessage = async (overrideInput?: string) => {
     const text = (overrideInput ?? input).trim();
     if (!text || loading) return;
-
-    const currentModel = selectedAI;
-    const userMsg: Message = { 
-      role: 'user', 
-      content: text, 
-      timestamp: new Date().toISOString() 
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: new Date().toISOString(), storeMode: useStore }]);
     setInput('');
     setLoading(true);
-
     try {
-      const rawContent = await callModel(currentModel, text);
-      const cleanedContent = cleanMarkdown(rawContent);
-
-      setMessages(prev => [...prev, { 
-        role: 'ai', 
-        content: cleanedContent || t("noResponse"),
-        timestamp: new Date().toISOString(),
-        modelName: currentModel,
-      }]);
+      const answer = await callAPI(selectedAI, text);
+      setMessages(prev => [...prev, { role: 'ai', content: answer, timestamp: new Date().toISOString(), modelName: selectedAI, storeMode: useStore }]);
     } catch (err: any) {
-      setMessages(prev => [...prev, { 
-        role: 'ai',
-        content: '',
-        isError: true,
-        errorCode: err?.status,
-        timestamp: new Date().toISOString(),
-        modelName: currentModel,
-      }]);
-    } finally {
-      setLoading(false);
-    }
+      setMessages(prev => [...prev, { role: 'ai', content: '', isError: true, errorCode: err?.status, timestamp: new Date().toISOString(), modelName: selectedAI }]);
+    } finally { setLoading(false); }
   };
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    await sendMessage();
-  };
-
-  // ─── Qayta urinish ────────────────────────────────────────────────────
   const handleRetry = (errorIndex: number) => {
-    const prevMessages = messages.slice(0, errorIndex);
-    const lastUser = [...prevMessages].reverse().find(m => m.role === 'user');
+    const prev = messages.slice(0, errorIndex);
+    const lastUser = [...prev].reverse().find(m => m.role === 'user');
     if (!lastUser) return;
-    setMessages(prevMessages);
+    setMessages(prev);
     sendMessage(lastUser.content);
   };
 
   const clearChat = () => {
-    if (window.confirm(t("clearChatConfirm"))) {
+    if (window.confirm("Suhbatni tozalashni xohlaysizmi?")) {
       setMessages([]);
       localStorage.removeItem('ai_chat_history');
     }
   };
 
-  return (
-    <MainLayout theme={theme} title={t("title")}>
-      <div style={{ 
-        width: '100%', maxWidth: '100%', margin: '0 auto', 
-        height: 'calc(100vh - 160px)', display: 'flex', 
-        flexDirection: 'column', gap: '15px', padding: '0 20px'
-      }}>
-        
-        {/* Header Panel */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px', borderRadius: '24px', zIndex: 1000, position: 'relative',
-          background: theme === 'dark' ? 'rgba(30, 41, 59, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(15px)', 
-          border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ position: 'relative' }} ref={dropdownRef}>
-            <button 
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px', border: 'none',
-                padding: '10px 18px', borderRadius: '16px', cursor: 'pointer',
-                background: theme === 'dark' ? '#1e293b' : '#f1f5f9',
-                color: theme === 'dark' ? '#f8fafc' : '#1e293b', transition: '0.2s'
-              }}
-            >
-              <div style={{ 
-                background: selectedAI === 'grok' && theme === 'light' ? '#000' : activeModel.color, 
-                padding: '7px', borderRadius: '10px', display: 'flex', 
-                color: 'white', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-              }}>
-                {activeModel.icon}
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <span style={{ display: 'block', fontSize: '10px', opacity: 0.6, fontWeight: 800 }}>
-                  {t("modelLabel")}
-                </span>
-                <span style={{ display: 'block', fontSize: '14px', fontWeight: 600 }}>
-                  {activeModel.name}
-                </span>
-              </div>
-              <ChevronDown size={16} style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
-            </button>
+  const activeModel = AI_MODELS.find(m => m.id === selectedAI) || AI_MODELS[0];
+  const isDark  = theme === 'dark';
+  const card    = isDark ? 'rgba(30,41,59,0.6)' : 'rgba(255,255,255,0.8)';
+  const border  = isDark ? '#334155' : '#e2e8f0';
+  const txColor = isDark ? '#e2e8f0' : '#1e293b';
 
-            {isDropdownOpen && (
-              <div className="dropdown-menu">
-                {AI_MODELS.map((model) => (
-                  <div
-                    key={model.id}
-                    className={`dropdown-item ${selectedAI === model.id ? 'active' : ''}`}
-                    onClick={() => { setSelectedAI(model.id); setIsDropdownOpen(false); }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ color: model.id === 'grok' && theme === 'light' ? '#000' : model.color, display: 'flex' }}>
-                        {model.icon}
-                      </span>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600 }}>{model.name}</span>
-                        <span style={{ fontSize: '10px', opacity: 0.5 }}>{model.provider}</span>
-                      </div>
-                    </div>
-                    {selectedAI === model.id && <Check size={16} color="#6366f1" />}
-                  </div>
-                ))}
-              </div>
-            )}
+  return (
+    <MainLayout theme={theme} userImage={userImage} title="AI Tahlilchi">
+      <div style={{ width: '100%', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* ── Top bar: Tablar + Toggle ──────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+
+          {/* Tablar */}
+          <div style={{
+            display: 'flex', gap: 6, padding: 6,
+            background: card, backdropFilter: 'blur(15px)',
+            borderRadius: 18, border: `1px solid ${border}`,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+          }}>
+            {TABS.map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '8px 18px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                fontWeight: 600, fontSize: 13, transition: '.2s',
+                background: activeTab === tab.id
+                  ? (tab.id === 'groq' ? 'linear-gradient(135deg,#f97316,#fb923c)' : 'linear-gradient(135deg,#6366f1,#a855f7)')
+                  : 'transparent',
+                color: activeTab === tab.id ? '#fff' : (isDark ? '#64748b' : '#94a3b8'),
+              }}>
+                {tab.icon} {tab.label}
+              </button>
+            ))}
           </div>
-          
-          <button onClick={clearChat} className="clear-btn">
-            <Trash2 size={20} />
+
+          {/* 🔑 Do'kon rejimi toggle */}
+          <button
+            onClick={() => setUseStore(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 18px', borderRadius: 16, border: 'none', cursor: 'pointer',
+              transition: '.25s',
+              background: useStore
+                ? 'linear-gradient(135deg,#10b981,#059669)'
+                : (isDark ? '#1e293b' : '#f1f5f9'),
+              color: useStore ? '#fff' : (isDark ? '#64748b' : '#94a3b8'),
+              boxShadow: useStore ? '0 4px 16px rgba(16,185,129,0.35)' : 'none',
+              fontWeight: 600, fontSize: 13,
+            }}
+          >
+            {useStore
+              ? <><Database size={15} /> Do'kon ma'lumotlari</>
+              : <><MessageSquare size={15} /> Oddiy AI rejimi</>
+            }
+            {/* Pill */}
+            <div style={{ width: 36, height: 20, borderRadius: 10, position: 'relative', background: useStore ? 'rgba(255,255,255,0.3)' : (isDark ? '#334155' : '#cbd5e1'), transition: '.25s' }}>
+              <div style={{ position: 'absolute', top: 3, left: useStore ? 18 : 3, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: '.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+            </div>
           </button>
         </div>
 
-        {/* Chat Window */}
-        <div className="chat-window" style={{
-          flex: 1, overflowY: 'auto', padding: '20px', borderRadius: '28px',
-          display: 'flex', flexDirection: 'column', gap: '15px',
-          background: theme === 'dark' ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc',
-          border: `1px solid ${theme === 'dark' ? '#1e293b' : '#f1f5f9'}`
-        }}>
-          {messages.length === 0 && (
-            <div style={{ margin: 'auto', textAlign: 'center', color: '#64748b' }}>
-              <div className="pulse-icon">
-                <Bot size={64} style={{ opacity: 0.4 }} />
-              </div>
-              <h3 style={{ marginTop: '15px' }}>{t("helpNeeded")}</h3>
-              <p style={{ fontSize: '14px' }}>{t("selectModel")}</p>
-            </div>
-          )}
+        
 
-          {messages.map((msg, i) => (
-            <div key={i} style={{ 
-              display: 'flex', 
-              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', 
-              animation: 'slideIn 0.3s ease' 
+        {/* ── TAB: Groq ─────────────────────────────────────────────────────── */}
+        {activeTab === 'groq' && (
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <GroqPanel login={login} isDark={isDark} buildContext={buildContext} useStore={useStore} />
+          </div>
+        )}
+
+        {/* ── TAB: Chat ─────────────────────────────────────────────────────── */}
+        {activeTab === 'chat' && (
+          <>
+            {/* Model header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 20px', borderRadius: 22, zIndex: 1000, position: 'relative',
+              background: card, backdropFilter: 'blur(15px)',
+              border: `1px solid ${border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.1)'
             }}>
-              {/* ── AI xato xabari ── */}
-              {msg.role === 'ai' && msg.isError ? (
-                <div style={{
-                  maxWidth: '85%', padding: '14px 18px',
-                  borderRadius: '22px 22px 22px 4px',
-                  background: theme === 'dark' ? '#1e1215' : '#fff5f5',
-                  border: `1px solid ${theme === 'dark' ? '#7f1d1d50' : '#fecaca'}`,
-                  display: 'flex', flexDirection: 'column', gap: '8px',
+              <div ref={dropdownRef} style={{ position: 'relative' }}>
+                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, border: 'none',
+                  padding: '10px 18px', borderRadius: 16, cursor: 'pointer',
+                  background: isDark ? '#1e293b' : '#f1f5f9', color: isDark ? '#f8fafc' : '#1e293b', transition: '.2s'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <AlertCircle size={15} color="#ef4444" />
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444' }}>
-                      {getErrorMessage(msg.errorCode).icon} {getErrorMessage(msg.errorCode).title}
-                    </span>
+                  <div style={{ background: activeModel.color, padding: 7, borderRadius: 10, display: 'flex', color: '#fff' }}>{activeModel.icon}</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <span style={{ display: 'block', fontSize: 10, opacity: .6, fontWeight: 800, textTransform: 'uppercase' }}>Model</span>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{activeModel.name}</span>
                   </div>
-                  <p style={{ fontSize: '13px', color: theme === 'dark' ? '#fca5a5' : '#b91c1c', margin: 0, lineHeight: 1.5 }}>
-                    {getErrorMessage(msg.errorCode).desc}
+                  <ChevronDown size={16} style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: '.3s' }} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 240,
+                    background: isDark ? '#1e293b' : '#fff', borderRadius: 18, padding: 6,
+                    zIndex: 1001, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                    border: `1px solid ${border}`, display: 'flex', flexDirection: 'column', gap: 4,
+                    animation: 'slideIn .2s ease-out'
+                  }}>
+                    {AI_MODELS.map(model => (
+                      <div key={model.id}
+                        onClick={() => { setSelectedAI(model.id as any); setIsDropdownOpen(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 14px', borderRadius: 12, cursor: 'pointer', transition: '.15s',
+                          background: selectedAI === model.id ? (isDark ? 'rgba(99,102,241,0.2)' : '#eef2ff') : 'transparent',
+                          color: selectedAI === model.id ? '#6366f1' : txColor,
+                        }}
+                        onMouseEnter={e => { if (selectedAI !== model.id) (e.currentTarget as HTMLElement).style.background = isDark ? '#334155' : '#f1f5f9'; }}
+                        onMouseLeave={e => { if (selectedAI !== model.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span style={{ color: model.color, display: 'flex' }}>{model.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>{model.name}</div>
+                            <div style={{ fontSize: 10, opacity: .5 }}>{model.provider}</div>
+                          </div>
+                        </div>
+                        {selectedAI === model.id && <Check size={16} color="#6366f1" />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={loadAllData} disabled={dataLoading} style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 14, border: 'none',
+                  background: isDark ? '#0f172a' : '#e2e8f0', color: isDark ? '#94a3b8' : '#64748b', fontSize: 13, cursor: 'pointer', fontWeight: 500
+                }}>
+                  <RefreshCw size={14} style={{ animation: dataLoading ? 'spin 1s linear infinite' : 'none' }} /> Yangilash
+                </button>
+                <button onClick={clearChat} style={{
+                  background: isDark ? 'rgba(239,68,68,0.1)' : '#fff1f2', border: 'none',
+                  color: '#ef4444', padding: '9px 12px', borderRadius: 14, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500
+                }}>
+                  <Trash2 size={14} /> Tozalash
+                </button>
+              </div>
+            </div>
+
+            {/* Chat */}
+            <div style={{
+              flex: 1, overflowY: 'auto', padding: 20, borderRadius: 28,
+              display: 'flex', flexDirection: 'column', gap: 14,
+              background: isDark ? 'rgba(15,23,42,0.4)' : '#f8fafc',
+              border: `1px solid ${isDark ? '#1e293b' : '#f1f5f9'}`,
+            }}>
+              {messages.length === 0 && (
+                <div style={{ margin: 'auto', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ animation: 'pulse 2s infinite' }}><Bot size={56} style={{ opacity: .2 }} /></div>
+                  <div style={{ marginTop: 16, marginBottom: 4, fontSize: 14, color: isDark ? '#64748b' : '#94a3b8', fontWeight: 500 }}>Assalomu alaykum,</div>
+                  <h2 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 800, background: 'linear-gradient(135deg,#6366f1,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    {login}
+                  </h2>
+                  <p style={{ fontSize: 14, color: isDark ? '#475569' : '#94a3b8' }}>
+                    {useStore ? "📊 Do'kon tahlil rejimi yoqilgan" : '💬 Istalgan savol bering'}
                   </p>
-                  <button
-                    onClick={() => handleRetry(i)}
-                    disabled={loading}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      background: 'transparent',
-                      border: `1px solid ${theme === 'dark' ? '#7f1d1d' : '#fca5a5'}`,
-                      color: '#ef4444', padding: '6px 14px', borderRadius: '10px',
-                      fontSize: '13px', fontWeight: 600,
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      alignSelf: 'flex-start', opacity: loading ? 0.5 : 1, transition: '0.2s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#ef444420')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <RefreshCw size={13} />
-                    Qayta urinish
-                  </button>
-                </div>
-              ) : (
-                /* ── Oddiy xabar ── */
-                <div style={{
-                  maxWidth: '85%', padding: '14px 20px',
-                  borderRadius: msg.role === 'user' ? '22px 22px 4px 22px' : '22px 22px 22px 4px',
-                  background: msg.role === 'user' 
-                    ? 'linear-gradient(135deg, #6366f1, #4f46e5)' 
-                    : (theme === 'dark' ? '#1e293b' : '#ffffff'),
-                  color: msg.role === 'user' ? '#fff' : (theme === 'dark' ? '#e2e8f0' : '#1e293b'),
-                  border: msg.role === 'ai' ? `1px solid ${theme === 'dark' ? '#334155' : '#f1f5f9'}` : 'none'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', opacity: 0.8 }}>
-                    {msg.role === 'user' ? <User size={14} /> : <Sparkles size={14} color="#a855f7" />}
-                    <span style={{ fontSize: '10px', fontWeight: 800 }}>
-                      {msg.role === 'user' ? '' : (AI_MODELS.find(m => m.id === msg.modelName)?.name.toUpperCase() || 'AI')}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '15px', whiteSpace: 'pre-wrap' }}>
-                    {msg.content}
-                  </div>
                 </div>
               )}
-            </div>
-          ))}
-          
-          {loading && (
-            <div className="typing-indicator">
-              <span></span><span></span><span></span>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Input Form */}
-        <form onSubmit={handleSend} style={{
-          display: 'flex', gap: '12px', padding: '8px 8px 8px 18px', borderRadius: '24px',
-          background: theme === 'dark' ? '#1e293b' : '#fff',
-          border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-        }}>
-          <input
-            value={input} 
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("placeholder", { modelName: activeModel.name })}
-            style={{ 
-              flex: 1, background: 'transparent', border: 'none', 
-              color: theme === 'dark' ? '#fff' : '#000', outline: 'none', fontSize: '16px' 
-            }}
-          />
-          <button type="submit" disabled={loading || !input.trim()} className="send-btn">
-            {loading ? <div className="spinner" /> : <Send size={20} />}
-          </button>
-        </form>
+              {messages.map((msg, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', animation: 'slideIn .3s ease' }}>
+                  {msg.role === 'ai' && msg.isError ? (
+                    <div style={{ maxWidth: '80%', padding: '14px 18px', borderRadius: '22px 22px 22px 4px', background: isDark ? '#1e1215' : '#fff5f5', border: `1px solid ${isDark ? '#7f1d1d50' : '#fecaca'}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <AlertCircle size={15} color="#ef4444" />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>{getErrorMessage(msg.errorCode).icon} {getErrorMessage(msg.errorCode).title}</span>
+                      </div>
+                      <p style={{ fontSize: 13, color: isDark ? '#fca5a5' : '#b91c1c', margin: 0 }}>{getErrorMessage(msg.errorCode).desc}</p>
+                      <button onClick={() => handleRetry(i)} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: `1px solid ${isDark ? '#7f1d1d' : '#fca5a5'}`, color: '#ef4444', padding: '6px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
+                        <RefreshCw size={13} /> Qayta urinish
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{
+                      maxWidth: '80%', padding: '14px 20px',
+                      borderRadius: msg.role === 'user' ? '22px 22px 4px 22px' : '22px 22px 22px 4px',
+                      background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : (isDark ? '#1e293b' : '#fff'),
+                      color: msg.role === 'user' ? '#fff' : txColor,
+                      border: msg.role === 'ai' ? `1px solid ${border}` : 'none',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                      display: 'flex', flexDirection: 'column', gap: 6
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, opacity: .7 }}>
+                        {msg.role === 'user'
+                          ? <><User size={13} />{msg.storeMode && <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.25)', padding: '1px 5px', borderRadius: 5 }}>📊</span>}</>
+                          : <span style={{ color: AI_MODELS.find(m => m.id === msg.modelName)?.color }}>{AI_MODELS.find(m => m.id === msg.modelName)?.icon}</span>
+                        }
+                        <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                          {msg.role === 'ai' ? AI_MODELS.find(m => m.id === msg.modelName)?.name : ''}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 14, lineHeight: 1.65 }} dangerouslySetInnerHTML={{ __html: msg.role === 'ai' ? cleanMarkdown(msg.content) : msg.content }} />
+                      <span style={{ fontSize: 10, opacity: .5, alignSelf: 'flex-end', marginTop: 4 }}>
+                        {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {loading && (
+                <div style={{ display: 'flex', gap: 5, padding: '12px 16px', background: isDark ? '#1e293b' : '#fff', borderRadius: '22px 22px 22px 4px', width: 'fit-content', border: `1px solid ${border}` }}>
+                  {[0,1,2].map(i => <span key={i} style={{ width: 7, height: 7, background: '#6366f1', borderRadius: '50%', display: 'block', animation: `bounce 1.4s ${i*.2}s infinite` }} />)}
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{
+              display: 'flex', gap: 12, padding: '10px 10px 10px 20px', borderRadius: 24,
+              background: isDark ? '#1e293b' : '#fff',
+              border: `1px solid ${useStore ? 'rgba(16,185,129,0.4)' : border}`,
+              boxShadow: useStore ? '0 0 0 2px rgba(16,185,129,0.08)' : '0 10px 30px rgba(0,0,0,0.1)',
+              transition: '.3s'
+            }}>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={useStore ? `${activeModel.name} ga do'kon haqida so'rang...` : `${activeModel.name} ga istalgan savol bering...`}
+                rows={1} disabled={loading}
+                style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: isDark ? '#fff' : '#1e293b', outline: 'none', fontSize: 15, fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto' }}
+                onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 100) + 'px'; }}
+              />
+              <button onClick={() => sendMessage()} disabled={loading || !input.trim()} style={{
+                background: loading || !input.trim() ? (isDark ? '#334155' : '#e2e8f0') : useStore ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6366f1,#a855f7)',
+                color: loading || !input.trim() ? (isDark ? '#64748b' : '#94a3b8') : '#fff',
+                border: 'none', width: 46, height: 46, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: loading || !input.trim() ? 'not-allowed' : 'pointer', transition: '.2s', flexShrink: 0
+              }}>
+                {loading ? <div style={{ width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .8s linear infinite' }} /> : <Send size={18} />}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <style>{`
-        .dropdown-menu {
-          position: absolute; top: calc(100% + 8px); left: 0; min-width: 240px;
-          background: ${theme === 'dark' ? '#1e293b' : '#ffffff'};
-          border-radius: 18px; padding: 6px; z-index: 1001;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-          border: 1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'};
-          display: flex; flex-direction: column; gap: 4px;
-          animation: slideIn 0.2s ease-out;
-        }
-        .dropdown-item {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: 0.2s;
-          color: ${theme === 'dark' ? '#e2e8f0' : '#1e293b'};
-        }
-        .dropdown-item:hover { background: ${theme === 'dark' ? '#334155' : '#f1f5f9'}; }
-        .dropdown-item.active { background: ${theme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : '#eef2ff'}; color: #6366f1; }
-        .clear-btn { background: ${theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#fff1f2'}; border: none; color: #ef4444; padding: 10px; border-radius: 14px; cursor: pointer; transition: 0.2s; }
-        .clear-btn:hover { transform: scale(1.05); background: #ef4444; color: white; }
-        .send-btn { background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; width: 44px; height: 44px; border-radius: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .typing-indicator { display: flex; gap: 4px; padding: 12px; }
-        .typing-indicator span { width: 6px; height: 6px; background: #6366f1; border-radius: 50%; animation: bounce 1.4s infinite; opacity: 0.6; }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-        .spinner { width: 20px; height: 20px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .pulse-icon { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes slideIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes bounce  { 0%,80%,100%{transform:scale(0);opacity:.3}40%{transform:scale(1);opacity:1} }
+        @keyframes spin    { to{transform:rotate(360deg)} }
+        @keyframes pulse   { 0%,100%{transform:scale(1)}50%{transform:scale(1.05)} }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${isDark ? '#1e293b' : '#e2e8f0'}; border-radius: 4px; }
       `}</style>
     </MainLayout>
-  );
-}
-
-export default function Ai() {
-  return (
-    <TranslationProvider>
-      <AiContent />
-    </TranslationProvider>
   );
 }

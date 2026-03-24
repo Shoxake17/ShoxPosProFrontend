@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { getDeviceInfo, getRpId } from '../../utils/deviceUtils';
-import { io } from "socket.io-client";
+import { getSocket } from '../../utils/socket';
 
-const socket = io(undefined, { withCredentials: true });
 
 interface BiometricState {
   biometricAvailable: boolean;
@@ -294,6 +293,7 @@ export const useBiometric = () => {
           }
 
           // Socket.io orqali xabar yuborish
+          const socket = getSocket();
           socket.emit("userLogged", {
             login: userLogin,
             deviceId,

@@ -31,47 +31,59 @@ function GlobalSocketListener() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const login = localStorage.getItem('currentLogin') || 
+    const login = localStorage.getItem('currentLogin') ||
                   localStorage.getItem('login') || '';
     const deviceId = localStorage.getItem('deviceId') || '';
 
-    // Login qilmagan foydalanuvchi uchun listener kerak emas
     if (!login || !deviceId) return;
 
     const socket = getSocket();
 
-    // ✅ forceLogout — boshqa qurilma tomonidan chiqarilganda
+    // ✅ Socket ulanmagan bo'lsa — ulan
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    // ✅ Ulanish bo'lganda registerUser yuborish
+    const handleConnect = () => {
+      const _login = localStorage.getItem('currentLogin') || localStorage.getItem('login') || '';
+      const _deviceId = localStorage.getItem('deviceId') || '';
+      if (_login && _deviceId) {
+        socket.emit('registerUser', { login: _login, deviceId: _deviceId });
+        console.log(`📲 GlobalSocketListener register: ${_login} | ${_deviceId}`);
+      }
+    };
+
+    // Agar allaqachon ulangan bo'lsa — darhol register qil
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    socket.on('connect', handleConnect);
+
     const handleForceLogout = (data: { reason?: string }) => {
       console.warn('⛔ forceLogout eventi keldi:', data);
-
-      // Barcha ma'lumotlarni tozalash
       localStorage.removeItem('currentLogin');
       localStorage.removeItem('activeUser');
       localStorage.removeItem('login');
       sessionStorage.removeItem('currentUser');
-
-      // Socket ni uzish
       disconnectSocket();
-
-      // Xabar ko'rsatish
       toast.warning(
         data?.reason || '⛔ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz',
         { duration: 6000 }
       );
-
-      // Login sahifasiga yo'naltirish
       navigate('/login', { replace: true });
     };
 
     socket.on('forceLogout', handleForceLogout);
 
-    // Cleanup
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('forceLogout', handleForceLogout);
     };
   }, [navigate]);
 
-  return null; // UI chiqarmaydi
+  return null;
 }
 
 // ====================================

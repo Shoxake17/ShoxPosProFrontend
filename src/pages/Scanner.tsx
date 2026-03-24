@@ -8,7 +8,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Scanner';
-import io from 'socket.io-client';
+import { getSocket } from '../utils/socket'; // ✅ Singleton socket
 import PrinterButton from '../components/PrinterButton';
 
 // ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
@@ -126,11 +126,9 @@ function ScannerContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef(new BrowserMultiFormatReader());
-  const socket = useRef(io(window.location.origin, {
-    path: '/socket.io/',
-    autoConnect: true,
-    reconnection: true,
-  })).current;
+
+  // ✅ Singleton socket — yangi yaratilmaydi, mavjudini oladi
+  const socket = getSocket();
 
   const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
   const login = user?.login || localStorage.getItem('login') || 'unknown';
@@ -181,16 +179,30 @@ function ScannerContent() {
 
   // ─── Socket ────────────────────────────────────────────────────────────
   useEffect(() => {
-    socket.connect();
-    socket.on('print-success', (data) => {
+    const s = getSocket();
+
+    // ✅ Ulanmagan bo'lsa ulan, lekin yangi socket yaratma
+    if (!s.connected) s.connect();
+
+    const handlePrintSuccess = (data: any) => {
       setResultText(`✅ ${t('checkPrintedSuccessfully')} (${data.login})`);
       setResultStatus('success');
-    });
-    socket.on('print-error', (data) => {
+    };
+
+    const handlePrintError = (data: any) => {
       setResultText(`❌ ${data.message}`);
       setResultStatus('error');
-    });
-    return () => { socket.off('print-success'); socket.off('print-error'); socket.disconnect(); };
+    };
+
+    s.on('print-success', handlePrintSuccess);
+    s.on('print-error', handlePrintError);
+
+    return () => {
+      // ✅ Faqat listenerlarni olib tashlaymiz
+      // ❌ s.disconnect() — CHAQIRMANG! Shared socket boshqa sahifalarda ham kerak
+      s.off('print-success', handlePrintSuccess);
+      s.off('print-error', handlePrintError);
+    };
   }, []);
 
   // ─── Printer ───────────────────────────────────────────────────────────
@@ -231,9 +243,6 @@ function ScannerContent() {
     return text.toLowerCase().trim().replace(/\s+/g, ' ');
   };
 
-  // ─── TUZATISH 2: Barcode yoki nom bo'yicha aqlli qidirish ─────────────
-  // 4 va undan ko'p raqamdan iborat bo'lsa — barcode deb hisoblaymiz,
-  // name.includes() ishlatilmaydi — noto'g'ri mahsulot topilmasligi uchun.
   const isLikelyBarcode = (query: string): boolean => {
     return /^\d{4,}$/.test(query.trim());
   };
@@ -246,22 +255,17 @@ function ScannerContent() {
     const q = query.toLowerCase();
     const barcodeMode = isLikelyBarcode(query);
 
-    // 1️⃣ IndexedDB dan qidir
     const localProducts = idbProducts.length > 0 ? idbProducts : await getProductsFromIDB(login);
     if (idbProducts.length === 0) setIdbProducts(localProducts);
 
     const foundLocal = localProducts.find((p: any) => {
       const barcodeMatch = String(p.barcode).toLowerCase() === q;
-      // TUZATISH 2: Barcode rejimida name.includes() ishlatmaymiz
       const nameMatch = !barcodeMode && p.name && p.name.toLowerCase().includes(q);
       return barcodeMatch || nameMatch;
     });
 
-    if (foundLocal) {
-      return { ...foundLocal, source: 'user' };
-    }
+    if (foundLocal) return { ...foundLocal, source: 'user' };
 
-    // 2️⃣ Online bo'lsa — foydalanuvchining MongoDB bazasidan qidir
     if (navigator.onLine) {
       try {
         const userRes = await fetch(`/api/products/user-products/${login}`);
@@ -270,7 +274,6 @@ function ScannerContent() {
           if (Array.isArray(userProducts)) {
             const foundUser = userProducts.find((p: any) => {
               const barcodeMatch = String(p.barcode) === query;
-              // TUZATISH 2: Barcode rejimida name.includes() ishlatmaymiz
               const nameMatch = !barcodeMode && p.name && p.name.toLowerCase().includes(q);
               return barcodeMatch || nameMatch;
             });
@@ -288,7 +291,6 @@ function ScannerContent() {
         console.warn(t('userSearchError'), err);
       }
 
-      // 3️⃣ Umumiy MongoDB bazasidan qidir
       try {
         const mongoRes = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`);
         if (mongoRes.ok) {
@@ -344,12 +346,8 @@ function ScannerContent() {
         }
       }
 
-      // IndexedDB ga saqlash
       await saveProductToIDB({ ...product, price: productPrice, login });
 
-      // TUZATISH 1: loadIdbCache() o'rniga state ni darhol yangilaymiz.
-      // loadIdbCache() async React state update — keyingi skanerlashda
-      // idbProducts hali price=0 bo'lib qolardi va prompt qayta chiqardi.
       setIdbProducts(prev =>
         prev.map(p =>
           String(p.barcode) === String(product.barcode)
@@ -497,7 +495,6 @@ function ScannerContent() {
         if (!res.ok) throw new Error(t('saleSaveError'));
       }
 
-      // IndexedDB da quantity ni kamaytirish
       const updatedIdb = [...idbProducts];
       for (const item of payload) {
         const idx = updatedIdb.findIndex(p => p.barcode === item.barcode);
@@ -732,7 +729,7 @@ function ScannerContent() {
                       <input
                         type="number" min="0"
                         value={item.count}
-                          onChange={e => updateCount(item.barcode, Number(e.target.value))}
+                        onChange={e => updateCount(item.barcode, Number(e.target.value))}
                         style={{ width: 80, padding: 8, borderRadius: 6, background: theme === 'dark' ? '#0f1420' : '#f8f9ff', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}
                       />
                     </td>

@@ -3,8 +3,33 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || '';
 
-// ✅ Singleton socket instance
 let socket: Socket | null = null;
+
+// ✅ Event handlerlarni alohida funksiya — takrorlanmaslik uchun
+function attachHandlers(s: Socket, login: string, deviceId: string): void {
+  s.on('connect', () => {
+    console.log('🔌 Socket ulandi:', s.id);
+
+    // ✅ localStorage emas — parametrdan kelgan qiymatni ishlatamiz
+    const _login = login || localStorage.getItem('currentLogin') || localStorage.getItem('login') || '';
+    const _deviceId = deviceId || localStorage.getItem('deviceId') || '';
+
+    if (_login && _deviceId) {
+      s.emit('registerUser', { login: _login, deviceId: _deviceId });
+      console.log(`📲 Socket register: ${_login} | ${_deviceId}`);
+    } else {
+      console.warn('⚠️ Socket: login yoki deviceId topilmadi!', { _login, _deviceId });
+    }
+  });
+
+  s.on('disconnect', (reason) => {
+    console.log('❌ Socket uzildi:', reason);
+  });
+
+  s.on('connect_error', (err) => {
+    console.error('🔴 Socket xatosi:', err.message);
+  });
+}
 
 function getSocket(): Socket {
   if (!socket) {
@@ -14,7 +39,7 @@ function getSocket(): Socket {
 
     socket = io(SOCKET_URL, {
       path: '/socket.io/',
-      autoConnect: false, // ✅ MUHIM: reconnectSocket() chaqirilgunga to'xtatamiz
+      autoConnect: true, // ✅ o'zgartiring: false → true
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -23,78 +48,45 @@ function getSocket(): Socket {
       auth: { login, deviceId }
     });
 
-    socket.on('connect', () => {
-      console.log('🔌 Socket ulandi:', socket?.id);
-
-      const _login = localStorage.getItem('currentLogin') ||
-                     localStorage.getItem('login') || '';
-      const _deviceId = localStorage.getItem('deviceId') || '';
-
-      if (_login && _deviceId) {
-        socket?.emit('registerUser', { login: _login, deviceId: _deviceId });
-        console.log(`📲 Socket register: ${_login} | ${_deviceId}`);
-      }
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('❌ Socket uzildi:', reason);
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('🔴 Socket xatosi:', err.message);
-    });
+    attachHandlers(socket, login, deviceId);
   }
 
   return socket;
 }
 
-// ✅ Login bo'lganda socket auth ni yangilash va qayta ulanish
+
 export function reconnectSocket(login: string, deviceId: string): void {
   console.log(`🔄 Reconnect boshlanmoqda: ${login} | ${deviceId}`);
-  
-  // 1. Eski socketni to'liq tozalash
+
+  // 1. Eski socketni tozalash
   if (socket) {
-    console.log('🗑️ Eski socket o\'chirilmoqda...');
     socket.removeAllListeners();
     socket.disconnect();
-    socket = null; // ✅ MUHIM: nullga tiklash
+    socket = null;
   }
 
-  // 2. localStorage ni yangilash
+  // 2. localStorage yangilash
   localStorage.setItem('currentLogin', login);
   localStorage.setItem('deviceId', deviceId);
 
-  // 3. Yangi socket yaratish — yangi auth bilan
+  // 3. Yangi socket — to'g'ridan-to'g'ri parametrlar bilan
   socket = io(SOCKET_URL, {
     path: '/socket.io/',
-    autoConnect: true, // ✅ Darhol ulanish
+    autoConnect: true,
     withCredentials: true,
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 2000,
-    auth: { login, deviceId } // ✅ Yangi auth ma'lumotlari
+    auth: { login, deviceId } // ✅ localStorage emas, parametr
   });
 
-  // 4. Event handlerlarni qayta o'rnatish
-  socket.on('connect', () => {
-    console.log('✅ Yangi socket ulandi:', socket?.id);
-    socket?.emit('registerUser', { login, deviceId });
-    console.log(`📲 registerUser yuborildi: ${login} | ${deviceId}`);
-  });
+  // 4. Handlerlar — parametrdan kelgan login/deviceId bilan
+  attachHandlers(socket, login, deviceId);
 
-  socket.on('disconnect', (reason) => {
-    console.log('❌ Socket uzildi:', reason);
-  });
-
-  socket.on('connect_error', (err) => {
-    console.error('🔴 Socket xatosi:', err.message);
-  });
-
-  console.log(`🔄 Socket reconnect tugadi: ${login} | ${deviceId}`);
+  console.log(`✅ Socket reconnect tugadi: ${login} | ${deviceId}`);
 }
 
-// ✅ Logout bo'lganda socketni to'liq tozalash
 export function disconnectSocket(): void {
   if (socket) {
     socket.removeAllListeners();
