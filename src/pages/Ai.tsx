@@ -289,7 +289,7 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv
         {/* ── TAB: Groq ─────────────────────────────────────────────────────── */}
         {activeTab === 'groq' && (
           <div style={{ flex: 1, minHeight: 0 }}>
-            <GroqPanel login={login} isDark={isDark} buildContext={buildContext} useStore={useStore} />
+            <GroqPanel login={login} isDark={isDark} buildContext={buildContext} useStorage={useStore} />
           </div>
         )}
 
