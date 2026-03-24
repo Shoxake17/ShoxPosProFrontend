@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Send, RefreshCw, Zap, ChevronDown, Check } from 'lucide-react';
 
+
 // ─── ShoxAi modellari ───────────────────────────────────────────────────────────
 const GROQ_MODELS = [
   { id: 'llama-3.3-70b-versatile',  label: 'LLaMA 3.3 · 70B',   badge: 'Eng kuchli',  color: '#f97316' },
@@ -25,7 +26,9 @@ interface GroqPanelProps {
   login: string;
   isDark: boolean;
   buildContext: () => string;   // Ai.tsx dan context builder
+  useStorage: boolean;
 }
+
 
 // ─── Markdown tozalash ────────────────────────────────────────────────────────
 function cleanMd(text: string): string {
@@ -48,7 +51,7 @@ function getErrorMsg(code?: number) {
 }
 
 // ─── Komponent ────────────────────────────────────────────────────────────────
-export default function GroqPanel({ login, isDark, buildContext }: GroqPanelProps) {
+export default function GroqPanel({ login, isDark, buildContext, useStorage }: GroqPanelProps) {
   const [messages, setMessages] = useState<GroqMessage[]>([]);
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -62,9 +65,9 @@ export default function GroqPanel({ login, isDark, buildContext }: GroqPanelProp
   // ─── API chaqiruvi ─────────────────────────────────────────────────────────
   const ask = useCallback(async (text: string) => {
     const context    = buildContext();
-    const systemPrompt =
-      `Sen professional savdo tahlilchisi va biznes maslahatchisisisan. O'zbek tilida javob ber. Markdown formatidan foydalan.\n\n${context}`;
-
+    const systemPrompt = useStorage 
+      ? `Sen professional savdo tahlilchisi va biznes maslahatchisisisan. O'zbek tilida javob ber. Markdown formatidan foydalan.\n\n${context}`
+      : `Sen aqlli yordamchi AIsan. Har qanday mavzuda foydali va aniq javob ber. O'zbek tilida gaplash.`;
     const t0 = Date.now();
     const res = await fetch('/api/ask-groq-ai', {
       method:  'POST',
@@ -74,13 +77,14 @@ export default function GroqPanel({ login, isDark, buildContext }: GroqPanelProp
         login,
         systemOverride: systemPrompt,
         groqModel: model,          // backend ga model uzatiladi
-      }),
+        useStorage,
+    }),
     });
     const ms = Date.now() - t0;
     if (!res.ok) throw Object.assign(new Error(), { status: res.status });
     const data = await res.json();
     return { answer: data.answer as string, ms };
-  }, [login, model, buildContext]);
+  }, [login, model, buildContext, useStorage]);
 
   // ─── Xabar yuborish ────────────────────────────────────────────────────────
   const send = async (override?: string) => {
