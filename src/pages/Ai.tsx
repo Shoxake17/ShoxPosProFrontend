@@ -16,7 +16,7 @@ const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?
     case 'llama-3.1-8b':  return <Zap {...s} />;
     case 'mixtral-8x7b':  return <Layers {...s} />;
     case 'gemma2-9b':     return <FlaskConical {...s} />;
-    default:              return <Cpu {...s} />;
+    default:              return <Bot {...s} />;
   }
 };
 
