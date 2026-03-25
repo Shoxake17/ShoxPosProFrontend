@@ -44,7 +44,7 @@ const menuItems: MenuItem[] = [
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
   { id: "debts", icon: CreditCard, labelKey: "debts" },
   { id: "ai", icon: Bot, labelKey: "ai" },
-  { id: "chat", icon: MessageCircleMore, labelKey: "Chat" },
+  // { id: "chat", icon: MessageCircleMore, labelKey: "Chat" },
   { id: "settings", icon: Settings, labelKey: "settings" },
 ];
 
