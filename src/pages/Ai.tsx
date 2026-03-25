@@ -322,7 +322,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 16px', borderRadius: 16, border: 'none', cursor: 'pointer',
                 background: bg, backdropFilter: 'blur(14px)',
-                border: `1px solid ${bdr}`,
                 color: tx, boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               }}
             >
