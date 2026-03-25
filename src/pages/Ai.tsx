@@ -1,24 +1,95 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bot, Send, Sparkles, Trash2, User, ChevronDown, Check,
-  Zap, Orbit, AlertCircle, RefreshCw, Brain, Diamond,
-  Database, MessageSquare
+  Send, Trash2, User, ChevronDown, Check,
+  Zap, AlertCircle, RefreshCw, Database, MessageSquare,
+  Bot, Cpu, Layers, Sparkles, BrainCircuit, FlaskConical
 } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
-import GroqPanel from '../ai/Groq';
+
+// ─── Model ikonlari (lucide) ──────────────────────────────────────────────────
+const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?: string }) => {
+  const s = { width: size, height: size, color: color || 'currentColor' };
+  switch (id) {
+    case 'deepseek':    return <Bot {...s} />;
+    case 'llama-3.3-70b': return <BrainCircuit {...s} />;
+    case 'llama-3.1-8b':  return <Zap {...s} />;
+    case 'mixtral-8x7b':  return <Layers {...s} />;
+    case 'gemma2-9b':     return <FlaskConical {...s} />;
+    default:              return <Cpu {...s} />;
+  }
+};
+
+// ─── Barcha modellar ─────────────────────────────────────────────────────────
+const ALL_MODELS = [
+  {
+    id:         'shox-ai',
+    name:       'Shox AI',
+    provider:   'ShoxPosPro',
+    endpoint:   '/api/ask-deepseek',
+    groqModel:  null as string | null,
+    color:      '#6366f1',
+    badge:      'Asosiy',
+    group:      'Shox AI',
+  },
+  {
+    id:         'llama-3.3-70b',
+    name:       'LLaMA 3.3 · 70B',
+    provider:   'ShaddiyAi',
+    endpoint:   '/api/ask-groq-ai',
+    groqModel:  'llama-3.3-70b-versatile',
+    color:      '#f97316',
+    badge:      'Eng kuchli',
+    group:      'ShaddiyAi',
+  },
+  {
+    id:         'llama-3.1-8b',
+    name:       'LLaMA 3.1 · 8B',
+    provider:   'ShaddiyAi',
+    endpoint:   '/api/ask-groq-ai',
+    groqModel:  'llama-3.1-8b-instant',
+    color:      '#22c55e',
+    badge:      'Eng tez',
+    group:      'ShaddiyAi',
+  },
+  {
+    id:         'mixtral-8x7b',
+    name:       'Mixtral · 8×7B',
+    provider:   'ShaddiyAi',
+    endpoint:   '/api/ask-groq-ai',
+    groqModel:  'mixtral-8x7b-32768',
+    color:      '#a855f7',
+    badge:      '32K ctx',
+    group:      'ShaddiyAi',
+  },
+  {
+    id:         'gemma2-9b',
+    name:       'Gemma 2 · 9B',
+    provider:   'ShaddiyAi',
+    endpoint:   '/api/ask-groq-ai',
+    groqModel:  'gemma2-9b-it',
+    color:      '#3b82f6',
+    badge:      'Gemma2',
+    group:      'ShaddiyAi',
+  },
+] as const;
+
+type ModelId = (typeof ALL_MODELS)[number]['id'];
 
 // ─── Tiplar ───────────────────────────────────────────────────────────────────
-type MessageRole = 'user' | 'ai';
 type Message = {
-  role: MessageRole;
-  content: string;
-  timestamp: string;
-  modelName?: string;
-  isError?: boolean;
+  role:       'user' | 'ai';
+  content:    string;
+  timestamp:  string;
+  ms?:        number;
+  isError?:   boolean;
   errorCode?: number;
   storeMode?: boolean;
 };
+
+// Har bir model uchun alohida xabarlar massivi
+type ChatStore = Record<ModelId, Message[]>;
+
 interface SaleItem {
   barcode?: string; name?: string; quantity?: number; price?: number;
   basePrice?: number; category?: string; total?: number; soldAt?: string;
@@ -28,453 +99,620 @@ interface ProductItem {
   quantity?: number; category?: string; sold?: number;
 }
 
-// ─── Model ma'lumotlari ───────────────────────────────────────────────────────
-const AI_MODELS = [
-  { id: 'deepseek', name: 'Shox AI',    provider: 'ShoxPosPro', icon: <Bot size={18} />,      color: '#4f46e5' },
-] as const;
-
-// ─── Tablar ───────────────────────────────────────────────────────────────────
-const TABS = [
-  { id: 'chat', label: 'AI Chat', icon: <Brain size={15} /> },
-  { id: 'groq', label: ' ShoxAi',  icon: <Zap size={15} />  },
-] as const;
-type TabId = (typeof TABS)[number]['id'];
-
-// ─── Xato xabarlari ───────────────────────────────────────────────────────────
-const getErrorMessage = (status?: number) => {
-  if (!navigator.onLine) return { icon: '📵', title: "Internet aloqasi yo'q", desc: "Tarmoqni tekshiring." };
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const getErrorMsg = (status?: number) => {
+  if (!navigator.onLine) return { icon: <AlertCircle size={13} />, title: "Internet yo'q",    desc: "Tarmoqni tekshiring." };
   switch (status) {
-    case 429: return { icon: '⏳', title: "Juda ko'p so'rov",   desc: "Bir oz kuting." };
-    case 500: return { icon: '🛠️', title: 'Server xatosi',      desc: 'Server vaqtincha ishlamayapti.' };
-    case 402: return { icon: '💳', title: 'Balans tugagan',      desc: "Hisobingizni to'ldiring." };
-    default:  return { icon: '⚠️', title: 'Kutilmagan xatolik', desc: "Qayta urinib ko'ring." };
+    case 429: return { icon: <AlertCircle size={13} />, title: "Limit tugadi",   desc: "Bir oz kuting." };
+    case 500: return { icon: <AlertCircle size={13} />, title: "Server xatosi",  desc: "Vaqtincha ishlamayapti." };
+    case 402: return { icon: <AlertCircle size={13} />, title: "Balans tugagan", desc: "Hisobni to'ldiring." };
+    default:  return { icon: <AlertCircle size={13} />, title: "Xatolik",        desc: "Qayta urinib ko'ring." };
   }
 };
 
-// ─── Markdown tozalash ────────────────────────────────────────────────────────
-function cleanMarkdown(text: string): string {
+function renderMd(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-    .replace(/`(.+?)`/g,       '<code style="background:rgba(79,70,229,0.15);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px;">$1</code>')
-    .replace(/#{1,3}\s(.+)/g,  '<div style="font-size:15px;font-weight:700;margin:12px 0 4px;color:#a5b4fc;">$1</div>')
-    .replace(/^[-•]\s(.+)/gm,  '<div style="padding-left:16px;margin:2px 0;">• $1</div>')
+    .replace(/`(.+?)`/g,       '<code style="background:rgba(99,102,241,0.15);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;">$1</code>')
+    .replace(/#{1,3}\s(.+)/g,  '<div style="font-size:14px;font-weight:700;margin:10px 0 4px;color:#a5b4fc;">$1</div>')
+    .replace(/^[-•]\s(.+)/gm,  '<div style="padding-left:14px;margin:2px 0;">• $1</div>')
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g,   '<br/>');
 }
 
-// ─── Asosiy komponent ─────────────────────────────────────────────────────────
+const EMPTY_CHATS: ChatStore = {
+  'shox-ai':     [],
+  'llama-3.3-70b':[],
+  'llama-3.1-8b': [],
+  'mixtral-8x7b': [],
+  'gemma2-9b':    [],
+};
+
+function loadChats(): ChatStore {
+  try { return JSON.parse(localStorage.getItem('ai_chats_v3') || 'null') || EMPTY_CHATS; }
+  catch { return EMPTY_CHATS; }
+}
+function saveChats(c: ChatStore) {
+  localStorage.setItem('ai_chats_v3', JSON.stringify(c));
+}
+
+// ─── Komponent ────────────────────────────────────────────────────────────────
 export default function Ai() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>('chat');
 
-  // 🔑 Do'kon rejimi: false = oddiy AI (bazasiz), true = do'kon tahlili
-  const [useStore, setUseStore] = useState(false);
+  // ── Holat ────────────────────────────────────────────────────────────────
+  const [chats,       setChats]       = useState<ChatStore>(loadChats);
+  const [modelId,     setModelId]     = useState<ModelId>('shox-ai');
+  const [input,       setInput]       = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [dropOpen,    setDropOpen]    = useState(false);
+  const [useStore,    setUseStore]    = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [salesData,   setSalesData]   = useState<SaleItem[]>([]);
+  const [productsData,setProductsData]= useState<ProductItem[]>([]);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try { return JSON.parse(localStorage.getItem('ai_chat_history') || '[]'); } catch { return []; }
-  });
-  const [input, setInput]           = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [selectedAI, setSelectedAI] = useState<'deepseek' | 'gemini' | 'grok' | 'openai'>('deepseek');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [theme]     = useState<'dark' | 'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
-  const [userImage] = useState<string | null>(localStorage.getItem('userImage'));
+  const [theme]     = useState<'dark'|'light'>(() => (localStorage.getItem('theme') as any)||'dark');
+  const [userImage] = useState<string|null>(localStorage.getItem('userImage'));
 
-  const [salesData, setSalesData]       = useState<SaleItem[]>([]);
-  const [productsData, setProductsData] = useState<ProductItem[]>([]);
-  const [dataLoading, setDataLoading]   = useState(false);
-
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const dropdownRef    = useRef<HTMLDivElement | null>(null);
-  const isInitialMount = useRef(true);
+  const bottomRef   = useRef<HTMLDivElement>(null);
+  const dropRef     = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const user  = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
   const login = user?.login || localStorage.getItem('login') || localStorage.getItem('currentLogin') || '';
 
+  // Joriy model va uning chati
+  const activeModel = ALL_MODELS.find(m => m.id === modelId)!;
+  const messages    = chats[modelId] || [];
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!login) { navigate('/'); return; }
-    loadAllData();
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
-        setIsDropdownOpen(false);
+    loadData();
+    const onClick = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
   }, [login]);
 
+  // Chat o'zgarganda saqlash + scroll
   useEffect(() => {
-    localStorage.setItem('ai_chat_history', JSON.stringify(messages));
-    if (!isInitialMount.current && messages.length > 0)
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    isInitialMount.current = false;
-  }, [messages]);
+    saveChats(chats);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chats]);
 
-  // ─── Ma'lumotlarni yuklash ─────────────────────────────────────────────────
-  const loadAllData = async () => {
+  // Model o'zgarganda scroll
+  useEffect(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
+  }, [modelId]);
+
+  // ── Data ───────────────────────────────────────────────────────────────────
+  const loadData = async () => {
     if (!login) return;
     setDataLoading(true);
     try {
-      const [sRes, pRes] = await Promise.allSettled([
+      const [s, p] = await Promise.allSettled([
         fetch(`/api/sales/${login}`),
         fetch(`/api/products/user-products/${login}`),
       ]);
-      if (sRes.status === 'fulfilled' && sRes.value.ok) setSalesData(await sRes.value.json());
-      if (pRes.status === 'fulfilled' && pRes.value.ok) setProductsData(await pRes.value.json());
-    } catch (e) { console.error(e); }
+      if (s.status === 'fulfilled' && s.value.ok) setSalesData(await s.value.json());
+      if (p.status === 'fulfilled' && p.value.ok) setProductsData(await p.value.json());
+    } catch {}
     finally { setDataLoading(false); }
   };
 
-  // ─── Kontekst ─────────────────────────────────────────────────────────────
+  // ── Kontekst ───────────────────────────────────────────────────────────────
   const buildContext = useCallback((): string => {
-    const now        = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart  = new Date(now); weekStart.setDate(now.getDate() - 7);
-    const monthStart = new Date(now); monthStart.setDate(now.getDate() - 30);
-
-    const calc = (arr: SaleItem[]) => ({
-      total:  arr.reduce((s, i) => s + (i.total  || 0), 0),
-      profit: arr.reduce((s, i) => s + ((i.price || 0) - (i.basePrice || 0)) * (i.quantity || 1), 0),
-      qty:    arr.reduce((s, i) => s + (i.quantity || 0), 0),
-      count:  arr.length,
+    const now = new Date();
+    const todayS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekS  = new Date(now); weekS.setDate(now.getDate() - 7);
+    const monS   = new Date(now); monS.setDate(now.getDate() - 30);
+    const calc   = (arr: SaleItem[]) => ({
+      total:  arr.reduce((s,i)=>s+(i.total||0),0),
+      profit: arr.reduce((s,i)=>s+((i.price||0)-(i.basePrice||0))*(i.quantity||1),0),
+      qty:    arr.reduce((s,i)=>s+(i.quantity||0),0),
     });
-    const t = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= todayStart));
-    const w = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= weekStart));
-    const m = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= monthStart));
-
-    const pMap = new Map<string, { name: string; qty: number; total: number; profit: number }>();
-    salesData.forEach(s => {
-      const k = s.barcode || s.name || '';
-      const c = pMap.get(k) || { name: s.name || '', qty: 0, total: 0, profit: 0 };
-      c.qty += s.quantity || 0; c.total += s.total || 0;
-      c.profit += ((s.price || 0) - (s.basePrice || 0)) * (s.quantity || 1);
-      pMap.set(k, c);
-    });
-    const top10 = [...pMap.values()].sort((a, b) => b.total - a.total).slice(0, 10);
-
-    const cMap = new Map<string, { total: number; qty: number }>();
-    salesData.forEach(s => {
-      const cat = s.category || "Noma'lum";
-      const c = cMap.get(cat) || { total: 0, qty: 0 };
-      c.total += s.total || 0; c.qty += s.quantity || 0; cMap.set(cat, c);
-    });
-
-    const lowStock = productsData.filter(p => (p.quantity || 0) < 10).sort((a, b) => (a.quantity||0)-(b.quantity||0)).slice(0, 15);
-    const lossP    = productsData.filter(p => (p.price || 0) < (p.basePrice || 0));
-
-    return `
-=== ${login.toUpperCase()} DO'KONI — REAL MA'LUMOTLAR ===
-Sana: ${now.toLocaleDateString('uz-UZ')} ${now.toLocaleTimeString('uz-UZ')}
-
-BUGUN: Savdo ${t.total.toLocaleString()} so'm | Foyda ${t.profit.toLocaleString()} so'm | ${t.qty} dona | ${t.count} op.
-7 KUN: Savdo ${w.total.toLocaleString()} so'm | Foyda ${w.profit.toLocaleString()} so'm | ${w.qty} dona
-30 KUN: Savdo ${m.total.toLocaleString()} so'm | Foyda ${m.profit.toLocaleString()} so'm | ${m.qty} dona
-
-TOP 10: ${top10.map((p,i)=>`${i+1}. ${p.name}: ${p.total.toLocaleString()} so'm`).join(' | ')}
-KATEGORIYALAR: ${[...cMap.entries()].sort((a,b)=>b[1].total-a[1].total).map(([c,s])=>`${c}: ${s.total.toLocaleString()} so'm`).join(' | ')}
-KAM ZAXIRA: ${lowStock.length > 0 ? lowStock.map(p=>`${p.name}: ${p.quantity||0} dona`).join(', ') : 'Yetarli'}
-ZARAR: ${lossP.length > 0 ? lossP.map(p=>`${p.name} (sotuv:${p.price}, xarid:${p.basePrice})`).join(', ') : "Yo'q"}
-JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv
-`;
+    const t = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=todayS));
+    const w = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=weekS));
+    const m = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=monS));
+    const pMap=new Map<string,{name:string;total:number}>();
+    salesData.forEach(s=>{const k=s.barcode||s.name||'';const c=pMap.get(k)||{name:s.name||'',total:0};c.total+=s.total||0;pMap.set(k,c);});
+    const top=[...pMap.values()].sort((a,b)=>b.total-a.total).slice(0,10);
+    const low=productsData.filter(p=>(p.quantity||0)<10).slice(0,10);
+    const loss=productsData.filter(p=>(p.price||0)<(p.basePrice||0));
+    return `=== ${login.toUpperCase()} DO'KONI ===
+BUGUN: ${t.total.toLocaleString()} so'm | Foyda ${t.profit.toLocaleString()} | ${t.qty} dona
+7 KUN: ${w.total.toLocaleString()} so'm | ${w.qty} dona
+30 KUN: ${m.total.toLocaleString()} so'm | ${m.qty} dona
+TOP 10: ${top.map((p,i)=>`${i+1}.${p.name} ${p.total.toLocaleString()}`).join(' | ')}
+KAM ZAXIRA: ${low.length?low.map(p=>`${p.name}:${p.quantity||0}`).join(', '):'Yetarli'}
+ZARAR: ${loss.length?loss.map(p=>`${p.name}(sotuv:${p.price},xarid:${p.basePrice})`).join(', '):"Yo'q"}
+JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
   }, [salesData, productsData, login]);
 
-  // ─── API chaqiruvi ────────────────────────────────────────────────────────
-  const callAPI = async (modelId: string, question: string): Promise<string> => {
-    const endpoints: Record<string, string> = {
-      deepseek: '/api/ask-deepseek',
-    };
-    const res = await fetch(endpoints[modelId], {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, login, useStore }),
-    });
-    if (!res.ok) throw Object.assign(new Error(), { status: res.status });
-    const data = await res.json();
-    return data.answer || "Javob olinmadi";
-  };
+  // ── Xabar qo'shish helper ─────────────────────────────────────────────────
+  const addMsg = (id: ModelId, msg: Message) =>
+    setChats(prev => ({ ...prev, [id]: [...(prev[id]||[]), msg] }));
 
-  // ─── Xabar yuborish ───────────────────────────────────────────────────────
-  const sendMessage = async (overrideInput?: string) => {
-    const text = (overrideInput ?? input).trim();
+  // ── Yuborish ───────────────────────────────────────────────────────────────
+  const send = async (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || loading) return;
-    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: new Date().toISOString(), storeMode: useStore }]);
+
+    const currentModelId = modelId; // snapshot
+
+    addMsg(currentModelId, {
+      role: 'user', content: text,
+      timestamp: new Date().toISOString(), storeMode: useStore,
+    });
     setInput('');
+    if (textareaRef.current) { textareaRef.current.style.height = 'auto'; }
     setLoading(true);
+
     try {
-      const answer = await callAPI(selectedAI, text);
-      setMessages(prev => [...prev, { role: 'ai', content: answer, timestamp: new Date().toISOString(), modelName: selectedAI, storeMode: useStore }]);
+      const model = ALL_MODELS.find(m => m.id === currentModelId)!;
+      const t0  = Date.now();
+      const body: Record<string,any> = { question: text, login, useStore };
+      if (model.groqModel) body.groqModel = model.groqModel;
+
+      const res = await fetch(model.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const ms = Date.now() - t0;
+      if (!res.ok) throw Object.assign(new Error(), { status: res.status });
+      const data = await res.json();
+
+      addMsg(currentModelId, {
+        role: 'ai', content: data.answer || 'Javob olinmadi',
+        timestamp: new Date().toISOString(), ms,
+      });
     } catch (err: any) {
-      setMessages(prev => [...prev, { role: 'ai', content: '', isError: true, errorCode: err?.status, timestamp: new Date().toISOString(), modelName: selectedAI }]);
+      addMsg(currentModelId, {
+        role: 'ai', content: '', isError: true,
+        errorCode: err?.status, timestamp: new Date().toISOString(),
+      });
     } finally { setLoading(false); }
   };
 
-  const handleRetry = (errorIndex: number) => {
-    const prev = messages.slice(0, errorIndex);
-    const lastUser = [...prev].reverse().find(m => m.role === 'user');
+  const retry = (idx: number) => {
+    const lastUser = [...messages.slice(0, idx)].reverse().find(m => m.role === 'user');
     if (!lastUser) return;
-    setMessages(prev);
-    sendMessage(lastUser.content);
+    setChats(prev => ({ ...prev, [modelId]: prev[modelId].slice(0, idx) }));
+    send(lastUser.content);
   };
 
   const clearChat = () => {
-    if (window.confirm("Suhbatni tozalashni xohlaysizmi?")) {
-      setMessages([]);
-      localStorage.removeItem('ai_chat_history');
-    }
+    if (!window.confirm(`${activeModel.name} suhbatini tozalashni xohlaysizmi?`)) return;
+    setChats(prev => ({ ...prev, [modelId]: [] }));
   };
 
-  const activeModel = AI_MODELS.find(m => m.id === selectedAI) || AI_MODELS[0];
-  const isDark  = theme === 'dark';
-  const card    = isDark ? 'rgba(30,41,59,0.6)' : 'rgba(255,255,255,0.8)';
-  const border  = isDark ? '#334155' : '#e2e8f0';
-  const txColor = isDark ? '#e2e8f0' : '#1e293b';
+  // ── Rang / tema ────────────────────────────────────────────────────────────
+  const dark   = theme === 'dark';
+  const bg     = dark ? 'rgba(30,41,59,0.65)' : 'rgba(255,255,255,0.85)';
+  const chatBg = dark ? 'rgba(15,23,42,0.45)' : '#f8fafc';
+  const bdr    = dark ? '#334155' : '#e2e8f0';
+  const tx     = dark ? '#e2e8f0' : '#1e293b';
+  const sub    = dark ? '#64748b' : '#94a3b8';
+  const card   = dark ? '#1e293b' : '#ffffff';
+
+  const groups = ['Shox AI', 'ShaddiyAi'] as const;
 
   return (
     <MainLayout theme={theme} userImage={userImage} title="AI Tahlilchi">
-      <div style={{ width: '100%', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{
+        width: '100%', height: 'calc(100vh - 160px)',
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
 
-        {/* ── Top bar: Tablar + Toggle ──────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        {/* ── TOP BAR ────────────────────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
+        }}>
 
-          {/* Tablar */}
-          <div style={{
-            display: 'flex', gap: 6, padding: 6,
-            background: card, backdropFilter: 'blur(15px)',
-            borderRadius: 18, border: `1px solid ${border}`,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-          }}>
-            {TABS.map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '8px 18px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                fontWeight: 600, fontSize: 13, transition: '.2s',
-                background: activeTab === tab.id
-                  ? (tab.id === 'groq' ? 'linear-gradient(135deg,#f97316,#fb923c)' : 'linear-gradient(135deg,#6366f1,#a855f7)')
-                  : 'transparent',
-                color: activeTab === tab.id ? '#fff' : (isDark ? '#64748b' : '#94a3b8'),
+          {/* Model dropdown trigger */}
+          <div style={{ position: 'relative' }} ref={dropRef}>
+            <button
+              onClick={() => setDropOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 16px', borderRadius: 16, border: 'none', cursor: 'pointer',
+                background: bg, backdropFilter: 'blur(14px)',
+                border: `1px solid ${bdr}`,
+                color: tx, boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              }}
+            >
+              {/* Colored icon box */}
+              <div style={{
+                width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                background: activeModel.color + '22',
+                border: `1.5px solid ${activeModel.color}44`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+                <ModelIcon id={activeModel.id} size={18} color={activeModel.color} />
+              </div>
+
+              <div style={{ textAlign: 'left', minWidth: 0 }}>
+                <div style={{ fontSize: 10, opacity: .5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>Model</div>
+                <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>{activeModel.name}</div>
+              </div>
+
+              {/* Badge (desktop) */}
+              <span className="badge-desk" style={{
+                background: activeModel.color + '20',
+                color: activeModel.color,
+                padding: '3px 9px', borderRadius: 8,
+                fontSize: 11, fontWeight: 700,
+              }}>{activeModel.badge}</span>
+
+              <ChevronDown size={15} color={sub}
+                style={{ transform: dropOpen ? 'rotate(180deg)' : 'none', transition: '.2s', flexShrink: 0 }} />
+            </button>
+
+            {/* Dropdown */}
+            {dropOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+                minWidth: 290, maxWidth: '92vw',
+                background: card, border: `1px solid ${bdr}`,
+                borderRadius: 20, padding: 8, zIndex: 1001,
+                boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
+                animation: 'fadeUp .15s ease',
+              }}>
+                {groups.map(group => (
+                  <div key={group}>
+                    <div style={{
+                      fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+                      letterSpacing: 1.2, color: sub,
+                      padding: '8px 14px 4px',
+                    }}>{group}</div>
+
+                    {ALL_MODELS.filter(m => m.group === group).map(m => {
+                      const isActive = modelId === m.id;
+                      const msgCount = (chats[m.id] || []).filter(x => x.role === 'user').length;
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => { setModelId(m.id); setDropOpen(false); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '9px 12px', borderRadius: 13, cursor: 'pointer',
+                            background: isActive ? m.color + '18' : 'transparent',
+                            transition: '.15s',
+                          }}
+                          onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = dark?'#334155':'#f1f5f9'; }}
+                          onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                          {/* Icon */}
+                          <div style={{
+                            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                            background: m.color + (isActive ? '28' : '15'),
+                            border: `1.5px solid ${m.color}${isActive ? '55' : '30'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <ModelIcon id={m.id} size={17} color={m.color} />
+                          </div>
+
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? m.color : tx }}>{m.name}</div>
+                            <div style={{ fontSize: 10, color: sub, marginTop: 1 }}>
+                              {m.provider}
+                              {msgCount > 0 && (
+                                <span style={{
+                                  marginLeft: 6, background: m.color + '22',
+                                  color: m.color, padding: '0 5px', borderRadius: 5, fontSize: 9, fontWeight: 700,
+                                }}>{msgCount} xabar</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Badge */}
+                          <span style={{
+                            background: m.color + '20', color: m.color,
+                            padding: '3px 8px', borderRadius: 7,
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          }}>{m.badge}</span>
+
+                          {isActive && <Check size={14} color={m.color} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* 🔑 Do'kon rejimi toggle */}
-          <button
-            onClick={() => setUseStore(v => !v)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 18px', borderRadius: 16, border: 'none', cursor: 'pointer',
-              transition: '.25s',
-              background: useStore
-                ? 'linear-gradient(135deg,#10b981,#059669)'
-                : (isDark ? '#1e293b' : '#f1f5f9'),
-              color: useStore ? '#fff' : (isDark ? '#64748b' : '#94a3b8'),
-              boxShadow: useStore ? '0 4px 16px rgba(16,185,129,0.35)' : 'none',
-              fontWeight: 600, fontSize: 13,
-            }}
-          >
-            {useStore
-              ? <><Database size={15} /> Do'kon ma'lumotlari</>
-              : <><MessageSquare size={15} /> Oddiy AI rejimi</>
-            }
-            {/* Pill */}
-            <div style={{ width: 36, height: 20, borderRadius: 10, position: 'relative', background: useStore ? 'rgba(255,255,255,0.3)' : (isDark ? '#334155' : '#cbd5e1'), transition: '.25s' }}>
-              <div style={{ position: 'absolute', top: 3, left: useStore ? 18 : 3, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: '.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-            </div>
-          </button>
+          {/* Right controls */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+
+                      {/* Tozalash */}
+            <button onClick={clearChat} title="Suhbatni tozalash" style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: dark ? 'rgba(239,68,68,0.1)' : '#fff1f2', border: 'none',
+              color: '#ef4444', padding: '9px 12px', borderRadius: 14,
+              cursor: 'pointer', fontSize: 13, fontWeight: 500,
+            }}>
+              <Trash2 size={14} />
+              <span className="hide-xs">Tozalash</span>
+            </button>
+
+            {/* Do'kon rejimi toggle */}
+            <button
+              onClick={() => setUseStore(v => !v)}
+              title={useStore ? "Oddiy rejimga o'tish" : "Do'kon ma'lumotlarini ulash"}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 16px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                transition: '.25s',
+                background: useStore
+                  ? 'linear-gradient(135deg,#10b981,#059669)'
+                  : (dark ? '#1e293b' : '#f1f5f9'),
+                color: useStore ? '#fff' : sub,
+                boxShadow: useStore ? '0 4px 14px rgba(16,185,129,0.3)' : 'none',
+                fontWeight: 600, fontSize: 13,
+              }}
+            >
+              {useStore ? <Database size={14} /> : <Bot size={14} />}
+              <span className="hide-sm">{useStore ? "Do'kon ma'lumotlari" : 'Oddiy AI'}</span>
+              {/* Pill */}
+              <div style={{
+                width: 32, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0,
+                background: useStore ? 'rgba(255,255,255,0.3)' : (dark ? '#334155' : '#cbd5e1'),
+                transition: '.25s',
+              }}>
+                <div style={{
+                  position: 'absolute', top: 2,
+                  left: useStore ? 16 : 2,
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: '#fff', transition: '.25s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+            </button>
+          </div>
         </div>
 
         
 
-        {/* ── TAB: Groq ─────────────────────────────────────────────────────── */}
-        {activeTab === 'groq' && (
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <GroqPanel login={login} isDark={isDark} buildContext={buildContext} useStorage={useStore} />
-          </div>
-        )}
+        {/* ── CHAT OYNASI ────────────────────────────────────────────────── */}
+        <div style={{
+          flex: 1, overflowY: 'auto', padding: '16px', borderRadius: 24,
+          display: 'flex', flexDirection: 'column', gap: 12,
+          background: chatBg, border: `1px solid ${dark ? '#1e293b' : '#f1f5f9'}`,
+        }}>
 
-        {/* ── TAB: Chat ─────────────────────────────────────────────────────── */}
-        {activeTab === 'chat' && (
-          <>
-            {/* Model header */}
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 20px', borderRadius: 22, zIndex: 1000, position: 'relative',
-              background: card, backdropFilter: 'blur(15px)',
-              border: `1px solid ${border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.1)'
-            }}>
-              <div ref={dropdownRef} style={{ position: 'relative' }}>
-                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, border: 'none',
-                  padding: '10px 18px', borderRadius: 16, cursor: 'pointer',
-                  background: isDark ? '#1e293b' : '#f1f5f9', color: isDark ? '#f8fafc' : '#1e293b', transition: '.2s'
-                }}>
-                  <div style={{ background: activeModel.color, padding: 7, borderRadius: 10, display: 'flex', color: '#fff' }}>{activeModel.icon}</div>
-                  <div style={{ textAlign: 'left' }}>
-                    <span style={{ display: 'block', fontSize: 10, opacity: .6, fontWeight: 800, textTransform: 'uppercase' }}>Model</span>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{activeModel.name}</span>
-                  </div>
-                  <ChevronDown size={16} style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: '.3s' }} />
-                </button>
-
-                {isDropdownOpen && (
-                  <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 240,
-                    background: isDark ? '#1e293b' : '#fff', borderRadius: 18, padding: 6,
-                    zIndex: 1001, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                    border: `1px solid ${border}`, display: 'flex', flexDirection: 'column', gap: 4,
-                    animation: 'slideIn .2s ease-out'
-                  }}>
-                    {AI_MODELS.map(model => (
-                      <div key={model.id}
-                        onClick={() => { setSelectedAI(model.id as any); setIsDropdownOpen(false); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '10px 14px', borderRadius: 12, cursor: 'pointer', transition: '.15s',
-                          background: selectedAI === model.id ? (isDark ? 'rgba(99,102,241,0.2)' : '#eef2ff') : 'transparent',
-                          color: selectedAI === model.id ? '#6366f1' : txColor,
-                        }}
-                        onMouseEnter={e => { if (selectedAI !== model.id) (e.currentTarget as HTMLElement).style.background = isDark ? '#334155' : '#f1f5f9'; }}
-                        onMouseLeave={e => { if (selectedAI !== model.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span style={{ color: model.color, display: 'flex' }}>{model.icon}</span>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 600 }}>{model.name}</div>
-                            <div style={{ fontSize: 10, opacity: .5 }}>{model.provider}</div>
-                          </div>
-                        </div>
-                        {selectedAI === model.id && <Check size={16} color="#6366f1" />}
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* Empty state */}
+          {messages.length === 0 && (
+            <div style={{ margin: 'auto', textAlign: 'center', color: sub, padding: '24px 16px' }}>
+              {/* Model icon big */}
+              <div style={{
+                width: 64, height: 64, borderRadius: 20, margin: '0 auto 16px',
+                background: activeModel.color + '18',
+                border: `2px solid ${activeModel.color}30`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: 'pulse 2.5s infinite',
+              }}>
+                <ModelIcon id={activeModel.id} size={32} color={activeModel.color} />
               </div>
+              <div style={{ fontSize: 13, color: sub, marginBottom: 4 }}>Assalomu alaykum, {login}</div>
+              <h2 style={{
+                margin: '0 0 6px', fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800,
+                color: activeModel.color,
+              }}>{activeModel.name}</h2>
+              <p style={{ fontSize: 12, color: sub, marginBottom: 20 }}>
+                {useStore ? "Do'kon tahlil rejimi yoqilgan" : 'Istalgan savol bering'}
+              </p>
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={loadAllData} disabled={dataLoading} style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 14, border: 'none',
-                  background: isDark ? '#0f172a' : '#e2e8f0', color: isDark ? '#94a3b8' : '#64748b', fontSize: 13, cursor: 'pointer', fontWeight: 500
-                }}>
-                  <RefreshCw size={14} style={{ animation: dataLoading ? 'spin 1s linear infinite' : 'none' }} /> Yangilash
-                </button>
-                <button onClick={clearChat} style={{
-                  background: isDark ? 'rgba(239,68,68,0.1)' : '#fff1f2', border: 'none',
-                  color: '#ef4444', padding: '9px 12px', borderRadius: 14, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500
-                }}>
-                  <Trash2 size={14} /> Tozalash
-                </button>
-              </div>
-            </div>
-
-            {/* Chat */}
-            <div style={{
-              flex: 1, overflowY: 'auto', padding: 20, borderRadius: 28,
-              display: 'flex', flexDirection: 'column', gap: 14,
-              background: isDark ? 'rgba(15,23,42,0.4)' : '#f8fafc',
-              border: `1px solid ${isDark ? '#1e293b' : '#f1f5f9'}`,
-            }}>
-              {messages.length === 0 && (
-                <div style={{ margin: 'auto', textAlign: 'center', color: '#64748b' }}>
-                  <div style={{ animation: 'pulse 2s infinite' }}><Bot size={56} style={{ opacity: .2 }} /></div>
-                  <div style={{ marginTop: 16, marginBottom: 4, fontSize: 14, color: isDark ? '#64748b' : '#94a3b8', fontWeight: 500 }}>Assalomu alaykum,</div>
-                  <h2 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 800, background: 'linear-gradient(135deg,#6366f1,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    {login}
-                  </h2>
-                  <p style={{ fontSize: 14, color: isDark ? '#475569' : '#94a3b8' }}>
-                    {useStore ? "📊 Do'kon tahlil rejimi yoqilgan" : '💬 Istalgan savol bering'}
-                  </p>
+              {useStore && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {["Bugungi savdo?", "Top mahsulotlar", "Kam zaxira bor?", "Oylik foyda"].map(q => (
+                    <button key={q} onClick={() => send(q)} style={{
+                      padding: '7px 14px', borderRadius: 12,
+                      border: `1px solid ${bdr}`,
+                      background: 'transparent', color: tx,
+                      fontSize: 12, cursor: 'pointer', fontWeight: 500, transition: '.2s',
+                    }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.borderColor = activeModel.color;
+                        (e.currentTarget as HTMLElement).style.color = activeModel.color;
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.borderColor = bdr;
+                        (e.currentTarget as HTMLElement).style.color = tx;
+                      }}
+                    >{q}</button>
+                  ))}
                 </div>
               )}
+            </div>
+          )}
 
-              {messages.map((msg, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', animation: 'slideIn .3s ease' }}>
-                  {msg.role === 'ai' && msg.isError ? (
-                    <div style={{ maxWidth: '80%', padding: '14px 18px', borderRadius: '22px 22px 22px 4px', background: isDark ? '#1e1215' : '#fff5f5', border: `1px solid ${isDark ? '#7f1d1d50' : '#fecaca'}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <AlertCircle size={15} color="#ef4444" />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>{getErrorMessage(msg.errorCode).icon} {getErrorMessage(msg.errorCode).title}</span>
-                      </div>
-                      <p style={{ fontSize: 13, color: isDark ? '#fca5a5' : '#b91c1c', margin: 0 }}>{getErrorMessage(msg.errorCode).desc}</p>
-                      <button onClick={() => handleRetry(i)} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: `1px solid ${isDark ? '#7f1d1d' : '#fca5a5'}`, color: '#ef4444', padding: '6px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
-                        <RefreshCw size={13} /> Qayta urinish
-                      </button>
-                    </div>
-                  ) : (
+          {/* Xabarlar */}
+          {messages.map((msg, i) => (
+            <div key={i} style={{
+              display: 'flex',
+              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              animation: 'fadeUp .22s ease',
+            }}>
+              {/* Xato */}
+              {msg.role === 'ai' && msg.isError ? (
+                <div style={{
+                  maxWidth: 'min(82%, 520px)', padding: '12px 16px',
+                  borderRadius: '18px 18px 18px 4px',
+                  background: dark ? '#1e1215' : '#fff5f5',
+                  border: `1px solid ${dark ? '#7f1d1d50' : '#fecaca'}`,
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ef4444' }}>
+                    {getErrorMsg(msg.errorCode).icon}
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{getErrorMsg(msg.errorCode).title}</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: dark ? '#fca5a5' : '#b91c1c', margin: 0 }}>
+                    {getErrorMsg(msg.errorCode).desc}
+                  </p>
+                  <button onClick={() => retry(i)} disabled={loading} style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: 'transparent', border: '1px solid #ef444450',
+                    color: '#ef4444', padding: '5px 12px', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start',
+                  }}>
+                    <RefreshCw size={11} /> Qayta urinish
+                  </button>
+                </div>
+              ) : (
+                /* Oddiy xabar */
+                <div style={{
+                  maxWidth: 'min(82%, 560px)',
+                  padding: '11px 15px',
+                  borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  background: msg.role === 'user'
+                    ? `linear-gradient(135deg, ${activeModel.color}, ${activeModel.color}bb)`
+                    : card,
+                  color: msg.role === 'user' ? '#fff' : tx,
+                  border: msg.role === 'ai' ? `1px solid ${bdr}` : 'none',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
+                }}>
+                  {/* AI header */}
+                  {msg.role === 'ai' && (
                     <div style={{
-                      maxWidth: '80%', padding: '14px 20px',
-                      borderRadius: msg.role === 'user' ? '22px 22px 4px 22px' : '22px 22px 22px 4px',
-                      background: msg.role === 'user' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : (isDark ? '#1e293b' : '#fff'),
-                      color: msg.role === 'user' ? '#fff' : txColor,
-                      border: msg.role === 'ai' ? `1px solid ${border}` : 'none',
-                      boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-                      display: 'flex', flexDirection: 'column', gap: 6
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      marginBottom: 7, paddingBottom: 7,
+                      borderBottom: `1px solid ${bdr}`,
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, opacity: .7 }}>
-                        {msg.role === 'user'
-                          ? <><User size={13} />{msg.storeMode && <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.25)', padding: '1px 5px', borderRadius: 5 }}>📊</span>}</>
-                          : <span style={{ color: AI_MODELS.find(m => m.id === msg.modelName)?.color }}>{AI_MODELS.find(m => m.id === msg.modelName)?.icon}</span>
-                        }
-                        <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
-                          {msg.role === 'ai' ? AI_MODELS.find(m => m.id === msg.modelName)?.name : ''}
-                        </span>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                        background: activeModel.color + '20',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <ModelIcon id={activeModel.id} size={13} color={activeModel.color} />
                       </div>
-                      <div style={{ fontSize: 14, lineHeight: 1.65 }} dangerouslySetInnerHTML={{ __html: msg.role === 'ai' ? cleanMarkdown(msg.content) : msg.content }} />
-                      <span style={{ fontSize: 10, opacity: .5, alignSelf: 'flex-end', marginTop: 4 }}>
-                        {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                      <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: activeModel.color, letterSpacing: .5 }}>
+                        {activeModel.name}
                       </span>
+                      {msg.ms && (
+                        <span style={{ marginLeft: 'auto', fontSize: 9, color: sub, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <Zap size={9} color={activeModel.color} /> {msg.ms}ms
+                        </span>
+                      )}
                     </div>
                   )}
-                </div>
-              ))}
 
-              {loading && (
-                <div style={{ display: 'flex', gap: 5, padding: '12px 16px', background: isDark ? '#1e293b' : '#fff', borderRadius: '22px 22px 22px 4px', width: 'fit-content', border: `1px solid ${border}` }}>
-                  {[0,1,2].map(i => <span key={i} style={{ width: 7, height: 7, background: '#6366f1', borderRadius: '50%', display: 'block', animation: `bounce 1.4s ${i*.2}s infinite` }} />)}
+                  {/* User header */}
+                  {msg.role === 'user' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, opacity: .7 }}>
+                      <User size={11} />
+                      {msg.storeMode && (
+                        <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: 5 }}>
+                          <Database size={8} style={{ display: 'inline', marginRight: 2 }} />do'kon
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 14, lineHeight: 1.68 }}
+                    dangerouslySetInnerHTML={{ __html: msg.role === 'ai' ? renderMd(msg.content) : msg.content }}
+                  />
+                  <div style={{ fontSize: 10, opacity: .4, textAlign: 'right', marginTop: 6 }}>
+                    {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
+          ))}
 
-            {/* Input */}
+          {/* Typing */}
+          {loading && (
             <div style={{
-              display: 'flex', gap: 12, padding: '10px 10px 10px 20px', borderRadius: 24,
-              background: isDark ? '#1e293b' : '#fff',
-              border: `1px solid ${useStore ? 'rgba(16,185,129,0.4)' : border}`,
-              boxShadow: useStore ? '0 0 0 2px rgba(16,185,129,0.08)' : '0 10px 30px rgba(0,0,0,0.1)',
-              transition: '.3s'
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 16px', background: card, width: 'fit-content',
+              borderRadius: '18px 18px 18px 4px', border: `1px solid ${bdr}`,
             }}>
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={useStore ? `${activeModel.name} ga do'kon haqida so'rang...` : `${activeModel.name} ga istalgan savol bering...`}
-                rows={1} disabled={loading}
-                style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: isDark ? '#fff' : '#1e293b', outline: 'none', fontSize: 15, fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflow: 'auto' }}
-                onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 100) + 'px'; }}
-              />
-              <button onClick={() => sendMessage()} disabled={loading || !input.trim()} style={{
-                background: loading || !input.trim() ? (isDark ? '#334155' : '#e2e8f0') : useStore ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6366f1,#a855f7)',
-                color: loading || !input.trim() ? (isDark ? '#64748b' : '#94a3b8') : '#fff',
-                border: 'none', width: 46, height: 46, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: loading || !input.trim() ? 'not-allowed' : 'pointer', transition: '.2s', flexShrink: 0
-              }}>
-                {loading ? <div style={{ width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .8s linear infinite' }} /> : <Send size={18} />}
-              </button>
+              <div style={{
+                width: 14, height: 14, borderRadius: '50%',
+                border: `2px solid ${activeModel.color}`,
+                borderTopColor: 'transparent',
+                animation: 'spin .65s linear infinite',
+              }} />
+              <span style={{ fontSize: 12, color: sub }}>
+                <span style={{ color: activeModel.color, fontWeight: 600 }}>{activeModel.name}</span> javob yozmoqda...
+              </span>
             </div>
-          </>
-        )}
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* ── INPUT ──────────────────────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', gap: 10,
+          padding: '10px 10px 10px 18px', borderRadius: 22,
+          background: card,
+          border: `1px solid ${useStore ? '#10b98150' : bdr}`,
+          boxShadow: useStore
+            ? '0 0 0 2px rgba(16,185,129,0.07)'
+            : '0 8px 28px rgba(0,0,0,0.1)',
+          transition: '.3s',
+        }}>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder={useStore
+              ? `${activeModel.name} ga do'kon haqida so'rang...`
+              : `${activeModel.name} ga istalgan savol bering...`}
+            rows={1}
+            disabled={loading}
+            style={{
+              flex: 1, background: 'transparent', border: 'none', resize: 'none',
+              color: dark ? '#fff' : '#1e293b', outline: 'none',
+              fontSize: 'clamp(13px,2vw,15px)',
+              fontFamily: 'inherit', lineHeight: 1.55,
+              maxHeight: 120, overflow: 'auto',
+            }}
+            onInput={e => {
+              const t = e.target as HTMLTextAreaElement;
+              t.style.height = 'auto';
+              t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+            }}
+          />
+          <button
+            onClick={() => send()}
+            disabled={loading || !input.trim()}
+            style={{
+              background: loading || !input.trim()
+                ? (dark ? '#334155' : '#e2e8f0')
+                : `linear-gradient(135deg, ${activeModel.color}, ${activeModel.color}bb)`,
+              color: loading || !input.trim() ? sub : '#fff',
+              border: 'none', width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
+              transition: '.2s',
+            }}
+          >
+            {loading
+              ? <div style={{ width: 17, height: 17, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .65s linear infinite' }} />
+              : <Send size={16} />}
+          </button>
+        </div>
       </div>
 
       <style>{`
-        @keyframes slideIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
-        @keyframes bounce  { 0%,80%,100%{transform:scale(0);opacity:.3}40%{transform:scale(1);opacity:1} }
-        @keyframes spin    { to{transform:rotate(360deg)} }
-        @keyframes pulse   { 0%,100%{transform:scale(1)}50%{transform:scale(1.05)} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes spin   { to{transform:rotate(360deg)} }
+        @keyframes pulse  { 0%,100%{opacity:1}50%{opacity:.6} }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${isDark ? '#1e293b' : '#e2e8f0'}; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: ${dark ? '#1e293b' : '#e2e8f0'}; border-radius: 4px; }
+
+        @media (min-width: 580px) { .badge-desk { display: inline-flex !important; } }
+        @media (max-width: 440px) { .hide-xs  { display: none !important; } }
+        @media (max-width: 580px) { .hide-sm  { display: none !important; } }
       `}</style>
     </MainLayout>
   );
