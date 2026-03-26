@@ -1,136 +1,174 @@
 // src/api/axiosInstance.ts
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// 🛡️ CSRF tokenni brauzerdan olish yordamchi funksiyasi
-// Eslatma: backend `/csrf-token` endpointida `req.csrfToken()` ni qaytaradi.
-// Shu tokenni biz localStorage.da `csrfToken` nomi bilan saqlaymiz va har bir
-// mutatsion (GET bo'lmagan) so'rovda headerga qo'shamiz.
-const getClientCsrfToken = () => {
+// ─────────────────────────────────────────────
+// 🛡️ CSRF tokenni brauzerdan olish
+// Backend `/csrf-token` endpointida `req.csrfToken()` qaytaradi.
+// Shu token localStorage'da `csrfToken` nomi bilan saqlanadi va
+// har bir mutatsion (GET bo'lmagan) so'rovda headerga qo'shiladi.
+// ─────────────────────────────────────────────
+const getClientCsrfToken = (): string => {
   try {
-    // 1) /csrf-token endpointidan olingan qiymat (to'g'ri CSRF token)
+    // 1) /csrf-token dan olingan token (asosiy usul)
     const stored = localStorage.getItem('csrfToken');
     if (stored) return stored;
 
-    // 2) (Opsional) <meta name="csrf-token"> bo'lsa
+    // 2) (Opsional) <meta name="csrf-token"> tegi bo'lsa
     const meta = document
       .querySelector('meta[name="csrf-token"]')
       ?.getAttribute('content');
     if (meta) return meta;
 
-    // 3) Cookie `_csrf` BU YERDA ishlatilmaydi, chunki u odatda sir (secret),
-    // token emas. Uni header sifatida yuborish csurf bilan mos kelmaydi.
+    // 3) Cookie `_csrf` bu yerda ishlatilmaydi —
+    //    u odatda "secret" bo'lib, csurf bilan mos kelmaydi.
     return '';
   } catch {
     return '';
   }
 };
 
+// ─────────────────────────────────────────────
+// 📦 Axios instance yaratish
+// ─────────────────────────────────────────────
 const axiosInstance = axios.create({
   baseURL: '/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-    // 🛡️ Kesh muammolarini (304 status) oldini olish uchun
+    // 🛡️ Kesh muammolarini (304 status) oldini olish
     'Cache-Control': 'no-cache',
     'Pragma': 'no-cache',
     'Expires': '0',
-  }
+  },
 });
 
-// 🔄 REQUEST INTERCEPTOR: Har bir so'rovga CSRF token va timestamp qo'shish
-// 🔄 REQUEST INTERCEPTOR: Har bir so'rovga CSRF token va timestamp qo'shish
+// ─────────────────────────────────────────────
+// 🔄 REQUEST INTERCEPTOR
+// Har bir so'rovga CSRF token va cache-busting timestamp qo'shish
+// ─────────────────────────────────────────────
 axiosInstance.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     const csrfToken = getClientCsrfToken();
-    
-    // config.method mavjudligini va GET emasligini tekshiramiz
+
+    // Faqat mutatsion so'rovlarga (POST, PUT, PATCH, DELETE) CSRF token qo'shish
     if (csrfToken && config.method && config.method.toLowerCase() !== 'get') {
-      // Xatolikni oldini olish uchun "as any" yoki aniq o'zlashtirishdan foydalanamiz
-      if (config.headers) {
-        config.headers['CSRF-Token'] = csrfToken;
-      }
+      config.headers['CSRF-Token'] = csrfToken;
     }
 
-    // 🛡️ Keshdan qochish uchun har bir GET so'roviga noyob ID qo'shish
-    if (config.method === 'get') {
+    // GET so'rovlarda keshdan qochish uchun noyob timestamp qo'shish
+    if (config.method?.toLowerCase() === 'get') {
       config.params = { ...config.params, _t: Date.now() };
     }
-    
+
     return config;
   },
-  (error) => Promise.reject(error)
+  (error: AxiosError) => {
+    // ✅ SonarQube fix: Promise.reject → throw
+    throw error;
+  }
 );
 
-// 🔄 RESPONSE INTERCEPTOR: 401 xatosini tutish va Refresh qilish
+// ─────────────────────────────────────────────
+// 🔄 RESPONSE INTERCEPTOR
+// 401 xatosini tutish, token yangilash (refresh) va navbatni boshqarish
+// ─────────────────────────────────────────────
 let isRefreshing = false;
-let failedQueue: any[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+interface QueueItem {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}
+
+let failedQueue: QueueItem[] = [];
+
+/**
+ * Navbatdagi barcha kutayotgan so'rovlarni hal qilish yoki rad etish
+ */
+const processQueue = (error: AxiosError | null): void => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
-      prom.resolve(token);
+      prom.resolve();
     }
   });
   failedQueue = [];
 };
 
+/**
+ * Sessiyani to'liq tozalash va login sahifasiga yo'naltirish
+ */
+const clearSessionAndRedirect = (): void => {
+  localStorage.removeItem('currentLogin');
+  localStorage.removeItem('activeUser');
+  localStorage.removeItem('deviceId');
+  localStorage.removeItem('csrfToken');
+  sessionStorage.removeItem('currentUser');
+  window.location.replace('/login');
+};
+
 axiosInstance.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
-    // ⚠️ Agar xatolik 401 bo'lsa va bu so'rov hali qayta urinilmagan bo'lsa
+    // ─────────────────────────────────────────
+    // ⚠️ 401 xatosi va hali qayta urinilmagan so'rov
+    // ─────────────────────────────────────────
     if (error.response?.status === 401 && !originalRequest._retry) {
-      
-      // 🛡️ Agar REFRESH so'rovining o'zi 401 bersa - demak sessiya butunlay tugagan
+
+      // 🛡️ Refresh so'rovining o'zi 401 bersa — sessiya butunlay tugagan
       if (originalRequest.url === '/refresh') {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace('/login');
-        return Promise.reject(error);
+        clearSessionAndRedirect();
+        // ✅ SonarQube fix: Promise.reject → throw
+        throw error;
       }
 
+      // ⏳ Refresh jarayoni allaqachon boshlangan bo'lsa — navbatga qo'shish
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then(() => axiosInstance(originalRequest))
-          .catch(err => Promise.reject(err));
+          .catch((err) => {
+            // ✅ SonarQube fix: Promise.reject → throw
+            throw err;
+          });
       }
 
+      // 🔄 Refresh jarayonini boshlash
       originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        // 🔄 Refresh so'rovini yuborish — umumiy axiosInstance orqali,
-        // shunda CSRF-Token headeri ham avtomatik qo'shiladi
+        // Refresh so'rovini yuborish — CSRF-Token headeri avtomatik qo'shiladi
         await axiosInstance.post('/refresh');
 
+        // Navbatdagi so'rovlarni muvaffaqiyatli hal qilish
         processQueue(null);
-        // Yangi token bilan asl so'rovni qayta yuborish
+
+        // Asl so'rovni qayta yuborish
         return axiosInstance(originalRequest);
 
-      } catch (refreshError: any) {
-        processQueue(refreshError);
-        
-        // 🧹 Refresh muvaffaqiyatsiz bo'lsa barcha ma'lumotlarni tozalash
-        localStorage.removeItem("currentLogin");
-        localStorage.removeItem("activeUser");
-        sessionStorage.removeItem("currentUser");
-        localStorage.removeItem("deviceId"); // Xohishingizga ko'ra
-
-        window.location.replace('/login');
-        return Promise.reject(refreshError);
+      } catch (refreshError) {
+        // ❌ Refresh muvaffaqiyatsiz — navbatni rad etish va sessiyani tozalash
+        processQueue(refreshError as AxiosError);
+        clearSessionAndRedirect();
+        // ✅ SonarQube fix: Promise.reject → throw
+        throw refreshError;
 
       } finally {
         isRefreshing = false;
       }
     }
 
-    // Boshqa barcha xatoliklar uchun
-    return Promise.reject(error);
+    // ─────────────────────────────────────────
+    // Boshqa barcha xatoliklar (401 dan tashqari)
+    // ✅ SonarQube fix: Promise.reject → throw
+    // ─────────────────────────────────────────
+    throw error;
   }
 );
 
