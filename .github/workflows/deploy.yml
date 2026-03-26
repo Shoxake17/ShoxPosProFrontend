@@ -8,8 +8,8 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  # 1. SAST — Statik tahlil
-  sast:
+  # 1. Semgrep — Har bir pushda xavfsizlikni tekshiradi
+  semgrep_sast:
     name: SAST - Semgrep
     runs-on: ubuntu-latest
     permissions:
@@ -28,7 +28,7 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep SAST
+      - name: Run Semgrep Full Scan
         run: |
           semgrep scan \
             --config=p/owasp-top-ten \
@@ -41,50 +41,63 @@ jobs:
             --output=semgrep.sarif \
             . || true
 
-          if [ ! -f semgrep.sarif ]; then
-            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' > semgrep.sarif
-          fi
-
-      - name: Check for Critical vulnerabilities
+      - name: Check for Critical Issues
         run: |
           CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
-          echo "🔴 Critical: $CRITICAL"
+          echo "🔴 Critical Security Issues: $CRITICAL"
           if [ "$CRITICAL" -gt 0 ]; then
-            echo "❌ Critical zaifliklar topildi — pipeline to'xtatildi!"
+            echo "❌ Kritik zaiflik topildi! Pipeline to'xtatiladi."
             exit 1
           fi
 
-      - name: Upload SARIF to GitHub Security
+      - name: Upload Report to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
         continue-on-error: true
 
-  # 2. Build va Push
-  build-and-push:
-    name: Build and Push Docker Image
+  # 2. SonarCloud — Kod sifatini va chuqur tahlilni amalga oshiradi
+  sonarcloud_sast:
+    name: SAST - SonarCloud
     runs-on: ubuntu-latest
-    needs: sast
+    needs: semgrep_sast
     steps:
       - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: SonarCloud Analysis
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # 3. Build va Push
+  build-and-push:
+    name: Build and Push Docker
+    runs-on: ubuntu-latest
+    needs: [semgrep_sast, sonarcloud_sast]
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Login to GHCR
         run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u shoxake17 --password-stdin
 
-      - name: Build & Push Frontend
+      - name: Build and Push
         run: |
           docker build --no-cache -t ghcr.io/shoxake17/shoxposprofrontend:latest .
           docker push ghcr.io/shoxake17/shoxposprofrontend:latest
 
-  # 3. Deploy
+  # 4. Deploy
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
-      - name: Deploy to VPS
+      - name: Deploying via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -95,32 +108,25 @@ jobs:
             docker-compose pull frontend
             docker-compose up -d --no-deps --force-recreate frontend
 
-  # 4. DAST — Dinamik tahlil
+  # 5. DAST — OWASP ZAP (Tunda ishlaydi)
   zap_scan:
-    name: OWASP ZAP Security Scan
+    name: DAST - OWASP ZAP
     runs-on: ubuntu-latest
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fix permissions
-        run: chmod -R 777 $GITHUB_WORKSPACE
-
-      - name: Run OWASP ZAP Full Scan
+      - name: Run ZAP Scan
         run: |
+          chmod -R 777 $GITHUB_WORKSPACE
           docker run --rm -v $(pwd):/zap/wrk/:rw zaproxy/zap-stable \
-            zap-full-scan.py -t https://shoxpospro.uz \
-            -r zap_report.html \
-            -J zap_report.json \
-            -m 5 || true
+            zap-full-scan.py -t https://shoxpospro.uz -r zap_report.html -J zap_report.json || true
 
-      - name: Upload ZAP Report
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: zap-html-report
-          path: |
-            zap_report.html
-            zap_report.json
+          name: zap-security-reports
+          path: zap_report.*
