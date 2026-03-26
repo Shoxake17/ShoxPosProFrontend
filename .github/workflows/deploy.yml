@@ -1,4 +1,4 @@
-name: CI/CD & Security Scan
+name: CI/CD & Security Scan - ShoxPosPro Frontend
 
 on:
   push:
@@ -8,8 +8,66 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  build-and-push:
+  # ─────────────────────────────────────────
+  # 1. SAST — Har push'da ishga tushadi
+  # ─────────────────────────────────────────
+  sast:
+    name: SAST - Semgrep
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/security-audit
+            p/secrets
+            p/javascript
+            p/react
+            p/typescript
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Check for Critical vulnerabilities
+        run: |
+          if [ -f semgrep.sarif ]; then
+            CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
+            HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' semgrep.sarif)
+            echo "🔴 Critical: $CRITICAL  |  🟡 High: $HIGH"
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "❌ Critical zaifliklar topildi — pipeline to'xtatildi!"
+              exit 1
+            fi
+          fi
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Upload SAST Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-semgrep-report
+          path: semgrep.sarif
+          retention-days: 30
+
+  # ─────────────────────────────────────────
+  # 2. Build va Push (SAST o'tgandagina)
+  # ─────────────────────────────────────────
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: sast                # ← SAST muvaffaqiyatli bo'lmasa, bu ishlamaydi
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -22,9 +80,14 @@ jobs:
           docker build --no-cache -t ghcr.io/shoxake17/shoxposprofrontend:latest .
           docker push ghcr.io/shoxake17/shoxposprofrontend:latest
 
+  # ─────────────────────────────────────────
+  # 3. Deploy
+  # ─────────────────────────────────────────
   deploy:
+    name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: build-and-push # Build tugashini kutadi
+    needs: build-and-push
+
     steps:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.7
@@ -37,10 +100,15 @@ jobs:
             docker-compose pull frontend
             docker-compose up -d --no-deps --force-recreate frontend
 
+  # ─────────────────────────────────────────
+  # 4. DAST — OWASP ZAP (faqat tunda/manual)
+  # ─────────────────────────────────────────
   zap_scan:
+    name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
+    needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    needs: deploy # FAQAT Deploy tugagandan keyin ishlaydi
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -56,8 +124,21 @@ jobs:
             -J zap_report.json \
             -m 5 || true
 
+      - name: Check for High Vulnerabilities
+        run: |
+          HIGH=$(jq '.site[0].alerts | map(select(.risk == "High")) | length' zap_report.json)
+          if [ "$HIGH" -gt 0 ]; then
+            echo "❌ CRITICAL: $HIGH high severity vulnerabilities found!"
+            exit 1
+          else
+            echo "✅ No high severity vulnerabilities found."
+          fi
+
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: zap-html-report
-          path: zap_report.html
+          path: |
+            zap_report.html
+            zap_report.json

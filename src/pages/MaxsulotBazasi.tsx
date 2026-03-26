@@ -35,7 +35,6 @@ export default function MaxsulotBazasi() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [userImage] = useState<string | null>(localStorage.getItem('userImage'));
   const [theme] = useState<'dark' | 'light'>((localStorage.getItem('theme') as any) || 'dark');
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +43,7 @@ export default function MaxsulotBazasi() {
 
   const categoryOptions = getCategories(language);
 
-  // ─── Mahsulotlarni yuklash (offline-first) ───────────────────────────
+  // ─── Mahsulotlarni yuklash ────────────────────────────────────────────
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -63,10 +62,9 @@ export default function MaxsulotBazasi() {
     loadProducts();
   }, [login]);
 
-  // ─── Online/Offline listener ─────────────────────────────────────────
+  // ─── Online/Offline listener ──────────────────────────────────────────
   useEffect(() => {
     const handleOnline = async () => {
-      setIsOnline(true);
       setSyncing(true);
       const count = await syncPendingToMongoDB();
       if (count > 0) {
@@ -79,13 +77,11 @@ export default function MaxsulotBazasi() {
       setSyncing(false);
     };
     const handleOffline = () => {
-      setIsOnline(false);
       toast.warning("Internet uzildi — offline rejimda ishlayapti", {
         position: 'top-right', autoClose: 3000,
         theme: theme === 'dark' ? 'dark' : 'light',
       });
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -94,7 +90,7 @@ export default function MaxsulotBazasi() {
     };
   }, [loadProducts]);
 
-  // ─── Filter ──────────────────────────────────────────────────────────
+  // ─── Filter ───────────────────────────────────────────────────────────
   const applyFilter = (text: string, category: string, source: Product[]) => {
     const q = text.trim().toLowerCase();
     let filtered = source;
@@ -104,16 +100,13 @@ export default function MaxsulotBazasi() {
         (p.name && p.name.toLowerCase().includes(q))
       );
     }
-    if (category) {
-      filtered = filtered.filter(p => p.category === category);
-    }
+    if (category) filtered = filtered.filter(p => p.category === category);
     return filtered;
   };
 
   const handleSearch = async (text: string, category: string) => {
     const localResult = applyFilter(text, category, allProducts);
     setProducts(localResult);
-
     if (navigator.onLine && text.trim() && localResult.length === 0) {
       try {
         const globalRes = await fetch(`/api/products/search?q=${encodeURIComponent(text.trim())}`);
@@ -122,23 +115,17 @@ export default function MaxsulotBazasi() {
           if (category) globalData = globalData.filter(p => p.category === category);
           setProducts(globalData);
         }
-      } catch { /* tarmoq xatosi */ }
+      } catch {}
     }
   };
 
-  // ─── Narx yangilash ──────────────────────────────────────────────────
+  // ─── Narx yangilash ───────────────────────────────────────────────────
   const updatePrice = async (barcode: string, newPrice: number) => {
-    const updated = allProducts.map(p =>
-      p.barcode === barcode ? { ...p, price: newPrice } : p
-    );
+    const updated = allProducts.map(p => p.barcode === barcode ? { ...p, price: newPrice } : p);
     setAllProducts(updated);
     setProducts(applyFilter(searchText, selectedCategory, updated));
-
     const product = allProducts.find(p => p.barcode === barcode);
-    if (product) {
-      await saveToIDB({ ...product, price: newPrice, login });
-    }
-
+    if (product) await saveToIDB({ ...product, price: newPrice, login });
     if (navigator.onLine) {
       fetch('/api/update-price', {
         method: 'POST',
@@ -153,7 +140,7 @@ export default function MaxsulotBazasi() {
     }
   };
 
-  // ─── Mahsulot o'chirish ──────────────────────────────────────────────
+  // ─── Mahsulot o'chirish ───────────────────────────────────────────────
   const deleteProduct = async (barcode: string) => {
     if (!confirm(t('deleteConfirm'))) return;
     try {
@@ -161,12 +148,11 @@ export default function MaxsulotBazasi() {
       const updated = allProducts.filter(p => p.barcode !== barcode);
       setAllProducts(updated);
       setProducts(applyFilter(searchText, selectedCategory, updated));
-      toast.success(" Mahsulot o'chirildi", {
+      toast.success("Mahsulot o'chirildi", {
         position: 'top-right', autoClose: 3000,
         theme: theme === 'dark' ? 'dark' : 'light',
       });
     } catch (err) {
-      console.error("O'chirishda xato:", err);
       toast.error("O'chirishda xato yuz berdi", {
         position: 'top-right', autoClose: 3000,
         theme: theme === 'dark' ? 'dark' : 'light',
@@ -174,7 +160,7 @@ export default function MaxsulotBazasi() {
     }
   };
 
-  // ─── Qo'lda sync ─────────────────────────────────────────────────────
+  // ─── Qo'lda sync ──────────────────────────────────────────────────────
   const manualSync = async () => {
     if (!navigator.onLine) {
       toast.warning("Tarmoqdan uzilgan", {
@@ -183,29 +169,24 @@ export default function MaxsulotBazasi() {
       });
       return;
     }
-
     setSyncing(true);
-    
-
     const count = await syncPendingToMongoDB();
     const mongoProducts = await fetchFromMongoDB(login);
-    for (const p of mongoProducts) {
-      await saveToIDB({ ...p, login });
-    }
+    for (const p of mongoProducts) await saveToIDB({ ...p, login });
     await loadProducts();
     setSyncing(false);
-
-    toast.success(count > 0 ? ` ${count} ta sync bo'ldi` : " Barcha mahsulot saqlandi", {
+    toast.success(count > 0 ? `${count} ta sync bo'ldi` : "Barcha mahsulot saqlandi", {
       position: 'top-right', autoClose: 4000,
       theme: theme === 'dark' ? 'dark' : 'light',
     });
   };
 
   return (
-    <MainLayout theme={theme} userImage={userImage} title={t('productsDatabase')}>
-
-      
-
+    <MainLayout
+      theme={theme}
+      userImage={userImage}
+      title={t('productsDatabase')}
+    >
       {/* ── Filter ── */}
       <div className="filters-container">
         <div className="search-box">
@@ -249,32 +230,55 @@ export default function MaxsulotBazasi() {
               ) : products.length === 0 ? (
                 <tr><td colSpan={7} className="empty-state">{t('noData')}</td></tr>
               ) : (
-                products.map((p, i) => (
-                  <tr key={p._id || p.barcode}>
-                    <td className="text-center">{i + 1}</td>
-                    <td className="barcode-cell">{p.barcode}</td>
-                    <td className="name-cell">{p.name || '-'}</td>
-                    <td>
-                      <input
-                        type="number"
-                        className="table-input"
-                        value={p.price}
-                        onChange={e => updatePrice(p.barcode, Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="text-center font-medium">{p.quantity || 0}</td>
-                    <td>
-                      <span className="category-badge">
-                        {getCategoryEmoji(p.category)} {translateCategory(p.category, language)}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      <button className="delete-btn" onClick={() => deleteProduct(p.barcode)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                products.map((p, i) => {
+                  const qty = p.quantity ?? 0;
+                  const isOut  = qty === 0;
+                  const isWarn = qty > 0 && qty <= 5;
+                  const isCaut = qty > 5 && qty <= 10;
+                  return (
+                    <tr key={p._id || p.barcode} style={{
+                      background: isOut
+                        ? (theme === 'dark' ? 'rgba(239,68,68,0.06)' : '#fff5f5')
+                        : isWarn
+                        ? (theme === 'dark' ? 'rgba(249,115,22,0.04)' : '#fff7ed')
+                        : 'transparent',
+                    }}>
+                      <td className="text-center">{i + 1}</td>
+                      <td className="barcode-cell">{p.barcode}</td>
+                      <td className="name-cell">{p.name || '-'}</td>
+                      <td>
+                        <input
+                          type="number"
+                          className="table-input"
+                          value={p.price}
+                          onChange={e => updatePrice(p.barcode, Number(e.target.value))}
+                        />
+                      </td>
+                      <td className="text-center font-medium">
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          color: isOut ? '#ef4444' : isWarn ? '#f97316' : isCaut ? '#f59e0b' : 'inherit',
+                          fontWeight: isOut || isWarn ? 700 : 600,
+                        }}>
+                          {isOut && <span></span>}
+                          {isWarn && !isOut && <span></span>}
+                          {isCaut && <span></span>}
+                          {qty}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="category-badge">
+                          {getCategoryEmoji(p.category)} {translateCategory(p.category, language)}
+                        </span>
+                      </td>
+                      <td className="text-center">
+                        <button className="delete-btn" onClick={() => deleteProduct(p.barcode)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

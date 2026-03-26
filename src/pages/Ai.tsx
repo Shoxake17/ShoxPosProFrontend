@@ -2,16 +2,16 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Send, Trash2, User, ChevronDown, Check,
-  Zap, AlertCircle, RefreshCw, Database, MessageSquare,
-  Bot, Cpu, Layers, Sparkles, BrainCircuit, FlaskConical
+  Zap, AlertCircle, RefreshCw, Database,
+  Bot, Layers, BrainCircuit, FlaskConical
 } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
 
-// ─── Model ikonlari (lucide) ──────────────────────────────────────────────────
+// ─── Model ikonlari ───────────────────────────────────────────────────────────
 const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?: string }) => {
   const s = { width: size, height: size, color: color || 'currentColor' };
   switch (id) {
-    case 'deepseek':    return <Bot {...s} />;
+    case 'shox-ai':       return <Bot {...s} />;
     case 'llama-3.3-70b': return <BrainCircuit {...s} />;
     case 'llama-3.1-8b':  return <Zap {...s} />;
     case 'mixtral-8x7b':  return <Layers {...s} />;
@@ -20,74 +20,27 @@ const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?
   }
 };
 
-// ─── Barcha modellar ─────────────────────────────────────────────────────────
+// ─── Modellar ─────────────────────────────────────────────────────────────────
 const ALL_MODELS = [
-  {
-    id:         'shox-ai',
-    name:       'Shox AI',
-    provider:   'ShoxPosPro',
-    endpoint:   '/api/ask-deepseek',
-    groqModel:  null as string | null,
-    color:      '#6366f1',
-    badge:      'Asosiy',
-    group:      'Shox AI',
-  },
-  {
-    id:         'llama-3.3-70b',
-    name:       'LLaMA 3.3 · 70B',
-    provider:   'ShaddiyAi',
-    endpoint:   '/api/ask-groq-ai',
-    groqModel:  'llama-3.3-70b-versatile',
-    color:      '#f97316',
-    badge:      'Eng kuchli',
-    group:      'ShaddiyAi',
-  },
-  {
-    id:         'llama-3.1-8b',
-    name:       'LLaMA 3.1 · 8B',
-    provider:   'ShaddiyAi',
-    endpoint:   '/api/ask-groq-ai',
-    groqModel:  'llama-3.1-8b-instant',
-    color:      '#22c55e',
-    badge:      'Eng tez',
-    group:      'ShaddiyAi',
-  },
-  {
-    id:         'mixtral-8x7b',
-    name:       'Mixtral · 8×7B',
-    provider:   'ShaddiyAi',
-    endpoint:   '/api/ask-groq-ai',
-    groqModel:  'mixtral-8x7b-32768',
-    color:      '#a855f7',
-    badge:      '32K ctx',
-    group:      'ShaddiyAi',
-  },
-  {
-    id:         'gemma2-9b',
-    name:       'Gemma 2 · 9B',
-    provider:   'ShaddiyAi',
-    endpoint:   '/api/ask-groq-ai',
-    groqModel:  'gemma2-9b-it',
-    color:      '#3b82f6',
-    badge:      'Gemma2',
-    group:      'ShaddiyAi',
-  },
+  { id: 'shox-ai',       name: 'Shox AI',        provider: 'ShoxPosPro', endpoint: '/api/ask-deepseek',  groqModel: null as string|null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    },
+  { id: 'llama-3.3-70b', name: 'LLaMA 3.3 · 70B', provider: 'ShaddiyAi',  endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.3-70b-versatile', color: '#f97316', badge: 'Eng kuchli', group: 'ShaddiyAi' },
+  { id: 'llama-3.1-8b',  name: 'LLaMA 3.1 · 8B',  provider: 'ShaddiyAi',  endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.1-8b-instant',    color: '#22c55e', badge: 'Eng tez',    group: 'ShaddiyAi' },
+  { id: 'mixtral-8x7b',  name: 'Mixtral · 8×7B',  provider: 'ShaddiyAi',  endpoint: '/api/ask-groq-ai',  groqModel: 'mixtral-8x7b-32768',      color: '#a855f7', badge: '32K ctx',    group: 'ShaddiyAi' },
+  { id: 'gemma2-9b',     name: 'Gemma 2 · 9B',    provider: 'ShaddiyAi',  endpoint: '/api/ask-groq-ai',  groqModel: 'gemma2-9b-it',            color: '#3b82f6', badge: 'Gemma2',     group: 'ShaddiyAi' },
 ] as const;
 
 type ModelId = (typeof ALL_MODELS)[number]['id'];
 
 // ─── Tiplar ───────────────────────────────────────────────────────────────────
 type Message = {
-  role:       'user' | 'ai';
-  content:    string;
-  timestamp:  string;
-  ms?:        number;
-  isError?:   boolean;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp: string;
+  ms?: number;
+  isError?: boolean;
   errorCode?: number;
   storeMode?: boolean;
 };
-
-// Har bir model uchun alohida xabarlar massivi
 type ChatStore = Record<ModelId, Message[]>;
 
 interface SaleItem {
@@ -98,15 +51,19 @@ interface ProductItem {
   barcode?: string; name?: string; price?: number; basePrice?: number;
   quantity?: number; category?: string; sold?: number;
 }
+interface DebtItem {
+  id?: string; name?: string; phone?: string;
+  amount?: number; lastPayment?: string;
+}
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const getErrorMsg = (status?: number) => {
-  if (!navigator.onLine) return { icon: <AlertCircle size={13} />, title: "Internet yo'q",    desc: "Tarmoqni tekshiring." };
+  if (!navigator.onLine) return { icon: <AlertCircle size={13}/>, title: "Internet yo'q",    desc: "Tarmoqni tekshiring." };
   switch (status) {
-    case 429: return { icon: <AlertCircle size={13} />, title: "Limit tugadi",   desc: "Bir oz kuting." };
-    case 500: return { icon: <AlertCircle size={13} />, title: "Server xatosi",  desc: "Vaqtincha ishlamayapti." };
-    case 402: return { icon: <AlertCircle size={13} />, title: "Balans tugagan", desc: "Hisobni to'ldiring." };
-    default:  return { icon: <AlertCircle size={13} />, title: "Xatolik",        desc: "Qayta urinib ko'ring." };
+    case 429: return { icon: <AlertCircle size={13}/>, title: "Limit tugadi",   desc: "Bir oz kuting." };
+    case 500: return { icon: <AlertCircle size={13}/>, title: "Server xatosi",  desc: "Vaqtincha ishlamayapti." };
+    case 402: return { icon: <AlertCircle size={13}/>, title: "Balans tugagan", desc: "Hisobni to'ldiring." };
+    default:  return { icon: <AlertCircle size={13}/>, title: "Xatolik",        desc: "Qayta urinib ko'ring." };
   }
 };
 
@@ -122,37 +79,30 @@ function renderMd(text: string): string {
 }
 
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai':     [],
-  'llama-3.3-70b':[],
-  'llama-3.1-8b': [],
-  'mixtral-8x7b': [],
-  'gemma2-9b':    [],
+  'shox-ai': [], 'llama-3.3-70b': [], 'llama-3.1-8b': [], 'mixtral-8x7b': [], 'gemma2-9b': [],
 };
-
 function loadChats(): ChatStore {
   try { return JSON.parse(localStorage.getItem('ai_chats_v3') || 'null') || EMPTY_CHATS; }
   catch { return EMPTY_CHATS; }
 }
-function saveChats(c: ChatStore) {
-  localStorage.setItem('ai_chats_v3', JSON.stringify(c));
-}
+function saveChats(c: ChatStore) { localStorage.setItem('ai_chats_v3', JSON.stringify(c)); }
 
 // ─── Komponent ────────────────────────────────────────────────────────────────
 export default function Ai() {
   const navigate = useNavigate();
 
-  // ── Holat ────────────────────────────────────────────────────────────────
-  const [chats,       setChats]       = useState<ChatStore>(loadChats);
-  const [modelId,     setModelId]     = useState<ModelId>('shox-ai');
-  const [input,       setInput]       = useState('');
-  const [loading,     setLoading]     = useState(false);
-  const [dropOpen,    setDropOpen]    = useState(false);
-  const [useStore,    setUseStore]    = useState(false);
-  const [dataLoading, setDataLoading] = useState(false);
-  const [salesData,   setSalesData]   = useState<SaleItem[]>([]);
-  const [productsData,setProductsData]= useState<ProductItem[]>([]);
+  const [chats,        setChats]        = useState<ChatStore>(loadChats);
+  const [modelId,      setModelId]      = useState<ModelId>('shox-ai');
+  const [input,        setInput]        = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [dropOpen,     setDropOpen]     = useState(false);
+  const [useStore,     setUseStore]     = useState(false);
+  const [dataLoading,  setDataLoading]  = useState(false);
+  const [salesData,    setSalesData]    = useState<SaleItem[]>([]);
+  const [productsData, setProductsData] = useState<ProductItem[]>([]);
+  const [debtsData,    setDebtsData]    = useState<DebtItem[]>([]);
 
-  const [theme]     = useState<'dark'|'light'>(() => (localStorage.getItem('theme') as any)||'dark');
+  const [theme]     = useState<'dark'|'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
   const [userImage] = useState<string|null>(localStorage.getItem('userImage'));
 
   const bottomRef   = useRef<HTMLDivElement>(null);
@@ -162,11 +112,10 @@ export default function Ai() {
   const user  = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
   const login = user?.login || localStorage.getItem('login') || localStorage.getItem('currentLogin') || '';
 
-  // Joriy model va uning chati
   const activeModel = ALL_MODELS.find(m => m.id === modelId)!;
   const messages    = chats[modelId] || [];
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  // ── Lifecycle ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!login) { navigate('/'); return; }
     loadData();
@@ -177,85 +126,109 @@ export default function Ai() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [login]);
 
-  // Chat o'zgarganda saqlash + scroll
   useEffect(() => {
     saveChats(chats);
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chats]);
 
-  // Model o'zgarganda scroll
   useEffect(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
   }, [modelId]);
 
-  // ── Data ───────────────────────────────────────────────────────────────────
+  // ── Ma'lumotlarni yuklash ────────────────────────────────────────────────
   const loadData = async () => {
     if (!login) return;
     setDataLoading(true);
     try {
-      const [s, p] = await Promise.allSettled([
+      const [s, p, d] = await Promise.allSettled([
         fetch(`/api/sales/${login}`),
         fetch(`/api/products/user-products/${login}`),
+        fetch(`/api/debts/${login}`),
       ]);
       if (s.status === 'fulfilled' && s.value.ok) setSalesData(await s.value.json());
       if (p.status === 'fulfilled' && p.value.ok) setProductsData(await p.value.json());
+      if (d.status === 'fulfilled' && d.value.ok) { try { setDebtsData(await d.value.json()); } catch {} }
     } catch {}
     finally { setDataLoading(false); }
   };
 
-  // ── Kontekst ───────────────────────────────────────────────────────────────
+  // ── Kontekst yaratish ────────────────────────────────────────────────────
   const buildContext = useCallback((): string => {
-    const now = new Date();
+    const now  = new Date();
     const todayS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekS  = new Date(now); weekS.setDate(now.getDate() - 7);
     const monS   = new Date(now); monS.setDate(now.getDate() - 30);
-    const calc   = (arr: SaleItem[]) => ({
-      total:  arr.reduce((s,i)=>s+(i.total||0),0),
-      profit: arr.reduce((s,i)=>s+((i.price||0)-(i.basePrice||0))*(i.quantity||1),0),
-      qty:    arr.reduce((s,i)=>s+(i.quantity||0),0),
+
+    const calc = (arr: SaleItem[]) => ({
+      total:  arr.reduce((s, i) => s + (i.total || 0), 0),
+      profit: arr.reduce((s, i) => s + ((i.price || 0) - (i.basePrice || 0)) * (i.quantity || 1), 0),
+      qty:    arr.reduce((s, i) => s + (i.quantity || 0), 0),
     });
-    const t = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=todayS));
-    const w = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=weekS));
-    const m = calc(salesData.filter(s=>s.soldAt&&new Date(s.soldAt)>=monS));
-    const pMap=new Map<string,{name:string;total:number}>();
-    salesData.forEach(s=>{const k=s.barcode||s.name||'';const c=pMap.get(k)||{name:s.name||'',total:0};c.total+=s.total||0;pMap.set(k,c);});
-    const top=[...pMap.values()].sort((a,b)=>b.total-a.total).slice(0,10);
-    const low=productsData.filter(p=>(p.quantity||0)<10).slice(0,10);
-    const loss=productsData.filter(p=>(p.price||0)<(p.basePrice||0));
+    const t = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= todayS));
+    const w = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= weekS));
+    const m = calc(salesData.filter(s => s.soldAt && new Date(s.soldAt) >= monS));
+
+    const pMap = new Map<string, { name: string; total: number }>();
+    salesData.forEach(s => {
+      const k = s.barcode || s.name || '';
+      const c = pMap.get(k) || { name: s.name || '', total: 0 };
+      c.total += s.total || 0;
+      pMap.set(k, c);
+    });
+    const top  = [...pMap.values()].sort((a, b) => b.total - a.total).slice(0, 10);
+    const low  = productsData.filter(p => (p.quantity || 0) < 10).slice(0, 10);
+    const loss = productsData.filter(p => (p.price || 0) < (p.basePrice || 0));
+
+    // Qarzlar
+    const totalDebt = debtsData.reduce((s, d) => s + (d.amount || 0), 0);
+    const top5debts = [...debtsData].sort((a, b) => (b.amount || 0) - (a.amount || 0)).slice(0, 5);
+    const debtsLine = debtsData.length > 0
+      ? `${debtsData.length} ta | Umumiy: ${totalDebt.toLocaleString()} so'm | ${top5debts.map(d => `${d.name}(${(d.amount||0).toLocaleString()} so'm)`).join(', ')}`
+      : "Qarzdor yo'q ✅";
+
     return `=== ${login.toUpperCase()} DO'KONI ===
-BUGUN: ${t.total.toLocaleString()} so'm | Foyda ${t.profit.toLocaleString()} | ${t.qty} dona
+Sana: ${now.toLocaleDateString('uz-UZ')}
+BUGUN: ${t.total.toLocaleString()} so'm | Foyda ${t.profit.toLocaleString()} so'm | ${t.qty} dona
 7 KUN: ${w.total.toLocaleString()} so'm | ${w.qty} dona
 30 KUN: ${m.total.toLocaleString()} so'm | ${m.qty} dona
-TOP 10: ${top.map((p,i)=>`${i+1}.${p.name} ${p.total.toLocaleString()}`).join(' | ')}
-KAM ZAXIRA: ${low.length?low.map(p=>`${p.name}:${p.quantity||0}`).join(', '):'Yetarli'}
-ZARAR: ${loss.length?loss.map(p=>`${p.name}(sotuv:${p.price},xarid:${p.basePrice})`).join(', '):"Yo'q"}
-JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
-  }, [salesData, productsData, login]);
+TOP 10: ${top.map((p, i) => `${i + 1}.${p.name} ${p.total.toLocaleString()}`).join(' | ')}
+KAM ZAXIRA: ${low.length ? low.map(p => `${p.name}:${p.quantity || 0}`).join(', ') : 'Yetarli'}
+ZARAR: ${loss.length ? loss.map(p => `${p.name}(sotuv:${p.price},xarid:${p.basePrice})`).join(', ') : "Yo'q"}
+JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv
+QARZDORLAR: ${debtsLine}`;
+  }, [salesData, productsData, debtsData, login]);
 
-  // ── Xabar qo'shish helper ─────────────────────────────────────────────────
+  // ── Xabar helper ─────────────────────────────────────────────────────────
   const addMsg = (id: ModelId, msg: Message) =>
-    setChats(prev => ({ ...prev, [id]: [...(prev[id]||[]), msg] }));
+    setChats(prev => ({ ...prev, [id]: [...(prev[id] || []), msg] }));
 
-  // ── Yuborish ───────────────────────────────────────────────────────────────
+  // ── Yuborish ─────────────────────────────────────────────────────────────
   const send = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || loading) return;
 
-    const currentModelId = modelId; // snapshot
-
+    const currentModelId = modelId;
     addMsg(currentModelId, {
       role: 'user', content: text,
       timestamp: new Date().toISOString(), storeMode: useStore,
     });
     setInput('');
-    if (textareaRef.current) { textareaRef.current.style.height = 'auto'; }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setLoading(true);
 
     try {
       const model = ALL_MODELS.find(m => m.id === currentModelId)!;
-      const t0  = Date.now();
-      const body: Record<string,any> = { question: text, login, useStore };
+      const t0 = Date.now();
+      const body: Record<string, any> = { question: text, login, useStore };
       if (model.groqModel) body.groqModel = model.groqModel;
+
+      // Do'kon rejimida frontend kontekstini ham yuboramiz
+      if (useStore) {
+        const ctx = buildContext();
+        body.systemOverride = `Sen professional savdo tahlilchisi va biznes maslahatchisisisan.
+Faqat berilgan ma'lumotlarga asoslan, raqamlarni aniq ko'rsat, amaliy tavsiyalar ber.
+O'zbek tilida javob ber. Markdown formatidan foydalan.\n\n${ctx}`;
+      }
 
       const res = await fetch(model.endpoint, {
         method: 'POST',
@@ -290,7 +263,7 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
     setChats(prev => ({ ...prev, [modelId]: [] }));
   };
 
-  // ── Rang / tema ────────────────────────────────────────────────────────────
+  // ── Stil o'zgaruvchilar ───────────────────────────────────────────────────
   const dark   = theme === 'dark';
   const bg     = dark ? 'rgba(30,41,59,0.65)' : 'rgba(255,255,255,0.85)';
   const chatBg = dark ? 'rgba(15,23,42,0.45)' : '#f8fafc';
@@ -298,34 +271,29 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
   const tx     = dark ? '#e2e8f0' : '#1e293b';
   const sub    = dark ? '#64748b' : '#94a3b8';
   const card   = dark ? '#1e293b' : '#ffffff';
-
   const groups = ['Shox AI', 'ShaddiyAi'] as const;
+
+  // Do'kon rejimidagi tezkor savollar (qarzlar ham qo'shildi)
+  const quickQs = [
+    "Bugungi savdo?", "Top mahsulotlar", "Kam zaxira bor?",
+    "Oylik foyda", "Qarzdorlar ro'yxati", "Umumiy qarz summasi",
+  ];
 
   return (
     <MainLayout theme={theme} userImage={userImage} title="AI Tahlilchi">
-      <div style={{
-        width: '100%', height: 'calc(100vh - 160px)',
-        display: 'flex', flexDirection: 'column', gap: 12,
-      }}>
+      <div style={{ width: '100%', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* ── TOP BAR ────────────────────────────────────────────────────── */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
-        }}>
+        {/* ── TOP BAR ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
 
-          {/* Model dropdown trigger */}
+          {/* Model dropdown */}
           <div style={{ position: 'relative' }} ref={dropRef}>
-            <button
-              onClick={() => setDropOpen(o => !o)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 16px', borderRadius: 16, border: 'none', cursor: 'pointer',
-                background: bg, backdropFilter: 'blur(14px)',
-                color: tx, boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              }}
-            >
-              {/* Colored icon box */}
+            <button onClick={() => setDropOpen(o => !o)} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 16px', borderRadius: 16, border: 'none', cursor: 'pointer',
+              background: bg, backdropFilter: 'blur(14px)',
+              color: tx, boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 10, flexShrink: 0,
                 background: activeModel.color + '22',
@@ -334,25 +302,18 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
               }}>
                 <ModelIcon id={activeModel.id} size={18} color={activeModel.color} />
               </div>
-
               <div style={{ textAlign: 'left', minWidth: 0 }}>
                 <div style={{ fontSize: 10, opacity: .5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>Model</div>
                 <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>{activeModel.name}</div>
               </div>
-
-              {/* Badge (desktop) */}
               <span className="badge-desk" style={{
-                background: activeModel.color + '20',
-                color: activeModel.color,
-                padding: '3px 9px', borderRadius: 8,
-                fontSize: 11, fontWeight: 700,
+                background: activeModel.color + '20', color: activeModel.color,
+                padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700,
               }}>{activeModel.badge}</span>
-
               <ChevronDown size={15} color={sub}
                 style={{ transform: dropOpen ? 'rotate(180deg)' : 'none', transition: '.2s', flexShrink: 0 }} />
             </button>
 
-            {/* Dropdown */}
             {dropOpen && (
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', left: 0,
@@ -366,27 +327,22 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                   <div key={group}>
                     <div style={{
                       fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                      letterSpacing: 1.2, color: sub,
-                      padding: '8px 14px 4px',
+                      letterSpacing: 1.2, color: sub, padding: '8px 14px 4px',
                     }}>{group}</div>
-
                     {ALL_MODELS.filter(m => m.group === group).map(m => {
                       const isActive = modelId === m.id;
                       const msgCount = (chats[m.id] || []).filter(x => x.role === 'user').length;
                       return (
-                        <div
-                          key={m.id}
+                        <div key={m.id}
                           onClick={() => { setModelId(m.id); setDropOpen(false); }}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 12,
                             padding: '9px 12px', borderRadius: 13, cursor: 'pointer',
-                            background: isActive ? m.color + '18' : 'transparent',
-                            transition: '.15s',
+                            background: isActive ? m.color + '18' : 'transparent', transition: '.15s',
                           }}
-                          onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = dark?'#334155':'#f1f5f9'; }}
+                          onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = dark ? '#334155' : '#f1f5f9'; }}
                           onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
-                          {/* Icon */}
                           <div style={{
                             width: 34, height: 34, borderRadius: 10, flexShrink: 0,
                             background: m.color + (isActive ? '28' : '15'),
@@ -395,8 +351,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                           }}>
                             <ModelIcon id={m.id} size={17} color={m.color} />
                           </div>
-
-                          {/* Info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? m.color : tx }}>{m.name}</div>
                             <div style={{ fontSize: 10, color: sub, marginTop: 1 }}>
@@ -409,14 +363,10 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                               )}
                             </div>
                           </div>
-
-                          {/* Badge */}
                           <span style={{
                             background: m.color + '20', color: m.color,
-                            padding: '3px 8px', borderRadius: 7,
-                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                            padding: '3px 8px', borderRadius: 7, fontSize: 10, fontWeight: 700, flexShrink: 0,
                           }}>{m.badge}</span>
-
                           {isActive && <Check size={14} color={m.color} />}
                         </div>
                       );
@@ -427,10 +377,12 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
             )}
           </div>
 
-          {/* Right controls */}
+          {/* O'ng tugmalar */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 
-                      {/* Tozalash */}
+            
+
+            {/* Tozalash */}
             <button onClick={clearChat} title="Suhbatni tozalash" style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: dark ? 'rgba(239,68,68,0.1)' : '#fff1f2', border: 'none',
@@ -459,7 +411,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
             >
               {useStore ? <Database size={14} /> : <Bot size={14} />}
               <span className="hide-sm">{useStore ? "Do'kon ma'lumotlari" : 'Oddiy AI'}</span>
-              {/* Pill */}
               <div style={{
                 width: 32, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0,
                 background: useStore ? 'rgba(255,255,255,0.3)' : (dark ? '#334155' : '#cbd5e1'),
@@ -477,9 +428,7 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
           </div>
         </div>
 
-        
-
-        {/* ── CHAT OYNASI ────────────────────────────────────────────────── */}
+        {/* ── CHAT OYNASI ── */}
         <div style={{
           flex: 1, overflowY: 'auto', padding: '16px', borderRadius: 24,
           display: 'flex', flexDirection: 'column', gap: 12,
@@ -489,7 +438,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
           {/* Empty state */}
           {messages.length === 0 && (
             <div style={{ margin: 'auto', textAlign: 'center', color: sub, padding: '24px 16px' }}>
-              {/* Model icon big */}
               <div style={{
                 width: 64, height: 64, borderRadius: 20, margin: '0 auto 16px',
                 background: activeModel.color + '18',
@@ -499,18 +447,24 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
               }}>
                 <ModelIcon id={activeModel.id} size={32} color={activeModel.color} />
               </div>
-              <div style={{ fontSize: 13, color: sub, marginBottom: 4 }}>Assalomu alaykum, {login}</div>
+              <div style={{ fontSize: 13, color: sub, marginBottom: 4 }}>Assalomu alaykum,</div>
               <h2 style={{
-                margin: '0 0 6px', fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800,
-                color: activeModel.color,
-              }}>{activeModel.name}</h2>
+                margin: '0 0 4px',
+                fontSize: 'clamp(20px,4vw,28px)',
+                fontWeight: 800,
+                background: `linear-gradient(135deg, ${activeModel.color}, ${activeModel.color}99)`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>{login}!</h2>
               <p style={{ fontSize: 12, color: sub, marginBottom: 20 }}>
-                {useStore ? "Do'kon tahlil rejimi yoqilgan" : 'Istalgan savol bering'}
+                {useStore
+                  ? `Do'kon tahlil rejimi yoqilgan — ${salesData.length} sotuv, ${productsData.length} mahsulot, ${debtsData.length} qarzdor yuklandi`
+                  : 'Istalgan savol bering'}
               </p>
 
               {useStore && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {["Bugungi savdo?", "Top mahsulotlar", "Kam zaxira bor?", "Oylik foyda"].map(q => (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 520, margin: '0 auto' }}>
+                  {quickQs.map(q => (
                     <button key={q} onClick={() => send(q)} style={{
                       padding: '7px 14px', borderRadius: 12,
                       border: `1px solid ${bdr}`,
@@ -539,7 +493,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
               justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
               animation: 'fadeUp .22s ease',
             }}>
-              {/* Xato */}
               {msg.role === 'ai' && msg.isError ? (
                 <div style={{
                   maxWidth: 'min(82%, 520px)', padding: '12px 16px',
@@ -565,10 +518,8 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                   </button>
                 </div>
               ) : (
-                /* Oddiy xabar */
                 <div style={{
-                  maxWidth: 'min(82%, 560px)',
-                  padding: '11px 15px',
+                  maxWidth: 'min(82%, 560px)', padding: '11px 15px',
                   borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                   background: msg.role === 'user'
                     ? `linear-gradient(135deg, ${activeModel.color}, ${activeModel.color}bb)`
@@ -577,7 +528,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                   border: msg.role === 'ai' ? `1px solid ${bdr}` : 'none',
                   boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
                 }}>
-                  {/* AI header */}
                   {msg.role === 'ai' && (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 7,
@@ -602,7 +552,6 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
                     </div>
                   )}
 
-                  {/* User header */}
                   {msg.role === 'user' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, opacity: .7 }}>
                       <User size={11} />
@@ -646,15 +595,13 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
           <div ref={bottomRef} />
         </div>
 
-        {/* ── INPUT ──────────────────────────────────────────────────────── */}
+        {/* ── INPUT ── */}
         <div style={{
           display: 'flex', gap: 10,
           padding: '10px 10px 10px 18px', borderRadius: 22,
           background: card,
           border: `1px solid ${useStore ? '#10b98150' : bdr}`,
-          boxShadow: useStore
-            ? '0 0 0 2px rgba(16,185,129,0.07)'
-            : '0 8px 28px rgba(0,0,0,0.1)',
+          boxShadow: useStore ? '0 0 0 2px rgba(16,185,129,0.07)' : '0 8px 28px rgba(0,0,0,0.1)',
           transition: '.3s',
         }}>
           <textarea
@@ -663,7 +610,7 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder={useStore
-              ? `${activeModel.name} ga do'kon haqida so'rang...`
+              ? `${activeModel.name} ga do'kon, mahsulot yoki qarzlar haqida so'rang...`
               : `${activeModel.name} ga istalgan savol bering...`}
             rows={1}
             disabled={loading}
@@ -708,10 +655,9 @@ JAMI: ${productsData.length} mahsulot | ${salesData.length} sotuv`;
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${dark ? '#1e293b' : '#e2e8f0'}; border-radius: 4px; }
-
         @media (min-width: 580px) { .badge-desk { display: inline-flex !important; } }
-        @media (max-width: 440px) { .hide-xs  { display: none !important; } }
-        @media (max-width: 580px) { .hide-sm  { display: none !important; } }
+        @media (max-width: 440px) { .hide-xs { display: none !important; } }
+        @media (max-width: 580px) { .hide-sm { display: none !important; } }
       `}</style>
     </MainLayout>
   );

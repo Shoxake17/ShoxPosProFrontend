@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
-import { 
-  Menu as MenuIcon, User, Wifi, WifiOff, 
-  Battery, BatteryLow, BatteryMedium, BatteryFull, BatteryCharging 
-} from "lucide-react"; 
+import {
+  User, Wifi, WifiOff,
+  BatteryLow, BatteryMedium, BatteryFull, BatteryCharging
+} from "lucide-react";
 import { useResponsive } from "../hooks/useResponsive";
 import Notification from "./NotificationBar";
 
@@ -29,7 +29,7 @@ export default function MainLayout({
   handleImageUpload,
 }: LayoutProps) {
   const { isMobile, sidebarOpen, setSidebarOpen } = useResponsive();
-  
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [batteryLevel, setBatteryLevel] = useState<number>(100);
   const [isCharging, setIsCharging] = useState<boolean>(false);
@@ -66,10 +66,10 @@ export default function MainLayout({
   }, []);
 
   const getBatteryColor = () => {
-    if (isCharging) return "#22c55e"; 
-    if (batteryLevel > 50) return "#22c55e"; 
-    if (batteryLevel > 20) return "#eab308"; 
-    return "#ef4444"; 
+    if (isCharging) return "#22c55e";
+    if (batteryLevel > 50) return "#22c55e";
+    if (batteryLevel > 20) return "#eab308";
+    return "#ef4444";
   };
 
   const getBatteryIcon = () => {
@@ -85,17 +85,13 @@ export default function MainLayout({
       style={{
         background: theme === "dark" ? "#0a0e1a" : "#f8f9ff",
         minHeight: "100vh",
-        margin: -8, 
+        margin: -8,
         color: theme === "dark" ? "#fff" : "#1a1f2e",
         transition: "all 0.3s ease",
-        overflowX: "hidden" 
+        overflowX: "hidden",
       }}
     >
-      <Sidebar 
-        theme={theme} 
-        isOpen={sidebarOpen} 
-        setIsOpen={setSidebarOpen} 
-      />
+      <Sidebar theme={theme} isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
       <main
         style={{
@@ -104,7 +100,7 @@ export default function MainLayout({
           padding: isMobile ? "15px" : "30px",
           transition: "margin-left 0.3s ease",
           minHeight: "100vh",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
         }}
       >
         <header
@@ -116,28 +112,23 @@ export default function MainLayout({
             gap: isMobile ? 12 : 16,
             width: "100%",
             paddingLeft: isMobile && !sidebarOpen ? "48px" : "0px",
-            transition: "padding-left 0.3s ease"
+            transition: "padding-left 0.3s ease",
           }}
         >
           {/* Chap tomon: Sarlavha */}
-          <div style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            minWidth: 0, 
-            flexShrink: 1 
-          }}>
+          <div style={{ display: "flex", alignItems: "center", minWidth: 0, flexShrink: 1 }}>
             <h1
               style={{
-                fontSize: isMobile ? "22px" : "42px", 
+                fontSize: isMobile ? "22px" : "42px",
                 fontWeight: 800,
                 background: "linear-gradient(90deg,#3b82f6,#8b5cf6)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 margin: 0,
                 whiteSpace: "nowrap",
-                overflow: "hidden", 
+                overflow: "hidden",
                 textOverflow: "ellipsis",
-                lineHeight: isMobile ? "1.2" : "normal"
+                lineHeight: isMobile ? "1.2" : "normal",
               }}
             >
               {title}
@@ -150,17 +141,17 @@ export default function MainLayout({
               display: "flex",
               gap: isMobile ? "8px" : "16px",
               alignItems: "center",
-              flexShrink: 0 
+              flexShrink: 0,
             }}
           >
             {/* Batareya */}
-            <div 
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 padding: isMobile ? "5px 10px" : "10px",
                 borderRadius: "50px",
-                background: theme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
+                background: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
                 color: getBatteryColor(),
                 gap: isMobile ? "4px" : "8px",
                 fontWeight: "bold",
@@ -172,12 +163,12 @@ export default function MainLayout({
             </div>
 
             {/* Network */}
-            <div 
+            <div
               style={{
                 display: "flex",
                 padding: isMobile ? "7px" : "10px",
                 borderRadius: "50px",
-                background: isOnline ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                background: isOnline ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
                 color: isOnline ? "#22c55e" : "#ef4444",
               }}
             >
@@ -188,9 +179,10 @@ export default function MainLayout({
               )}
             </div>
 
+            {/* Notification — har doim o'zi yuklaydi */}
             <Notification theme={theme} />
 
-            {/* Profil - Har doim render bo'ladi, lekin mobilda ko'rinmaydi */}
+            {/* Profil */}
             <div
               onClick={() => !isMobile && document.getElementById("fileInput")?.click()}
               style={{
@@ -205,11 +197,10 @@ export default function MainLayout({
                 overflow: "hidden",
                 border: `2px solid ${theme === "dark" ? "#1a1f2e" : "#e2e8f0"}`,
                 flexShrink: 0,
-                // Mobilda layout joyini saqlab qolish uchun vizual yashirish
                 opacity: isMobile ? 0 : 1,
                 visibility: isMobile ? "hidden" : "visible",
                 pointerEvents: isMobile ? "none" : "auto",
-                transition: "all 0.3s ease"
+                transition: "all 0.3s ease",
               }}
             >
               {userImage ? (
