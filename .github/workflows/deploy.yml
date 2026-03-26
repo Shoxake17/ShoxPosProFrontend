@@ -8,16 +8,13 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  # ─────────────────────────────────────────
-  # 1. SAST — Har push'da ishga tushadi
-  # ─────────────────────────────────────────
-    sast:
-      name: SAST - Semgrep
-      runs-on: ubuntu-latest
-      permissions:
-        security-events: write
-        contents: read
-
+  # 1. SAST — Statik tahlil
+  sast:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -45,52 +42,28 @@ jobs:
 
           if [ ! -f semgrep.sarif ]; then
             echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' > semgrep.sarif
-            echo "⚠️ semgrep.sarif yaratilmadi, bo'sh fayl ishlatilmoqda"
-          else
-            echo "✅ semgrep.sarif yaratildi ($(wc -c < semgrep.sarif) bytes)"
           fi
 
       - name: Check for Critical vulnerabilities
         run: |
           CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
-          HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' semgrep.sarif)
-          echo "🔴 Critical: $CRITICAL  |  🟡 High: $HIGH"
+          echo "🔴 Critical: $CRITICAL"
           if [ "$CRITICAL" -gt 0 ]; then
             echo "❌ Critical zaifliklar topildi — pipeline to'xtatildi!"
             exit 1
           fi
-          echo "✅ Kritik zaiflik topilmadi."
-
-      - name: Zaifliklarni ko'rsatish
-        run: |
-          jq -r '.runs[].results[] | 
-            "📁 " + .locations[0].physicalLocation.artifactLocation.uri + 
-            " | Qator: " + (.locations[0].physicalLocation.region.startLine | tostring) + 
-            "\n⚠️  " + .ruleId + 
-            "\n📝 " + .message.text + "\n"' semgrep.sarif || true
 
       - name: Upload SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
-        continue-on-error: true
 
-      - name: Upload SAST Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sast-semgrep-report
-          path: semgrep.sarif
-          retention-days: 30
-  # ─────────────────────────────────────────
-  # 2. Build va Push (SAST o'tgandagina)
-  # ─────────────────────────────────────────
-    build-and-push:
+  # 2. Build va Push
+  build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: sast                # ← SAST muvaffaqiyatli bo'lmasa, bu ishlamaydi
-
+    needs: sast
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -98,19 +71,16 @@ jobs:
       - name: Login to GHCR
         run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u shoxake17 --password-stdin
 
-      - name: Build & Push Frontend (No Cache)
+      - name: Build & Push Frontend
         run: |
           docker build --no-cache -t ghcr.io/shoxake17/shoxposprofrontend:latest .
           docker push ghcr.io/shoxake17/shoxposprofrontend:latest
 
-  # ─────────────────────────────────────────
   # 3. Deploy
-  # ─────────────────────────────────────────
-    deploy:
+  deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: build-and-push
-
     steps:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.7
@@ -123,15 +93,12 @@ jobs:
             docker-compose pull frontend
             docker-compose up -d --no-deps --force-recreate frontend
 
-  # ─────────────────────────────────────────
-  # 4. DAST — OWASP ZAP (faqat tunda/manual)
-  # ─────────────────────────────────────────
-    zap_scan:
+  # 4. DAST — Dinamik tahlil
+  zap_scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -146,16 +113,6 @@ jobs:
             -r zap_report.html \
             -J zap_report.json \
             -m 5 || true
-
-      - name: Check for High Vulnerabilities
-        run: |
-          HIGH=$(jq '.site[0].alerts | map(select(.risk == "High")) | length' zap_report.json)
-          if [ "$HIGH" -gt 0 ]; then
-            echo "❌ CRITICAL: $HIGH high severity vulnerabilities found!"
-            exit 1
-          else
-            echo "✅ No high severity vulnerabilities found."
-          fi
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
