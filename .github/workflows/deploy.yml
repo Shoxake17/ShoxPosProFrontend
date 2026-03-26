@@ -12,11 +12,11 @@ jobs:
   # 1. SAST — Har push'da ishga tushadi
   # ─────────────────────────────────────────
     sast:
-    name: SAST - Semgrep
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      contents: read
+      name: SAST - Semgrep
+      runs-on: ubuntu-latest
+      permissions:
+        security-events: write
+        contents: read
 
     steps:
       - name: Checkout Code
