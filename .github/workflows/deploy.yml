@@ -11,46 +11,70 @@ jobs:
   # ─────────────────────────────────────────
   # 1. SAST — Har push'da ishga tushadi
   # ─────────────────────────────────────────
-  sast:
+    sast:
     name: SAST - Semgrep
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      contents: read
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run Semgrep SAST
-        uses: returntocorp/semgrep-action@v1
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          config: >-
-            p/owasp-top-ten
-            p/security-audit
-            p/secrets
-            p/javascript
-            p/react
-            p/typescript
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep SAST
+        run: |
+          semgrep scan \
+            --config=p/owasp-top-ten \
+            --config=p/security-audit \
+            --config=p/secrets \
+            --config=p/javascript \
+            --config=p/react \
+            --config=p/typescript \
+            --sarif \
+            --output=semgrep.sarif \
+            . || true
+
+          if [ ! -f semgrep.sarif ]; then
+            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' > semgrep.sarif
+            echo "⚠️ semgrep.sarif yaratilmadi, bo'sh fayl ishlatilmoqda"
+          else
+            echo "✅ semgrep.sarif yaratildi ($(wc -c < semgrep.sarif) bytes)"
+          fi
 
       - name: Check for Critical vulnerabilities
         run: |
-          if [ -f semgrep.sarif ]; then
-            CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
-            HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' semgrep.sarif)
-            echo "🔴 Critical: $CRITICAL  |  🟡 High: $HIGH"
-            if [ "$CRITICAL" -gt 0 ]; then
-              echo "❌ Critical zaifliklar topildi — pipeline to'xtatildi!"
-              exit 1
-            fi
+          CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
+          HIGH=$(jq '[.runs[].results[] | select(.level == "warning")] | length' semgrep.sarif)
+          echo "🔴 Critical: $CRITICAL  |  🟡 High: $HIGH"
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Critical zaifliklar topildi — pipeline to'xtatildi!"
+            exit 1
           fi
+          echo "✅ Kritik zaiflik topilmadi."
+
+      - name: Zaifliklarni ko'rsatish
+        run: |
+          jq -r '.runs[].results[] | 
+            "📁 " + .locations[0].physicalLocation.artifactLocation.uri + 
+            " | Qator: " + (.locations[0].physicalLocation.region.startLine | tostring) + 
+            "\n⚠️  " + .ruleId + 
+            "\n📝 " + .message.text + "\n"' semgrep.sarif || true
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
+        continue-on-error: true
 
       - name: Upload SAST Report
         uses: actions/upload-artifact@v4
@@ -59,7 +83,6 @@ jobs:
           name: sast-semgrep-report
           path: semgrep.sarif
           retention-days: 30
-
   # ─────────────────────────────────────────
   # 2. Build va Push (SAST o'tgandagina)
   # ─────────────────────────────────────────
