@@ -86,7 +86,7 @@ jobs:
   # ─────────────────────────────────────────
   # 2. Build va Push (SAST o'tgandagina)
   # ─────────────────────────────────────────
-  build-and-push:
+    build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: sast                # ← SAST muvaffaqiyatli bo'lmasa, bu ishlamaydi
