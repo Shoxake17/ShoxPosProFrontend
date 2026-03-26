@@ -59,6 +59,7 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep.sarif
+        continue-on-error: true
 
   # 2. Build va Push
   build-and-push:
