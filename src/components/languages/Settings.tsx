@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
+
 type Language = 'uz' | 'ru' | 'en';
 
 interface TranslationContextType {
@@ -108,6 +109,8 @@ const translations: Record<Language, Record<string, string>> = {
     KirimQoshish: "Kirim qo'shish",
     Narxi: "Narxi",
     Amal: "Amal",
+    general: "Umumiy",
+    visioncontrol: "Vizual boshqaruv",
     barchaKategoriyalar: "Barcha kategoriyalar",
     donVaUn: "🌾 Don va un",
     gosht: "🥩 Go'sht",
@@ -126,6 +129,118 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Kantselyariya mahsulotlari",
     uyHayvonlariUchunTovarlar: "🐶 Uy hayvonlari uchun tovarlar",
     dorilar: "💊 Dorilar",
+
+    // Hand Control (ShoxAi) component blog
+    handControlTitle: "ShoxAi Vizual Boshqaruv",
+    handControlDescription: "ShoxAi yordamida masofadan boshqarish",
+    handControlEnabled: "Qol bilan boshqarish yoqildi!",
+    handControlDisabled: "Qol bilan boshqarish o'chirildi.",
+    enabledStatus: "Yoqilgan",
+    disabledStatus: "O'chirilgan",
+
+    // ChangePassword 
+    changePasswordTitle: "Parolni o'zgartirish",
+    currentPasswordLabel: "Joriy parol",
+    newPasswordLabel: "Yangi parol",
+    confirmPasswordLabel: "Yangi parolni tasdiqlang",
+    cancelBtn: "Bekor qilish",
+    saveBtn: "O'zgartirish",
+    savingBtn: "Saqlanmoqda...",
+    errPasswordsNotMatch: "Yangi parollar mos emas",
+    errPasswordShort: "Parol kamida 6 belgidan iborat bo'lishi kerak",
+    errPasswordSame: "Yangi parol joriy paroldan farq qilishi kerak",
+    errFillAll: "Barcha maydonlarni to'ldiring",
+    errUserNotFound: "Foydalanuvchi ma'lumotlari topilmadi. Qayta kirish kerak",
+    successPasswordChanged: "Parol muvaffaqiyatli o'zgartirildi!",
+    errUnexpected: "Kutilmagan xato yuz berdi",
+    errNoConnection: "Server bilan aloqa yo'q. Internetni tekshiring",
+    errTimeout: "So'rov vaqti tugadi",
+
+    // Authentication component blog
+    authTitle: "Authenticator",
+    authDescription: "Google Authenticator ilovasi orqali kirish",
+    authSetupTitle: "Authenticator sozlash",
+    authStep1: "1. Google Authenticator ilovasini oching",
+    authStep2: "2. QR kodni skanerlang",
+    authEnterCode: "Google Authenticator ilovasida ko‘rsatilgan 6 raqamli kodni kiriting",
+    authDisableConfirmTitle: "Authenticator o'chirish",
+    authDisableConfirmMsg: "Authenticator autentifikatsiyasini o'chirmoqchimisiz?",
+    authDisabledSuccess: "Authenticator o'chirildi",
+    authEnabledSuccess: "Google Authenticator muvaffaqiyatli yoqildi!",
+    authCopyCode: "Kod nusxalandi!",
+    errCodeInvalid: "Kod noto'g'ri",
+    errEnter6Digit: "6 raqamli kodni kiriting",
+    next: "Keyingi",
+    back: "Orqaga",
+    verify: "Tasdiqlash",
+    loading: "Yuklanmoqda...",
+    verifying: "Tekshirilmoqda...",
+
+    // Session component blog
+    sessionKickedError: "Bu qurilma boshqa tomonidan chiqarib yuborildi!",
+    sessionKickedWarn: "⚠️ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz!",
+    sessionKickConfirm: "Tizimdan chiqarmoqchimisiz?",
+    sessionKickSuccess: "✅ Qurilma chiqarildi",
+    sessionCsrfExpired: "CSRF token muddati tugagan, yangilanmoqda...",
+    sessionKickError: "Qurilmani chiqarib bo'lmadi",
+    noDevicesFound: "Hech qanday faol qurilma topilmadi",
+    currentDeviceBadge: "Bu sizning qurilmangiz",
+    kickDeviceBtn: "Chiqarib yuborish",
+    kickingBtn: "Chiqarilmoqda...",
+    closeBtn: "Yopish",
+    onlineStatus: "● Onlayn",
+    unknownDevice: "Noma'lum qurilma",
+    // Export component blog
+    exportFormatTitle: "Eksport formatini tanlang",
+    exportQuestion: "Ma'lumotlarni qaysi formatda eksport qilmoqchisiz?",
+    excelFormat: "Excel (.xlsx)",
+    pdfFormat: "PDF formatida",
+    loadDataError: "Ma'lumotlarni yuklashda xato yuz berdi",
+    exportExcelSuccess: "Ma'lumotlar Excel formatida eksport qilindi",
+    exportPDFSuccess: "Ma'lumotlar PDF formatida eksport qilindi",
+    excelExportError: "Excel eksportda xato yuz berdi",
+    pdfExportError: "PDF eksportda xato yuz berdi",
+
+    // Backup component blog
+    noInternetSync: "Internet yo'q, sync amalga oshmadi",
+    syncingFromMongo: "MongoDB dan ma'lumotlar yuklanmoqda...",
+    syncSuccess: "mahsulot saqlandi",
+    syncAlreadyUpToDate: "Barcha ma'lumotlar allaqachon qurilmada mavjud",
+    syncError: "Sync amalga oshmadi, qayta urinib ko'ring",
+    downloadBtn: "Yuklab olish",
+    cancel: "Bekor qilish",
+
+    // Clear data component blog
+    clearDataModalTitle: "Ma'lumotlarni tozalash",
+    yesBtn: "Ha",
+    noBtn: "Yo'q",
+
+    // Profile component blog
+    nameLabel: "Ism",
+    namePlaceholder: "Ismingizni kiriting",
+    emailPlaceholder: "example@mail.com",
+    phoneLabel: "Telefon raqam",
+    phonePlaceholder: "+998 XX XXX XX XX",
+    editBtn: "Tahrirlash",
+    nameEmptyError: "Ism bo'sh bo'lmasligi kerak!",
+
+    // Logout component blog
+    logoutSuccess: "Tizimdan muvaffaqiyatli chiqdingiz",
+    logoutModalTitle: "Chiqish",
+
+    //context/HandTrackingContext component blog
+    stop: "To'xtatish",
+    start: "SHOXAI Yoqish",
+    errorContext: "HandTrackingProvider topilmadi!",
+    clickError: "[HandTracking] click xatosi:",
+
+    //SettingsAlert Message
+    sessionExpired: "Sessiya tugadi. Qayta kirish kerak.",
+    forceLogout: "Sizning ShoxPosPro ilovasidan chiqarib yuborildingiz",
+    languageChanged: "Til o'zgartirildi",
+
+    
+
   },
   ru: {
     settings: "Настройки",
@@ -145,6 +260,7 @@ const translations: Record<Language, Record<string, string>> = {
     security: "Безопасность",
     changePassword: "Изменить пароль",
     changePasswordDescription: "Обновите пароль вашей учетной записи",
+
     twoFactor: "Двухфакторная аутентификация",
     twoFactorDescription: "Дополнительная безопасность",
     devices: "Устройства",
@@ -181,7 +297,17 @@ const translations: Record<Language, Record<string, string>> = {
     biometricDisabled: "Биометрический вход отключен",
     confirmDisableBiometric: "Вы уверены, что хотите отключить биометрический вход?",
     emailDescription: "Войдите в ShoxPosPro с помощью вашего адреса электронной почты.",
-//    KirimBazasi: "База Входа",
+    
+    // Hand Control (ShoxAi)
+    handControlTitle: "Визуальное управление ShoxAi",
+    handControlDescription: "Управляйте удаленно с помощью ShoxAi",
+    handControlEnabled: "Управление жестами включено! Окно камеры активно.",
+    handControlDisabled: "Управление жестами отключено.",
+    enabledStatus: "Включено",
+    disabledStatus: "Отключено",
+    
+
+    // KirimBazasi
     KirimBazasi: "База Входа",
     chiqimNarxKiriting: "Введите цену выхода (сум):",
     narxNotogri: "Цена неверна",
@@ -212,6 +338,8 @@ const translations: Record<Language, Record<string, string>> = {
     KirimQoshish: "Добавить вход",
     Narxi: "Цена",
     Amal: "Действие",
+    general: "Общий",
+    visioncontrol: "Визуальное управление",
     barchaKategoriyalar: "Все категории",
     donVaUn: "🌾 Зерно и мука",
     gosht: "🥩 Мясо",
@@ -230,6 +358,110 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Канцелярские товары",
     uyHayvonlariUchunTovarlar: "🐶 Товары для домашних животных",
     dorilar: "💊 Лекарства",
+
+    // ChangePassword
+    changePasswordTitle: "Изменение пароля",
+    currentPasswordLabel: "Текущий пароль",
+    newPasswordLabel: "Новый пароль",
+    confirmPasswordLabel: "Подтвердите новый пароль",
+    cancelBtn: "Отмена",
+    saveBtn: "Изменить",
+    savingBtn: "Сохранение...",
+    errPasswordsNotMatch: "Новые пароли не совпадают",
+    errPasswordShort: "Пароль должен быть не менее 6 символов",
+    errPasswordSame: "Новый пароль должен отличаться от текущего",
+    errFillAll: "Пожалуйста, заполните все поля",
+    errUserNotFound: "Данные пользователя не найдены. Требуется повторный вход",
+    successPasswordChanged: "Пароль успешно изменен!",
+    errUnexpected: "Произошла непредвиденная ошибка",
+    errNoConnection: "Нет связи с сервером. Проверьте интернет",
+    errTimeout: "Время запроса истекло",
+
+    // Authentication component blog
+    authTitle: "Аутентификатор",
+    authDescription: "Вход через приложение Google Authenticator",
+    authSetupTitle: "Настройка Аутентификатора",
+    authStep1: "1. Откройте приложение Google Authenticator",
+    authStep2: "2. Отсканируйте QR-код",
+    authEnterCode: "Введите 6-значный код из приложения Google Authenticator",
+    authDisableConfirmTitle: "Отключить Аутентификатор",
+    authDisableConfirmMsg: "Вы уверены, что хотите отключить аутентификацию?",
+    authDisabledSuccess: "Аутентификатор отключен",
+    authEnabledSuccess: "Google Authenticator успешно включен!",
+    authCopyCode: "Код скопирован!",
+    errCodeInvalid: "Неверный код",
+    errEnter6Digit: "Введите 6-значный код",
+    next: "Далее",
+    back: "Назад",
+    verify: "Подтвердить",
+    loading: "Загрузка...",
+    verifying: "Проверка...",
+
+    // Session component blog
+    sessionKickedError: "Это устройство было удалено другим пользователем!",
+    sessionKickedWarn: "⚠️ Вы были вышли из системы с другого устройства!",
+    sessionKickConfirm: "Вы уверены, что хотите выйти из системы?",
+    sessionKickSuccess: "✅ Устройство удалено",
+    sessionCsrfExpired: "Срок действия CSRF-токена истек, обновление...",
+    sessionKickError: "Не удалось удалить устройство",
+    noDevicesFound: "Активных устройств не найдено",
+    currentDeviceBadge: "Это ваше устройство",
+    kickDeviceBtn: "Удалить устройство",
+    kickingBtn: "Удаление...",
+    closeBtn: "Закрыть",
+    onlineStatus: "● Онлайн",
+    unknownDevice: "Неизвестное устройство",
+      
+    // Export component blog
+    exportFormatTitle: "Выберите формат экспорта",
+    exportQuestion: "В каком формате вы хотите экспортировать данные?",
+    excelFormat: "Excel (.xlsx)",
+    pdfFormat: "Формат PDF",
+    loadDataError: "Ошибка при загрузке данных",
+    exportExcelSuccess: "Данные экспортированы в формате Excel",
+    exportPDFSuccess: "Данные экспортированы в формате PDF",
+    excelExportError: "Ошибка при экспорте в Excel",
+    pdfExportError: "Ошибка при экспорте в PDF",
+
+    // Backup component blog
+    noInternetSync: "Нет интернета, синхронизация не удалась",
+    syncingFromMongo: "Загрузка данных из MongoDB...",
+    syncSuccess: "продуктов сохранено",
+    syncAlreadyUpToDate: "Все данные уже есть на устройстве",
+    syncError: "Синхронизация не удалась, попробуйте еще раз",
+    downloadBtn: "Скачать данные",
+    cancel: "Отмена",
+
+    // Clear data component blog
+    clearDataModalTitle: "Очистить данные",
+    yesBtn: "Да",
+    noBtn: "Нет",
+    
+    // Profile component blog
+    nameLabel: "Имя",
+    namePlaceholder: "Введите ваше имя",
+    emailPlaceholder: "example@mail.com",
+    phoneLabel: "Номер телефона",
+    phonePlaceholder: "+998 XX XXX XX XX",
+    editBtn: "Редактировать",
+    nameEmptyError: "Имя не может быть пустым!",
+
+    // Logout component blog
+    logoutSuccess: "Вы успешно вышли из системы",
+    logoutModalTitle: "Выход",
+
+    //context/HandTrackingContext component blog
+    stop: "Остановить",
+    start: "Включить SHOXAI",
+    errorContext: "HandTrackingProvider не найден!",
+    clickError: "[HandTracking] ошибка клика:",
+
+    //SettingsAlertMessage 
+    sessionExpired: "Сессия истекла. Необходимо войти снова.",
+    forceLogout: "Вы были выгнаны из приложения ShoxPosPro",
+    languageChanged: "Язык изменён",
+
+
   },
   en: {
     settings: "Settings",
@@ -334,6 +566,112 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Stationery",
     uyHayvonlariUchunTovarlar: "🐶 Pet products",
     dorilar: "💊 Medicines",
+    handControlTitle: "Visual Control ShoxAi",
+    handControlDescription: "Control remotely with ShoxAi",
+    handControlEnabled: "Hand control enabled! Camera window is active.",
+    handControlDisabled: "Hand control disabled.",
+    enabledStatus: "Enabled",
+    disabledStatus: "Disabled",
+    general: "General",
+    visioncontrol: "Visual Control",
+// ChangePassword
+    changePasswordTitle: "Change Password",
+    currentPasswordLabel: "Current Password",
+    newPasswordLabel: "New Password",
+    confirmPasswordLabel: "Confirm New Password",
+    cancelBtn: "Cancel",
+    saveBtn: "Change",
+    savingBtn: "Saving...",
+    errPasswordsNotMatch: "New passwords do not match",
+    errPasswordShort: "Password must be at least 6 characters long",
+    errPasswordSame: "New password must be different from current password",
+    errFillAll: "Please fill in all fields",
+    errUserNotFound: "User data not found. Re-login required",
+    successPasswordChanged: "Password changed successfully!",
+    errUnexpected: "An unexpected error occurred",
+    errNoConnection: "No connection to server. Check your internet",
+    errTimeout: "Request timed out",
+    // Authentication component blog
+    authTitle: "Authenticator",
+    authDescription: "Login via Google Authenticator app",
+    authSetupTitle: "Authenticator Setup",
+    authStep1: "1. Open the Google Authenticator app",
+    authStep2: "2. Scan the QR code",
+    authEnterCode: "Enter the 6-digit code from the Google Authenticator app",
+    authDisableConfirmTitle: "Disable Authenticator",
+    authDisableConfirmMsg: "Are you sure you want to disable authenticator authentication?",
+    authDisabledSuccess: "Authenticator disabled",
+    authEnabledSuccess: "Google Authenticator successfully",
+    authCopyCode: "Code copied!",
+    errCodeInvalid: "Invalid code",
+    errEnter6Digit: "Please enter a 6-digit code",
+    next: "Next",
+    back: "Back",
+    verify: "Verify",
+    loading: "Loading...",
+    verifying: "Verifying...",
+
+    // Session component blog
+    sessionKickedError: "This device has been kicked out by another user!",
+    sessionKickedWarn: "⚠️ You have been logged out from another device!",
+    sessionKickConfirm: "Do you want to log out this device?",
+    sessionKickSuccess: "✅ Device removed",
+    sessionCsrfExpired: "CSRF token expired, refreshing...",
+    sessionKickError: "Could not remove device",
+    noDevicesFound: "No active devices found",
+    currentDeviceBadge: "This is your device",
+    kickDeviceBtn: "Kick out",
+    kickingBtn: "Kicking...",
+    closeBtn: "Close",
+    onlineStatus: "● Online",
+    unknownDevice: "Unknown device",
+    exportFormatTitle: "Select Export Format",
+    exportQuestion: "Which format would you like to export the data in?",
+    excelFormat: "Excel (.xlsx)",
+    pdfFormat: "PDF Format",
+    loadDataError: "Error loading data",
+    exportExcelSuccess: "Data exported in Excel format",
+    exportPDFSuccess: "Data exported in PDF format",
+    excelExportError: "Error during Excel export",
+    pdfExportError: "Error during PDF export",
+
+    // Backup component blog
+    noInternetSync: "No internet, sync failed",
+    syncingFromMongo: "Loading data from MongoDB...",
+    syncSuccess: "products saved",
+    syncAlreadyUpToDate: "All data is already on the device",
+    syncError: "Sync failed, please try again",
+    downloadBtn: "Download data",
+    cancel: "Cancel",
+
+    // Clear Data component blog
+    clearDataModalTitle: "Clear Data",
+    yesBtn: "Yes",
+    noBtn: "No",
+    
+    // Profile component blog
+    nameLabel: "Name",
+    namePlaceholder: "Enter your name",
+    emailPlaceholder: "example@mail.com",
+    phoneLabel: "Phone number",
+    phonePlaceholder: "+998 XX XXX XX XX",
+    editBtn: "Edit",
+    nameEmptyError: "Name cannot be empty!",
+
+    // Logout component blog
+    logoutSuccess: "Successfully logged out",
+    logoutModalTitle: "Logout",
+
+    //context/HandTrackingContext component blog
+    stop: "Stop",
+    start: "Enable SHOXAI",
+    errorContext: "HandTrackingProvider not found!",
+    clickError: "[HandTracking] click error:",
+
+    //SettingsAlertMessage
+    sessionExpired: "Session expired. Please log in again.",
+    forceLogout: "You have been logged out of ShoxPosPro",
+    languageChanged: "Language changed",
   }
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from "../components/MainLayout";
 import { useResponsive } from "../hooks/useResponsive";
@@ -32,55 +32,59 @@ function QarzlarContent() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [loading, setLoading] = useState(true);
 
-  // Modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Qarz | null>(null);
   const [paymentAmountInput, setPaymentAmountInput] = useState('');
   const [modalType, setModalType] = useState<'input' | 'success' | 'error' | null>(null);
   const [modalMessage, setModalMessage] = useState<string | null>(null);
 
-  const currentLogin = localStorage.getItem('currentLogin');
-  const login = currentLogin || '';
+  // ✅ login — bir marta o'qiladi, ref sifatida saqlanadi
+  const loginRef = useRef<string>(
+    localStorage.getItem('currentLogin') || ''
+  );
+  const login = loginRef.current;
 
-  // Auth check
+  // ✅ navigate ref
+  const navigateRef = useRef(navigate);
+  useEffect(() => { navigateRef.current = navigate; }, [navigate]);
+
+  // ✅ Auth check — bir marta
   useEffect(() => {
-    if (!currentLogin) {
-      navigate('/login');
-    }
-  }, [currentLogin, navigate]);
+    if (!login) navigateRef.current('/login');
+  }, []); // bo'sh — faqat mount
 
-  // Theme & Profile Image
+  // ✅ Theme & image — bir marta
   useEffect(() => {
     const savedTheme = (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
-
     const savedImage = localStorage.getItem('userImage');
     if (savedImage) setUserImage(savedImage);
   }, []);
 
-  // Fetch Debts
+  // ✅ fetchDebts — bo'sh dependency (login ref orqali, navigate ref orqali)
   const fetchDebts = useCallback(async () => {
-    if (!login) return;
+    if (!loginRef.current) return;
     try {
-      const res = await fetch(`/api/debts/${login}`);
+      const res = await fetch(`/api/debts/${loginRef.current}`);
       if (res.ok) {
         const data = await res.json();
         setQarzlar(data);
       } else if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('currentLogin');
-        navigate('/login');
+        navigateRef.current('/login');
       }
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [login, navigate]);
+  }, []); // ✅ bo'sh — login/navigate ref orqali, hech qachon qayta yaratilmaydi
 
+  // ✅ Bir marta yuklash
   useEffect(() => {
     fetchDebts();
-  }, [fetchDebts]);
+  }, []); // ✅ bo'sh — fetchDebts endi o'zgarmaydi
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -145,7 +149,7 @@ function QarzlarContent() {
         setModalType('error');
         setModalMessage(t('paymentError'));
       }
-    } catch (err) {
+    } catch {
       setModalType('error');
       setModalMessage(t('serverConnectionError'));
     }
@@ -164,11 +168,7 @@ function QarzlarContent() {
       const res = await fetch(`/api/debts/${login}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone,
-          amount: Number(amount)
-        })
+        body: JSON.stringify({ name: name.trim(), phone, amount: Number(amount) })
       });
 
       if (res.ok) {
@@ -182,7 +182,7 @@ function QarzlarContent() {
         setModalMessage(t('addDebtError'));
         setShowPaymentModal(true);
       }
-    } catch (err) {
+    } catch {
       setModalType('error');
       setModalMessage(t('serverConnectionError'));
       setShowPaymentModal(true);
@@ -190,7 +190,6 @@ function QarzlarContent() {
   };
 
   const umumiyQarz = qarzlar.reduce((sum, q) => sum + q.amount, 0);
-  const ortachaQarz = qarzlar.length > 0 ? Math.round(umumiyQarz / qarzlar.length) : 0;
 
   if (loading) {
     return (
@@ -204,36 +203,21 @@ function QarzlarContent() {
 
   return (
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("debts")}>
-      {/* Stats Section */}
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <StatCard 
-            icon={<TrendingUp size={20} color="#ef4444" />} 
-            title={t("totalDebt")} 
-            value={`${umumiyQarz.toLocaleString()} ${t('currencyUnit')}`} 
-            color="#ef4444" 
-            theme={theme} 
-        />
-        <StatCard 
-            icon={<Users size={20} color="#667eea" />} 
-            title={t("debtorsCount")} 
-            value={qarzlar.length.toString()} 
-            color="#667eea" 
-            theme={theme} 
-        />
-       
+        <StatCard icon={<TrendingUp size={20} color="#ef4444" />} title={t("totalDebt")} value={`${umumiyQarz.toLocaleString()} ${t('currencyUnit')}`} color="#ef4444" theme={theme} />
+        <StatCard icon={<Users size={20} color="#667eea" />} title={t("debtorsCount")} value={qarzlar.length.toString()} color="#667eea" theme={theme} />
       </div>
 
-      {/* Form Section */}
+      {/* Form */}
       <div style={{ background: theme === 'dark' ? '#1a1f2e' : '#fff', borderRadius: '16px', padding: '28px', marginBottom: '32px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>
-          {t("addNewDebt")}
-        </h3>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("addNewDebt")}</h3>
         <form onSubmit={qarzQoshish}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
             <InputGroup label={t("name")} value={name} onChange={setName} placeholder={t("enterDebtorName")} theme={theme} />
             <InputGroup label={t("phone")} value={phone} onChange={(val) => {
-                 const formatted = val.replace(/[^\d+]/g, '');
-                 setPhone(formatted.startsWith('+') ? formatted : '+' + formatted);
+              const formatted = val.replace(/[^\d+]/g, '');
+              setPhone(formatted.startsWith('+') ? formatted : '+' + formatted);
             }} placeholder="+998..." type="tel" theme={theme} />
             <InputGroup label={t("debtAmount")} value={amount} onChange={setAmount} placeholder={`0 ${t('currencyUnit')}`} type="number" theme={theme} />
           </div>
@@ -243,12 +227,9 @@ function QarzlarContent() {
         </form>
       </div>
 
-      {/* Table Section */}
+      {/* Table */}
       <div style={{ background: theme === 'dark' ? '#1a1f2e' : '#fff', borderRadius: '16px', padding: '28px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>
-          {t("debtorsList")}
-        </h3>
-
+        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("debtorsList")}</h3>
         {qarzlar.length === 0 ? (
           <EmptyState theme={theme} text={t("noDebtsYet")} />
         ) : (
@@ -283,12 +264,16 @@ function QarzlarContent() {
         )}
       </div>
 
-      {/* Global Modal Component */}
+      {/* Modal */}
       {showPaymentModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ background: theme === 'dark' ? '#1a1f2e' : '#ffffff', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>
             <div className="modal-header">
-              <h2>{modalType === 'input' ? t('paymentPrompt', { name: selectedDebt?.name || '', amount: selectedDebt?.amount.toLocaleString() || '' }) : modalType === 'success' ? t('success') : t('error')}</h2>
+              <h2>
+                {modalType === 'input'
+                  ? t('paymentPrompt', { name: selectedDebt?.name || '', amount: selectedDebt?.amount.toLocaleString() || '' })
+                  : modalType === 'success' ? t('success') : t('error')}
+              </h2>
               <button onClick={closeModal} className="close-btn"><X size={24} /></button>
             </div>
             <div className="modal-body">
@@ -338,14 +323,13 @@ function QarzlarContent() {
   );
 }
 
-// Yordamchi kichik komponentlar (Kod tozaligi uchun)
 const StatCard = ({ icon, title, value, color, theme }: any) => (
   <div style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)' : '#fff', borderRadius: '16px', padding: '24px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
       <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
       <span style={{ fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{title}</span>
     </div>
-    <div style={{ fontSize: '24px', fontWeight: 700, color: color }}>{value}</div>
+    <div style={{ fontSize: '24px', fontWeight: 700, color }}>{value}</div>
   </div>
 );
 
@@ -353,25 +337,14 @@ const InputGroup = ({ label, value, onChange, placeholder, type = "text", theme 
   <div>
     <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{label}</label>
     <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{
-        width: '100%', padding: '12px 16px', background: theme === 'dark' ? '#0f1420' : '#f8f9ff',
-        border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, borderRadius: '12px',
-        color: theme === 'dark' ? '#fff' : '#1a1f2e', outline: 'none', boxSizing: 'border-box'
-      }}
+      type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      style={{ width: '100%', padding: '12px 16px', background: theme === 'dark' ? '#0f1420' : '#f8f9ff', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, borderRadius: '12px', color: theme === 'dark' ? '#fff' : '#1a1f2e', outline: 'none', boxSizing: 'border-box' }}
     />
   </div>
 );
 
 const Th = ({ label, align, theme, isFirst, isLast }: any) => (
-  <th style={{
-    padding: '14px 16px', textAlign: align, fontSize: '13px', fontWeight: 600,
-    color: theme === 'dark' ? '#8b92a7' : '#64748b',
-    borderRadius: isFirst ? '12px 0 0 12px' : isLast ? '0 12px 12px 0' : '0'
-  }}>{label}</th>
+  <th style={{ padding: '14px 16px', textAlign: align, fontSize: '13px', fontWeight: 600, color: theme === 'dark' ? '#8b92a7' : '#64748b', borderRadius: isFirst ? '12px 0 0 12px' : isLast ? '0 12px 12px 0' : '0' }}>{label}</th>
 );
 
 const EmptyState = ({ theme, text }: any) => (

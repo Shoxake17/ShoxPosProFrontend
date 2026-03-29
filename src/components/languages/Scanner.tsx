@@ -52,7 +52,20 @@ const translations: Record<Language, Record<string, string>> = {
     paymePaymentSoon: "Payme orqali to'lov tez orada",
     uzumPaymentSoon: "Uzum Bank orqali to'lov tez orada",
     printerCheck: "Printer",
-    printReceipt: "Printerdan chek chop etish"
+    printReceipt: "Printerdan chek chop etish",
+
+    // ── PrinterButton matnlari ──────────────────────────────
+    printerConnecting: "Printerga ulanmoqda...",
+    receiptPreparing: "Chek tayyorlanmoqda...",
+    receiptPrinted: "Chek chop etildi ✓",
+    printing: "Chop etilmoqda...",
+    ready: "Tayyor",
+    printReceiptTitle: "Chek Chop Etish",
+    pleaseWait: "Iltimos kuting",
+    qrCashbackReceipt: "QR cashback bilan chek",
+    connectionFailed: "Ulanib bo'lmadi",
+    errorPrefix: "Xato",
+    noPrinterSelected: "Printer tanlanmadi. Iltimos, USB printeringizni ulang va qaytadan bosing.",
   },
   ru: {
     searching: "Поиск...",
@@ -100,8 +113,21 @@ const translations: Record<Language, Record<string, string>> = {
     clickPaymentSoon: "Оплата через Click скоро",
     paymePaymentSoon: "Оплата через Payme скоро",
     uzumPaymentSoon: "Оплата через Uzum Bank скоро",
-    printerCheck: "Bыбить чек на принтере",
-    printReceipt: "Pаспечатать чек"
+    printerCheck: "Выбить чек на принтере",
+    printReceipt: "Распечатать чек",
+
+    // ── PrinterButton matnlari ──────────────────────────────
+    printerConnecting: "Подключение к принтеру...",
+    receiptPreparing: "Подготовка чека...",
+    receiptPrinted: "Чек напечатан ✓",
+    printing: "Печать...",
+    ready: "Готово",
+    printReceiptTitle: "Печать чека",
+    pleaseWait: "Пожалуйста, подождите",
+    qrCashbackReceipt: "Чек с QR кэшбэком",
+    connectionFailed: "Не удалось подключиться",
+    errorPrefix: "Ошибка",
+    noPrinterSelected: "Принтер не выбран. Подключите USB-принтер и нажмите снова.",
   },
   en: {
     searching: "Searching...",
@@ -150,8 +176,20 @@ const translations: Record<Language, Record<string, string>> = {
     paymePaymentSoon: "Payment via Payme soon",
     uzumPaymentSoon: "Payment via Uzum Bank soon",
     printerCheck: "PrinterCheck",
-    printReceipt: "Print a receipt"
+    printReceipt: "Print a receipt",
 
+    // ── PrinterButton matnlari ──────────────────────────────
+    printerConnecting: "Connecting to printer...",
+    receiptPreparing: "Preparing receipt...",
+    receiptPrinted: "Receipt printed ✓",
+    printing: "Printing...",
+    ready: "Ready",
+    printReceiptTitle: "Print Receipt",
+    pleaseWait: "Please wait",
+    qrCashbackReceipt: "Receipt with QR cashback",
+    connectionFailed: "Could not connect",
+    errorPrefix: "Error",
+    noPrinterSelected: "No printer selected. Please connect your USB printer and try again.",
   }
 };
 

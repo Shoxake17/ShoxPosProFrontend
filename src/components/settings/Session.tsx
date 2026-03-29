@@ -1,11 +1,13 @@
-// components/settings/Session.tsx
+// src/components/settings/Session.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Smartphone, ChevronRight, Laptop, Tablet, MapPin, Globe } from "lucide-react";
-import axiosInstance from '../../api/axiosInstance';
+import { Smartphone, ChevronRight, Laptop, Tablet } from "lucide-react";
+import axiosInstance, { getMemoryCsrfToken } from '../../api/axiosInstance'; // ✅ getMemoryCsrfToken import
 import { useTranslation } from '../../components/languages/Settings';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { getSocket } from '../../utils/socket';
 
+// ✅ sessionStorage ustunligi — localStorage fallback
 const getCurrentDeviceId = (): string =>
   sessionStorage.getItem('deviceId') || localStorage.getItem('deviceId') || '';
 
@@ -25,26 +27,23 @@ const formatDate = (dateStr: string) => {
   } catch { return dateStr; }
 };
 
-// ✅ CSRF token olish va localStorage ga saqlash
-const getCsrfToken = async (): Promise<string> => {
-  try {
-    const res = await axiosInstance.get('/csrf-token');
-    const token = res.data.csrfToken || res.data.token || '';
-    
-    // ✅ localStorage ga saqlash
-    if (token) {
-      localStorage.setItem('csrfToken', token);
-      console.log('✅ CSRF token saqlandi:', token.substring(0, 10) + '...');
-    }
-    
-    return token;
-  } catch (err) {
-    console.error('❌ CSRF token olishda xato:', err);
-    return '';
-  }
+// ✅ getCsrfToken() — BUTUNLAY O'CHIRILDI
+// ✅ localStorage.setItem('csrfToken') — O'CHIRILDI
+// ✅ getMemoryCsrfToken() — axiosInstance dan ishlatiladi
+
+const forceLogout = (message: string, theme: 'dark' | 'light') => {
+  toast.error(message, {
+    position: 'top-right', autoClose: 5000,
+    theme: theme === 'dark' ? 'dark' : 'light',
+  });
+  // ✅ Faqat device ma'lumotlari tozalanadi
+  localStorage.removeItem('deviceId');
+  sessionStorage.removeItem('deviceId');
+  sessionStorage.removeItem('currentUser');
+  setTimeout(() => { window.location.href = '/login'; }, 3000);
 };
 
-// ─── Modal ────────────────────────────────────────────────────────────────
+// ─── DevicesModal ──────────────────────────────────────────────────────────
 function DevicesModal({
   isOpen, onClose, theme,
 }: {
@@ -53,39 +52,31 @@ function DevicesModal({
   theme: 'dark' | 'light';
 }) {
   const { t } = useTranslation();
-  const [devices, setDevices] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [devices, setDevices]               = useState<any[]>([]);
+  const [loading, setLoading]               = useState(true);
   const [kickingDeviceId, setKickingDeviceId] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMounted = useRef(false);
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchDevices = async () => {
     try {
       const res = await axiosInstance.get('/user-devices');
       if (!isMounted.current) return;
 
-      const activeDevices = (res.data.devices || []).filter((d: any) => d.isActive === true);
+      const activeDevices  = (res.data.devices || []).filter((d: any) => d.isActive === true);
       const currentDeviceId = getCurrentDeviceId();
-      const isStillActive = activeDevices.some((d: any) => d.deviceId === currentDeviceId);
+      const isStillActive  = activeDevices.some((d: any) => d.deviceId === currentDeviceId);
 
       if (currentDeviceId && !isStillActive && activeDevices.length > 0) {
         if (pollRef.current) clearInterval(pollRef.current);
-        toast.error("Bu qurilma boshqa tomonidan chiqarib yuborildi!", {
-          position: 'top-right', autoClose: 5000,
-          theme: theme === 'dark' ? 'dark' : 'light',
-        });
-        localStorage.removeItem('deviceId');
-        sessionStorage.removeItem('deviceId');
-        sessionStorage.removeItem('currentUser');
-        setTimeout(() => { window.location.href = '/login'; }, 3000);
+        forceLogout(t('sessionKickedError'), theme);
         return;
       }
 
       setDevices(activeDevices);
     } catch (err: any) {
-      if (err.response?.status !== 401) {
-        console.error('Qurilmalarni yuklashda xato:', err.message);
-      }
+      // ✅ console.error O'CHIRILDI — faqat 401 bo'lmasa silent xato
+      if (err.response?.status === 401) return; // token muddati o'tgan — silent
     }
   };
 
@@ -93,78 +84,91 @@ function DevicesModal({
     if (!isOpen) {
       isMounted.current = false;
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      setDevices([]);
       return;
     }
 
     isMounted.current = true;
     setLoading(true);
-    
-    // ✅ Modal ochilganda CSRF token ni olish va saqlash
-    getCsrfToken().catch(err => console.error('CSRF token xatosi:', err));
-    
-    fetchDevices().finally(() => { if (isMounted.current) setLoading(false); });
 
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(fetchDevices, 5000);
+    const load = async () => {
+      await fetchDevices();
+      if (isMounted.current) setLoading(false);
+    };
+    load();
+
+    // ✅ 15 soniyada bir polling — modal ochiq bo'lganda
+    pollRef.current = setInterval(() => {
+      if (isMounted.current) fetchDevices();
+    }, 15000);
 
     return () => {
       isMounted.current = false;
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleKick = async (deviceId: string, deviceName: string) => {
-    if (!confirm(t('Tizimdan chiqarmoqchimisiz'))) return;
+    if (!confirm(t('sessionKickConfirm'))) return;
     setKickingDeviceId(deviceId);
+
     try {
-      // ✅ CSRF token ni olish (localStorage dan yoki yangi)
-      let csrfToken = localStorage.getItem('csrfToken');
-      
-      // Agar token yo'q bo'lsa, yangisini olish
-      if (!csrfToken) {
-        csrfToken = await getCsrfToken();
-      }
-      
-      await axiosInstance.post('/kick-device',
+      // ✅ CSRF — memory dan olinadi (localStorage YO'Q, getCsrfToken() YO'Q)
+      const csrfToken = getMemoryCsrfToken() ?? '';
+
+      await axiosInstance.post(
+        '/kick-device',
         { deviceId },
-        { headers: { 'X-CSRF-Token': csrfToken, 'CSRF-Token': csrfToken } }
+        { headers: { 'CSRF-Token': csrfToken } } // ✅ faqat bitta nom
       );
+
       setDevices(prev => prev.filter(d => d.deviceId !== deviceId));
-      toast.success(`✅ Qurilma chiqarildi: ${deviceName}`, {
+      toast.success(`${t('sessionKickSuccess')}: ${deviceName}`, {
         position: 'top-right', autoClose: 4000,
         theme: theme === 'dark' ? 'dark' : 'light',
       });
       await fetchDevices();
+
     } catch (err: any) {
-      const message = err.response?.data?.message || '';
-      if (err.response?.status === 403 && message.includes('CSRF')) {
-        // ✅ CSRF xatosi bo'lsa, yangi token olish va qayta urinish
-        toast.warning("CSRF token muddati tugagan, yangilanmoqda...", {
+      // ✅ console.error O'CHIRILDI
+      const status  = err.response?.status;
+      const message = err.response?.data?.message ?? '';
+
+      // ✅ CSRF muddati o'tgan — bir marta retry (server yangi token beradi)
+      if (status === 403 && message.includes('CSRF')) {
+        toast.warning(t('sessionCsrfExpired'), {
           position: 'top-right', autoClose: 2000,
           theme: theme === 'dark' ? 'dark' : 'light',
         });
-        
+
         try {
-          const newToken = await getCsrfToken();
-          await axiosInstance.post('/kick-device',
+          // ✅ Yangi CSRF token serverdan olinadi — axiosInstance interceptor qaytaradi
+          const retryRes = await axiosInstance.get('/csrf-token');
+          const newToken: string = retryRes.data?.csrfToken ?? retryRes.data?.token ?? '';
+
+          await axiosInstance.post(
+            '/kick-device',
             { deviceId },
-            { headers: { 'X-CSRF-Token': newToken, 'CSRF-Token': newToken } }
+            { headers: { 'CSRF-Token': newToken } } // ✅ faqat bitta nom
           );
+
           setDevices(prev => prev.filter(d => d.deviceId !== deviceId));
-          toast.success(`✅ Qurilma chiqarildi: ${deviceName}`, {
+          toast.success(`${t('sessionKickSuccess')}: ${deviceName}`, {
             position: 'top-right', autoClose: 4000,
             theme: theme === 'dark' ? 'dark' : 'light',
           });
           await fetchDevices();
-        } catch (retryErr: any) {
-          toast.error(retryErr.response?.data?.message || "Qurilmani chiqarib bo'lmadi", {
-            position: 'top-right', autoClose: 5000,
+        } catch {
+          // ✅ console.error O'CHIRILDI
+          toast.error(t('sessionKickError'), {
+            position: 'top-right', autoClose: 4000,
             theme: theme === 'dark' ? 'dark' : 'light',
           });
         }
+
       } else {
-        toast.error(message || "Qurilmani chiqarib bo'lmadi", {
-          position: 'top-right', autoClose: 5000,
+        toast.error(t('sessionKickError'), {
+          position: 'top-right', autoClose: 4000,
           theme: theme === 'dark' ? 'dark' : 'light',
         });
       }
@@ -174,7 +178,6 @@ function DevicesModal({
   };
 
   if (!isOpen) return null;
-
   const currentDeviceId = getCurrentDeviceId();
 
   return (
@@ -182,7 +185,7 @@ function DevicesModal({
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, backdropFilter: 'blur(8px)',
+        zIndex: 1000, backdropFilter: 'blur(8px)'
       }}
       onClick={onClose}
     >
@@ -192,11 +195,10 @@ function DevicesModal({
           background: theme === 'dark'
             ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
             : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
-          borderRadius: '24px', padding: '40px',
-          width: '90%', maxWidth: '620px',
+          borderRadius: '24px', padding: '40px', width: '90%', maxWidth: '620px',
           border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
           boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-          maxHeight: '80vh', overflowY: 'auto',
+          maxHeight: '80vh', overflowY: 'auto'
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -207,11 +209,11 @@ function DevicesModal({
 
         {loading ? (
           <p style={{ textAlign: 'center', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>
-            Yuklanmoqda...
+            {t('loading')}
           </p>
         ) : devices.length === 0 ? (
           <p style={{ textAlign: 'center', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>
-            Hech qanday faol qurilma topilmadi
+            {t('noDevicesFound')}
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -222,12 +224,12 @@ function DevicesModal({
                 return 0;
               })
               .map(device => {
-                const isCurrentDevice = device.deviceId === currentDeviceId;
-                const isBeingKicked = kickingDeviceId === device.deviceId;
-
-                const deviceDisplayName = device.deviceModel
-                  || `${device.deviceOS || ''} ${device.deviceType || ''}`.trim()
-                  || "Noma'lum qurilma";
+                const isCurrentDevice  = device.deviceId === currentDeviceId;
+                const isBeingKicked    = kickingDeviceId === device.deviceId;
+                const deviceDisplayName =
+                  device.deviceModel ||
+                  `${device.deviceOS || ''} ${device.deviceType || ''}`.trim() ||
+                  t('unknownDevice');
 
                 return (
                   <div
@@ -237,95 +239,66 @@ function DevicesModal({
                       background: theme === 'dark' ? '#0f1420' : '#f8f9ff',
                       border: `1px solid ${isCurrentDevice ? '#10b98150' : (theme === 'dark' ? '#2a3144' : '#e2e8f0')}`,
                       display: 'flex', alignItems: 'flex-start', gap: '14px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)', position: 'relative',
-                      opacity: isBeingKicked ? 0.5 : 1, transition: 'opacity 0.3s ease',
+                      opacity: isBeingKicked ? 0.5 : 1, transition: 'opacity 0.3s ease'
                     }}
                   >
-                    {/* ICON */}
+                    {/* Qurilma ikonkasi */}
                     <div style={{
                       color: isCurrentDevice ? '#10b981' : '#667eea',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
-                      marginTop: '2px',
-                      background: isCurrentDevice ? 'rgba(16,185,129,0.1)' : 'rgba(102,126,234,0.1)',
+                      background: isCurrentDevice ? 'rgba(16,185,129,0.1)' : 'rgba(102,126,234,0.1)'
                     }}>
                       {getDeviceIcon(device.deviceType, device.deviceOS)}
                     </div>
 
-                    {/* MA'LUMOTLAR */}
+                    {/* Qurilma ma'lumotlari */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{
                         fontSize: '14px', fontWeight: 600, margin: '0 0 2px',
-                        color: theme === 'dark' ? '#fff' : '#1a1f2e',
-                        display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
+                        color: theme === 'dark' ? '#fff' : '#1a1f2e'
                       }}>
                         {deviceDisplayName}
                       </h3>
-
-                      <p style={{ fontSize: '12px', color: theme === 'dark' ? '#8b92a7' : '#64748b', margin: '2px 0' }}>
+                      <p style={{
+                        fontSize: '12px', color: theme === 'dark' ? '#8b92a7' : '#64748b', margin: '2px 0'
+                      }}>
                         {[device.deviceOS, device.browser].filter(Boolean).join(' · ')}
                       </p>
-
-                      {device.location && (
-                        <p style={{
-                          fontSize: '12px', color: theme === 'dark' ? '#667eea' : '#4f46e5',
-                          margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                          <MapPin size={11} />
-                          {device.location}
-                        </p>
-                      )}
-
-                      {device.ip && (
-                        <p style={{
-                          fontSize: '11px', color: theme === 'dark' ? '#4a5168' : '#94a3b8',
-                          margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                          <Globe size={10} />
-                          {device.ip}
-                        </p>
-                      )}
-
                       <p style={{
-                        fontSize: '12px', color: theme === 'dark' ? '#8b92a7' : '#64748b',
-                        margin: '4px 0 2px',
+                        fontSize: '12px', color: theme === 'dark' ? '#8b92a7' : '#64748b', margin: '4px 0 2px'
                       }}>
                         {formatDate(device.lastLogin)}
                       </p>
-
-                      <span style={{ fontSize: '11px', color: '#4caf50', fontWeight: 600 }}>● Onlayn</span>
+                      <span style={{ fontSize: '11px', color: '#4caf50', fontWeight: 600 }}>
+                        {t('onlineStatus')}
+                      </span>
                     </div>
 
-                    {/* JORIY QURILMA BADGE */}
-                    {isCurrentDevice && (
+                    {/* Badge yoki Kick tugmasi */}
+                    {isCurrentDevice ? (
                       <div style={{
-                        position: 'absolute', top: '40px', right: '8px',
-                        fontSize: '14px', color: '#10b981', fontWeight: 600,
-                        background: 'rgba(16,185,129,0.1)', padding: '7px 15px', borderRadius: '50px',
+                        fontSize: '12px', color: '#10b981', fontWeight: 600,
+                        background: 'rgba(16,185,129,0.1)', padding: '6px 12px',
+                        borderRadius: '50px', alignSelf: 'center'
                       }}>
-                        Bu sizning qurilmangiz
+                        {t('currentDeviceBadge')}
                       </div>
-                    )}
-
-                    {/* KICK TUGMASI */}
-                    {!isCurrentDevice && (
+                    ) : (
                       <button
                         onClick={() => handleKick(device.deviceId, deviceDisplayName)}
                         disabled={isBeingKicked}
                         style={{
                           padding: '8px 14px', alignSelf: 'center',
-                          background: isBeingKicked ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.1)',
-                          color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)',
-                          borderRadius: '8px', cursor: isBeingKicked ? 'not-allowed' : 'pointer',
-                          fontSize: '13px', fontWeight: 600, minWidth: '130px', flexShrink: 0,
-                          whiteSpace: 'nowrap',
+                          background: '#ef444415', color: '#ef4444',
+                          border: '1px solid #ef444430', borderRadius: '8px',
+                          cursor: isBeingKicked ? 'not-allowed' : 'pointer',
+                          fontSize: '13px', fontWeight: 600, minWidth: '120px'
                         }}
                       >
-                        {isBeingKicked ? 'Chiqarilmoqda...' : 'Chiqarib yuborish'}
+                        {isBeingKicked ? t('kickingBtn') : t('kickDeviceBtn')}
                       </button>
                     )}
-
-                    {isCurrentDevice && <div style={{ width: '130px', flexShrink: 0 }} />}
                   </div>
                 );
               })}
@@ -339,10 +312,10 @@ function DevicesModal({
               padding: '12px 32px',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: '#fff', border: 'none', borderRadius: '12px',
-              fontSize: '16px', fontWeight: 600, cursor: 'pointer',
+              fontSize: '16px', fontWeight: 600, cursor: 'pointer'
             }}
           >
-            Yopish
+            {t('closeBtn')}
           </button>
         </div>
       </div>
@@ -353,47 +326,42 @@ function DevicesModal({
 // ─── Session kartasi ───────────────────────────────────────────────────────
 interface SessionProps {
   theme: 'dark' | 'light';
-  t: (key: string) => string;
   hoveredSetting: string | null;
   setHoveredSetting: React.Dispatch<React.SetStateAction<string | null>>;
   idx: string;
 }
 
-const Session: React.FC<SessionProps> = ({ theme, t, hoveredSetting, setHoveredSetting, idx }) => {
+const Session: React.FC<SessionProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const tRef     = useRef(t);
+  const themeRef = useRef(theme);
 
-  // ✅ Komponent mount bo'lganda CSRF token ni olish
-  useEffect(() => {
-    getCsrfToken().catch(err => console.error('Initial CSRF token xatosi:', err));
-  }, []);
+  useEffect(() => { tRef.current = t; }, [t]);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
 
+  // ✅ getCsrfToken() useEffect — O'CHIRILDI (memory dan avtomatik olinadi)
+
+  // ✅ Socket — faqat bir marta, forceLogout tinglash
   useEffect(() => {
-    const checkIfKicked = async () => {
-      const currentDeviceId = getCurrentDeviceId();
-      if (!currentDeviceId) return;
-      try {
-        const res = await axiosInstance.get('/user-devices');
-        const activeDevices = (res.data.devices || []).filter((d: any) => d.isActive === true);
-        const isStillActive = activeDevices.some((d: any) => d.deviceId === currentDeviceId);
-        if (activeDevices.length > 0 && !isStillActive) {
-          toast.error("⚠️ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz!", {
-            position: 'top-right', autoClose: 5000,
-            theme: theme === 'dark' ? 'dark' : 'light',
-          });
-          localStorage.removeItem('deviceId');
-          sessionStorage.removeItem('deviceId');
-          sessionStorage.removeItem('currentUser');
-          setTimeout(() => { window.location.href = '/login'; }, 3000);
-        }
-      } catch { }
+    const socket = getSocket();
+
+    const handleForceLogout = (data: { reason?: string }) => {
+      // ✅ console.log O'CHIRILDI — stack trace chiqmasin
+      forceLogout(
+        data?.reason ?? tRef.current('sessionKickedWarn'),
+        themeRef.current
+      );
     };
 
-    const interval = setInterval(() => {
-      if (!isOpen) checkIfKicked();
-    }, 15000);
+    // ✅ Avval o'chirish — takrorlanmaslik uchun
+    socket.off('forceLogout', handleForceLogout);
+    socket.on('forceLogout', handleForceLogout);
 
-    return () => clearInterval(interval);
-  }, [isOpen, theme]);
+    return () => {
+      socket.off('forceLogout', handleForceLogout);
+    };
+  }, []); // ✅ Bo'sh — bir marta ishga tushadi
 
   return (
     <>
@@ -405,11 +373,11 @@ const Session: React.FC<SessionProps> = ({ theme, t, hoveredSetting, setHoveredS
           background: theme === 'dark'
             ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
             : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
-          borderRadius: '16px', padding: '20px',
+          borderRadius: '16px', padding: '20px', cursor: 'pointer',
+          transition: 'all 0.3s ease',
           border: hoveredSetting === idx
             ? '1px solid #667eea'
             : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
-          cursor: 'pointer', transition: 'all 0.3s ease',
           transform: hoveredSetting === idx ? 'translateY(-2px)' : 'translateY(0)',
           boxShadow: hoveredSetting === idx ? '0 8px 24px rgba(102,126,234,0.2)' : 'none',
         }}
@@ -418,7 +386,8 @@ const Session: React.FC<SessionProps> = ({ theme, t, hoveredSetting, setHoveredS
           <div style={{
             width: '40px', height: '40px', borderRadius: '10px',
             background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
-            color: '#667eea', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            color: '#667eea', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', flexShrink: 0
           }}>
             <Smartphone size={20} />
           </div>
@@ -430,15 +399,15 @@ const Session: React.FC<SessionProps> = ({ theme, t, hoveredSetting, setHoveredS
               {t('devicesDescription')}
             </p>
           </div>
-          <ChevronRight size={20} color={theme === 'dark' ? '#8b92a7' : '#64748b'} style={{ flexShrink: 0, marginTop: '10px' }} />
+          <ChevronRight
+            size={20}
+            color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+            style={{ flexShrink: 0, marginTop: '10px' }}
+          />
         </div>
       </div>
 
-      <DevicesModal
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        theme={theme}
-      />
+      <DevicesModal isOpen={isOpen} onClose={() => setIsOpen(false)} theme={theme} />
     </>
   );
 };

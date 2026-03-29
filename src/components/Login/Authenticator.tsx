@@ -1,379 +1,332 @@
-// Authenticator.tsx - Google Authenticator va 2FA moduli
-
+// src/components/Login/Authenticator.tsx
 import { useState } from 'react';
 import { getFullDeviceInfo } from '../../utils/deviceUtils';
+import { getMemoryCsrfToken } from '../../api/axiosInstance';
 
-interface AuthenticatorState {
-  show2FAInput: boolean;
-  showGoogleAuthInput: boolean;
-  twoFactorCode: string;
-  googleAuthCode: string;
-}
+// ═══════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════
 
-interface AuthenticatorResponse {
-  success: boolean;
-  requiresGoogleAuth?: boolean;
-  requires2FA?: boolean;
+export interface AuthenticatorResponse {
+  success:                  boolean;
+  requiresGoogleAuth?:      boolean;
+  requires2FA?:             boolean;
   requires2FAAfterConfirm?: boolean;
-  message?: string;
-  user?: any;
-  activeDevice?: any;
+  message?:                 string;
+  user?:                    any;
+  activeDevice?:            any;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER — fetch wrapper (axiosInstance o'rniga native fetch,
+// chunki login hali cookie siz ketadi)
+// ═══════════════════════════════════════════════════════════════
 
 /**
- * Authenticator hook - 2FA va Google Auth uchun
+ * CSRF tokenni memory dan oladi.
+ * axiosInstance.ts dan export qilingan getter.
+ * Bu fayl axiosInstance import qiladi — circular emas,
+ * chunki axiosInstance Authenticator ni import qilmaydi.
  */
+
+// getMemoryCsrfToken — axiosInstance.ts dan import qilinadi
+// (yuqorida import qilingan)
+
+// ═══════════════════════════════════════════════════════════════
+// HOOK
+// ═══════════════════════════════════════════════════════════════
+
 export const useAuthenticator = () => {
-  const [show2FAInput, setShow2FAInput] = useState(false);
+  const [show2FAInput,        setShow2FAInput]        = useState(false);
   const [showGoogleAuthInput, setShowGoogleAuthInput] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  const [googleAuthCode, setGoogleAuthCode] = useState("");
+  const [twoFactorCode,       setTwoFactorCode]       = useState("");
+  const [googleAuthCode,      setGoogleAuthCode]      = useState("");
 
-  /**
-   * 2FA kodini tozalash
-   */
-  const clear2FACode = () => {
-    setTwoFactorCode("");
-    setShow2FAInput(false);
-  };
+  // ─── Tozalash ─────────────────────────────────────────────────────────────
+  const clear2FACode = () => { setTwoFactorCode(""); setShow2FAInput(false); };
+  const clearGoogleAuthCode = () => { setGoogleAuthCode(""); setShowGoogleAuthInput(false); };
+  const clearAllCodes = () => { clear2FACode(); clearGoogleAuthCode(); };
 
-  /**
-   * Google Auth kodini tozalash
-   */
-  const clearGoogleAuthCode = () => {
-    setGoogleAuthCode("");
-    setShowGoogleAuthInput(false);
-  };
+  // ─── Setter — faqat raqamlar, max 6 ta ───────────────────────────────────
+  const handleSet2FACode       = (v: string) => setTwoFactorCode(v.replace(/\D/g, "").slice(0, 6));
+  const handleSetGoogleAuthCode = (v: string) => setGoogleAuthCode(v.replace(/\D/g, "").slice(0, 6));
 
+  // ═══════════════════════════════════════════════════════════════
+  // submitLoginWithAuth — asosiy login so'rovi
+  // ═══════════════════════════════════════════════════════════════
   /**
-   * Barcha kodlarni tozalash
-   */
-  const clearAllCodes = () => {
-    clear2FACode();
-    clearGoogleAuthCode();
-  };
-
-  /**
-   * 2FA kodini o'rnatish (faqat raqamlar, max 6 ta)
-   */
-  const handleSet2FACode = (value: string) => {
-    const cleaned = value.replace(/\D/g, "").slice(0, 6);
-    setTwoFactorCode(cleaned);
-  };
-
-  /**
-   * Google Auth kodini o'rnatish (faqat raqamlar, max 6 ta)
-   */
-  const handleSetGoogleAuthCode = (value: string) => {
-    const cleaned = value.replace(/\D/g, "").slice(0, 6);
-    setGoogleAuthCode(cleaned);
-  };
-
-  /**
-   * Login so'rovini yuborish (2FA/Google Auth bilan)
+   * ✅ csrfToken — endi optional EMAS.
+   *    Agar argument berilmasa, memory dan olinadi.
+   *    localStorage ga HECH QACHON murojaat qilinmaydi.
+   *
+   * ✅ ip va location — O'CHIRILDI.
+   *    Server req.ip va ip-api/MaxMind orqali o'zi aniqlaydi.
+   *    Clientdan kelgan ip ga server ishonmasligi kerak.
+   *
+   * ✅ deviceId — sessionStorage → localStorage ketma-ketligida olinadi.
+   *    Login.tsx da yozilgan, bu yerda faqat o'qiladi.
    */
   const submitLoginWithAuth = async (
     login: string,
     password: string,
-    csrfToken?: string
+    // csrfToken argument sifatida ham qabul qilinadi (Login.tsx bilan moslik),
+    // lekin berilmasa memory dan olinadi — ikkalasi ham ishlaydi.
+    _csrfTokenArg?: string,
   ): Promise<AuthenticatorResponse> => {
     try {
-      const deviceId = localStorage.getItem("deviceId");
+      // deviceId — sessionStorage ustunligi bor (Login.tsx da shu tartibda yozilgan)
+      const deviceId =
+        sessionStorage.getItem("deviceId") ??
+        localStorage.getItem("deviceId");
+
       if (!deviceId) {
-        return { success: false, message: "DeviceId topilmadi" };
+        return { success: false, message: "Qurilma identifikatori topilmadi" };
       }
 
       const info = await getFullDeviceInfo();
-      const body: any = {
-  login,
-  password,
-  deviceId,
-  deviceType:  info.deviceType,
-  deviceOS:    info.deviceOS,
-  deviceModel: info.deviceModel,  // ← yangi: "Samsung Galaxy S21"
-  location:    info.location,     // ← yangi: "Toshkent, O'zbekiston"
-  ip:          info.ip,           // ← yangi: "91.185.x.x"
-};
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
+
+      const body: Record<string, unknown> = {
+        login:       login.trim().toLowerCase(),
+        password,
+        deviceId,
+        deviceType:  info.deviceType,
+        deviceOS:    info.deviceOS,
+        deviceModel: info.deviceModel,
+        // ❌ ip: info.ip           — O'CHIRILDI (server req.ip ishlatadi)
+        // ❌ location: info.location — O'CHIRILDI (server ip-api/MaxMind)
       };
 
-      if (csrfToken) {
-        headers["CSRF-Token"] = csrfToken;
-      }
-
-      // 2FA kod qo'shish
-      if (show2FAInput && twoFactorCode) {
+      // 2FA kod
+      if (show2FAInput && twoFactorCode.length === 6) {
         body.twoFactorCode = twoFactorCode;
       }
 
-      // Google Auth kod qo'shish
-      if (showGoogleAuthInput && googleAuthCode) {
+      // Google Auth kod
+      if (showGoogleAuthInput && googleAuthCode.length === 6) {
         body.googleAuthCode = googleAuthCode;
       }
 
+      // CSRF token — argument → memory — biri bo'lishi shart
+      const csrfToken = _csrfTokenArg || getMemoryCsrfToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (csrfToken) {
+        headers["CSRF-Token"] = csrfToken;
+        // ❌ "X-CSRF-Token" ikkinchi nom O'CHIRILDI
+      }
+
       const response = await fetch("/api/login", {
-        method: "POST",
-        credentials: 'include',
+        method:      "POST",
+        credentials: "include", // HttpOnly cookie avtomatik yuboriladi
         headers,
-        body: JSON.stringify(body),
+        body:        JSON.stringify(body),
       });
 
-      const data = await response.json();
+      // response.json() xatosi uchun himoya
+      let data: Record<string, unknown> = {};
+      try {
+        data = await response.json();
+      } catch {
+        return { success: false, message: "Server javobini o'qib bo'lmadi" };
+      }
 
-      // Response qaytarish
       return {
-        success: response.ok && data.success,
-        requiresGoogleAuth: data.requiresGoogleAuth,
-        requires2FA: data.requires2FA,
-        requires2FAAfterConfirm: data.requires2FAAfterConfirm,
-        message: data.message,
-        user: data.user,
-        activeDevice: data.activeDevice
+        success:                 response.ok && !!data.success,
+        requiresGoogleAuth:      data.requiresGoogleAuth      as boolean | undefined,
+        requires2FA:             data.requires2FA             as boolean | undefined,
+        requires2FAAfterConfirm: data.requires2FAAfterConfirm as boolean | undefined,
+        message:                 data.message                 as string  | undefined,
+        user:                    data.user,
+        activeDevice:            data.activeDevice,
       };
 
-    } catch (error) {
-      console.error("❌ Login with auth error:", error);
-      return {
-        success: false,
-        message: "Server bilan bog'lanib bo'lmadi"
-      };
+    } catch {
+      // ❌ console.error("❌ Login with auth error:", error) — O'CHIRILDI
+      // Stack trace va error details tashqariga chiqmasin
+      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
-  /**
-   * 2FA kodini tekshirish va yuborish
-   */
+  // ─── verify2FACode ────────────────────────────────────────────────────────
   const verify2FACode = async (
     login: string,
     password: string,
-    csrfToken?: string
+    csrfToken?: string,
   ): Promise<AuthenticatorResponse> => {
     if (twoFactorCode.length !== 6) {
-      return {
-        success: false,
-        message: "2FA kod 6 ta raqamdan iborat bo'lishi kerak"
-      };
+      return { success: false, message: "2FA kod 6 ta raqamdan iborat bo'lishi kerak" };
     }
-
-    return await submitLoginWithAuth(login, password, csrfToken);
+    return submitLoginWithAuth(login, password, csrfToken);
   };
 
-  /**
-   * Google Auth kodini tekshirish va yuborish
-   */
+  // ─── verifyGoogleAuthCode ─────────────────────────────────────────────────
   const verifyGoogleAuthCode = async (
     login: string,
     password: string,
-    csrfToken?: string
+    csrfToken?: string,
   ): Promise<AuthenticatorResponse> => {
     if (googleAuthCode.length !== 6) {
-      return {
-        success: false,
-        message: "Google Auth kod 6 ta raqamdan iborat bo'lishi kerak"
-      };
+      return { success: false, message: "Google Auth kod 6 ta raqamdan iborat bo'lishi kerak" };
     }
-
-    return await submitLoginWithAuth(login, password, csrfToken);
+    return submitLoginWithAuth(login, password, csrfToken);
   };
 
-  /**
-   * 2FA sozlamalarini olish
-   */
-  const get2FASettings = async (login: string): Promise<{ enabled: boolean; method?: string }> => {
+  // ═══════════════════════════════════════════════════════════════
+  // SETTINGS / QR / ENABLE / DISABLE — axiosInstance ishlatilmaydi
+  // chunki bular login KEYIN chaqiriladi, cookie allaqachon bor.
+  // Shuning uchun axiosInstance ishlatish to'g'riroq bo'lar edi,
+  // lekin mavjud arxitektura saqlab qolindi (fetch + credentials).
+  // ═══════════════════════════════════════════════════════════════
+
+  /** 2FA sozlamalarini olish */
+  const get2FASettings = async (
+    login: string,
+  ): Promise<{ enabled: boolean; method?: string }> => {
     try {
-      const response = await fetch(`/api/2fa-settings?login=${login}`, {
-        credentials: 'include'
+      // login query param — URL encode qilish XSS/injection oldini oladi
+      const params = new URLSearchParams({ login: login.trim() });
+      const res = await fetch(`/api/2fa-settings?${params}`, {
+        credentials: "include",
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          enabled: data.enabled || false,
-          method: data.method
-        };
-      }
-
-      return { enabled: false };
-    } catch (error) {
-      console.error("❌ 2FA settings error:", error);
+      if (!res.ok) return { enabled: false };
+      const data = await res.json();
+      return { enabled: !!data.enabled, method: data.method };
+    } catch {
       return { enabled: false };
     }
   };
 
-  /**
-   * Google Auth QR kodni olish
-   */
-  const getGoogleAuthQR = async (login: string): Promise<{ qrCode?: string; secret?: string; error?: string }> => {
+  /** Google Auth QR kodni olish */
+  const getGoogleAuthQR = async (
+    login: string,
+  ): Promise<{ qrCode?: string; secret?: string; error?: string }> => {
     try {
-      const response = await fetch("/api/google-auth/generate", {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login })
+      const csrfToken = getMemoryCsrfToken();
+      const res = await fetch("/api/google-auth/generate", {
+        method:      "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ login: login.trim() }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          qrCode: data.qrCode,
-          secret: data.secret
-        };
-      }
-
-      return { error: "QR kod olishda xatolik" };
-    } catch (error) {
-      console.error("❌ Google Auth QR error:", error);
+      if (!res.ok) return { error: "QR kod olishda xatolik" };
+      const data = await res.json();
+      return { qrCode: data.qrCode, secret: data.secret };
+    } catch {
       return { error: "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
-  /**
-   * Google Auth ni faollashtirish
-   */
+  /** Google Auth ni faollashtirish */
   const enableGoogleAuth = async (
     login: string,
-    verificationCode: string
+    verificationCode: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    if (verificationCode.length !== 6) {
+      return { success: false, message: "Kod 6 ta raqamdan iborat bo'lishi kerak" };
+    }
+    try {
+      const csrfToken = getMemoryCsrfToken();
+      const res = await fetch("/api/google-auth/enable", {
+        method:      "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ login: login.trim(), code: verificationCode }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, message: "Google Authenticator muvaffaqiyatli faollashtirildi" };
+      }
+      return { success: false, message: data.message ?? "Faollashtirish xatosi" };
+    } catch {
+      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
+    }
+  };
+
+  /** Google Auth ni o'chirish */
+  const disableGoogleAuth = async (
+    login: string,
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      if (verificationCode.length !== 6) {
-        return {
-          success: false,
-          message: "Kod 6 ta raqamdan iborat bo'lishi kerak"
-        };
-      }
-
-      const response = await fetch("/api/google-auth/enable", {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, code: verificationCode })
+      const csrfToken = getMemoryCsrfToken();
+      const res = await fetch("/api/google-auth/disable", {
+        method:      "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ login: login.trim() }),
       });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        return {
-          success: true,
-          message: "Google Authenticator muvaffaqiyatli faollashtirildi"
-        };
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, message: "Google Authenticator o'chirildi" };
       }
-
-      return {
-        success: false,
-        message: data.message || "Faollashtirish xatosi"
-      };
-    } catch (error) {
-      console.error("❌ Enable Google Auth error:", error);
-      return {
-        success: false,
-        message: "Server bilan bog'lanib bo'lmadi"
-      };
+      return { success: false, message: data.message ?? "O'chirish xatosi" };
+    } catch {
+      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
-  /**
-   * Google Auth ni o'chirish
-   */
-  const disableGoogleAuth = async (login: string): Promise<{ success: boolean; message: string }> => {
+  /** Email orqali 2FA kodni yuborish */
+  const sendEmail2FACode = async (
+    login: string,
+  ): Promise<{ success: boolean; message: string }> => {
     try {
-      const response = await fetch("/api/google-auth/disable", {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login })
+      const csrfToken = getMemoryCsrfToken();
+      const res = await fetch("/api/2fa/send-email", {
+        method:      "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ login: login.trim() }),
       });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        return {
-          success: true,
-          message: "Google Authenticator o'chirildi"
-        };
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, message: "Kod emailga yuborildi" };
       }
-
-      return {
-        success: false,
-        message: data.message || "O'chirish xatosi"
-      };
-    } catch (error) {
-      console.error("❌ Disable Google Auth error:", error);
-      return {
-        success: false,
-        message: "Server bilan bog'lanib bo'lmadi"
-      };
+      return { success: false, message: data.message ?? "Kod yuborishda xatolik" };
+    } catch {
+      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
-  /**
-   * Email orqali 2FA kodni yuborish
-   */
-  const sendEmail2FACode = async (login: string): Promise<{ success: boolean; message: string }> => {
+  /** SMS orqali 2FA kodni yuborish */
+  const sendSMS2FACode = async (
+    login: string,
+  ): Promise<{ success: boolean; message: string }> => {
     try {
-      const response = await fetch("/api/2fa/send-email", {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login })
+      const csrfToken = getMemoryCsrfToken();
+      const res = await fetch("/api/2fa/send-sms", {
+        method:      "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ login: login.trim() }),
       });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        return {
-          success: true,
-          message: "Kod emailga yuborildi"
-        };
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, message: "Kod SMS orqali yuborildi" };
       }
-
-      return {
-        success: false,
-        message: data.message || "Kod yuborishda xatolik"
-      };
-    } catch (error) {
-      console.error("❌ Send email 2FA error:", error);
-      return {
-        success: false,
-        message: "Server bilan bog'lanib bo'lmadi"
-      };
+      return { success: false, message: data.message ?? "SMS yuborishda xatolik" };
+    } catch {
+      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
-  /**
-   * SMS orqali 2FA kodni yuborish
-   */
-  const sendSMS2FACode = async (login: string): Promise<{ success: boolean; message: string }> => {
-    try {
-      const response = await fetch("/api/2fa/send-sms", {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login })
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        return {
-          success: true,
-          message: "Kod SMS orqali yuborildi"
-        };
-      }
-
-      return {
-        success: false,
-        message: data.message || "SMS yuborishda xatolik"
-      };
-    } catch (error) {
-      console.error("❌ Send SMS 2FA error:", error);
-      return {
-        success: false,
-        message: "Server bilan bog'lanib bo'lmadi"
-      };
-    }
-  };
-
+  // ═══════════════════════════════════════════════════════════════
+  // RETURN
+  // ═══════════════════════════════════════════════════════════════
   return {
     // State
     show2FAInput,
@@ -387,23 +340,23 @@ export const useAuthenticator = () => {
     handleSet2FACode,
     handleSetGoogleAuthCode,
 
-    // Clear functions
+    // Tozalash
     clear2FACode,
     clearGoogleAuthCode,
     clearAllCodes,
 
-    // Verification functions
+    // Login
     submitLoginWithAuth,
     verify2FACode,
     verifyGoogleAuthCode,
 
-    // Settings functions
+    // Settings
     get2FASettings,
     getGoogleAuthQR,
     enableGoogleAuth,
     disableGoogleAuth,
 
-    // Send code functions
+    // Send code
     sendEmail2FACode,
     sendSMS2FACode,
   };

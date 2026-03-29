@@ -1,7 +1,11 @@
-// src/components/NotificationBar.tsx
-import React, { useState, useEffect, useRef } from "react";
-import { Bell, Package, AlertTriangle, XCircle, X, ShoppingCart } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Bell, Package, AlertTriangle, XCircle, X, ShoppingCart,
+} from "lucide-react";
 import { loadProductsOfflineFirst } from "../hooks/useProductSync";
+import { useTranslation } from "./languages/Settings";
+import { getTranslation } from "./languages/NotificationLanguages";
+import { isNotificationsEnabled } from "./settings/Notification";
 
 // ─────────────────────────────────────────────
 // Types
@@ -14,29 +18,27 @@ interface LowStockItem {
 
 interface NotificationProps {
   theme: "dark" | "light";
+  hoveredSetting?: string | null;
+  setHoveredSetting?: React.Dispatch<React.SetStateAction<string | null>>;
+  idx?: string;
 }
 
 type StockLevel = "out" | "warn" | "caution";
 
-interface StockGroup {
-  level: StockLevel;
-  label: string;
-  color: string;
-  icon: React.ReactNode;
-  items: LowStockItem[];
-  rowBg?: (dark: boolean) => string;
-}
-
 // ─────────────────────────────────────────────
-// Constants & Helpers
+// Helpers
 // ─────────────────────────────────────────────
 const getLevel = (qty: number): StockLevel => {
-  if (qty === 0)  return "out";
-  if (qty <= 5)   return "warn";
+  if (qty === 0) return "out";
+  if (qty <= 5) return "warn";
   return "caution";
 };
 
-const SEEN_KEY = "notif_seen_v2";
+const SEEN_KEY          = "notif_seen_v2";
+// ✅ Ovoz uchun: bir marta "birinchi yuklash" bo'lganini saqlaymiz
+const INITIALIZED_KEY   = "notif_initialized";
+// ✅ Tashqi dunyo bilan sinxronlash uchun: oxirgi ma'lum barcodelar
+const KNOWN_KEY         = "notif_known_barcodes";
 
 const loadSeen = (): Set<string> => {
   try {
@@ -58,346 +60,698 @@ const getCurrentLogin = (): string | null => {
   }
 };
 
-// ─────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────
+// ─── Ovoz chiqarish ───────────────────────────────────────────────────────────
+const playNotificationSound = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-/** Bitta bildirishnoma satri */
-const NotifRow: React.FC<{
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(880, ctx.currentTime);
+    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.3);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(1100, ctx.currentTime + 0.35);
+    gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.35);
+    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+    osc2.start(ctx.currentTime + 0.35);
+    osc2.stop(ctx.currentTime + 0.65);
+  } catch (e) {
+    console.warn("Audio play error:", e);
+  }
+};
+
+// ─────────────────────────────────────────────
+// NotifCard
+// ─────────────────────────────────────────────
+const NotifCard: React.FC<{
   item: LowStockItem;
-  iconBg: string;
-  icon: React.ReactNode;
-  badgeBg: string;
-  badgeColor: string;
-  subText: string;
-  subColor: string;
-  rowBg?: string;
-  bdr: string;
-  tx: string;
-}> = ({ item, iconBg, icon, badgeBg, badgeColor, subText, subColor, rowBg, bdr, tx }) => (
-  <div style={{
-    padding: "10px 18px", borderBottom: `1px solid ${bdr}`,
-    display: "flex", alignItems: "center", gap: 12,
-    background: rowBg,
-  }}>
-    <div style={{
-      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-      background: iconBg, display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      {icon}
-    </div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{
-        fontSize: 13, fontWeight: 600, color: tx,
-        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-      }}>
-        {item.name || item.barcode}
-      </div>
-      <div style={{ fontSize: 11, color: subColor, fontWeight: 600, marginTop: 2 }}>
-        {subText}
-      </div>
-    </div>
-    <span style={{
-      background: badgeBg, color: badgeColor,
-      padding: "3px 8px", borderRadius: 8,
-      fontSize: 11, fontWeight: 800, flexShrink: 0,
-    }}>
-      {item.quantity} dona
-    </span>
-  </div>
-);
-
-/** Guruh sarlavhasi */
-const GroupHeader: React.FC<{ emoji: string; label: string; color: string }> = ({ emoji, label, color }) => (
-  <div style={{
-    padding: "10px 18px 4px", fontSize: 10, fontWeight: 800,
-    textTransform: "uppercase", letterSpacing: 1, color,
-  }}>
-    {emoji} {label}
-  </div>
-);
-
-/** Bo'sh holat */
-const EmptyState: React.FC<{ sub: string }> = ({ sub }) => (
-  <div style={{ padding: "40px 20px", textAlign: "center", color: sub }}>
-    <Package size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
-    <p style={{ fontSize: 13, margin: 0 }}>Barcha mahsulotlar yetarli</p>
-  </div>
-);
-
-/** Qo'ng'iroq tugmasi */
-const BellButton: React.FC<{
+  level: StockLevel;
   dark: boolean;
-  unread: number;
-  animate: boolean;
-  hasOut: boolean;
-  onClick: () => void;
-}> = ({ dark, unread, animate, hasOut, onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      width: 44, height: 44, borderRadius: "50%", border: "none",
-      background: dark ? "#1a1f2e" : "#f1f5f9",
-      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-      transition: "all 0.2s ease", position: "relative",
-      animation: animate ? "ring 0.6s ease" : "none",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.background = dark ? "#262d3d" : "#e2e8f0";
-      e.currentTarget.style.transform = "scale(1.05)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.background = dark ? "#1a1f2e" : "#f1f5f9";
-      e.currentTarget.style.transform = "scale(1)";
-    }}
-  >
-    <Bell size={20} color={unread > 0 ? "#f59e0b" : (dark ? "#8b92a7" : "#64748b")} />
-    {unread > 0 && (
-      <span style={{
-        position: "absolute", top: 6, right: 6,
-        width: 8, height: 8, borderRadius: "50%",
-        background: hasOut ? "#ef4444" : "#f59e0b",
-        border: `2px solid ${dark ? "#0f1420" : "#fff"}`,
-        animation: "pulse-dot 1.5s infinite",
-      }} />
-    )}
-  </button>
-);
-
-// ─────────────────────────────────────────────
-// Hooks
-// ─────────────────────────────────────────────
-
-/** Mahsulotlarni yuklash va seen boshqaruvi */
-const useNotifications = () => {
-  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
-  const [seen, setSeen] = useState<Set<string>>(loadSeen);
-
-  const updateSeen = (items: LowStockItem[]) => {
-    setSeen((prev) => {
-      const currentKeys = new Set(items.map((p) => `${p.barcode}:${getLevel(p.quantity)}`));
-      const filtered = new Set([...prev].filter((key) => currentKeys.has(key)));
-      saveSeen(filtered);
-      return filtered;
-    });
-  };
-
-  const load = React.useCallback(async () => {
-    const login = getCurrentLogin();
-    if (!login) return;
-    try {
-      const data = await loadProductsOfflineFirst(login);
-      const low: LowStockItem[] = data
-        .filter((p: any) => Number(p.quantity ?? 0) <= 10)
-        .map((p: any) => ({ barcode: p.barcode, name: p.name, quantity: Number(p.quantity ?? 0) }));
-      setLowStockItems(low);
-      updateSeen(low);
-    } catch (err) {
-      console.error("Notification load error:", err);
-    }
-  }, []);
+  unit: string;
+  isNew: boolean;
+  index: number;
+}> = ({ item, level, dark, unit, isNew, index }) => {
+  const [visible, setVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    load();
-    window.addEventListener("online", load);
-    return () => window.removeEventListener("online", load);
-  }, [load]);
+    const timer = setTimeout(() => setVisible(true), index * 60);
+    return () => clearTimeout(timer);
+  }, [index]);
 
-  const markAllSeen = (items: LowStockItem[]) => {
-    const newSeen = new Set([...seen, ...items.map((p) => `${p.barcode}:${getLevel(p.quantity)}`)]);
-    setSeen(newSeen);
-    saveSeen(newSeen);
-  };
+  const config = {
+    out: {
+      border: "rgba(239,68,68,0.35)",
+      iconBg: "linear-gradient(135deg, #ef4444, #dc2626)",
+      icon: <XCircle size={20} color="#fff" />,
+      accent: "#ef4444",
+      label: "Tugadi!",
+      sublabel: "Tezroq xarid qiling",
+    },
+    warn: {
+      border: "rgba(249,115,22,0.35)",
+      iconBg: "linear-gradient(135deg, #f97316, #ea580c)",
+      icon: <AlertTriangle size={20} color="#fff" />,
+      accent: "#f97316",
+      label: "Kritik!",
+      sublabel: "Zaxira juda kam",
+    },
+    caution: {
+      border: "rgba(245,158,11,0.3)",
+      iconBg: "linear-gradient(135deg, #f59e0b, #d97706)",
+      icon: <Package size={20} color="#fff" />,
+      accent: "#f59e0b",
+      label: "Kam qoldi",
+      sublabel: "E'tibor bering",
+    },
+  }[level];
 
-  return { lowStockItems, seen, markAllSeen };
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        margin: "0 12px 10px",
+        borderRadius: 16,
+        background: hovered
+          ? dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)"
+          : dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.9)",
+        border: `1px solid ${hovered
+          ? config.border
+          : dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)"}`,
+        padding: "14px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        cursor: "pointer",
+        transition: "all 0.25s cubic-bezier(0.4,0,0.2,1)",
+        transform: visible
+          ? hovered ? "translateX(4px)" : "translateX(0)"
+          : "translateX(-20px)",
+        opacity: visible ? 1 : 0,
+        boxShadow: hovered
+          ? `0 8px 24px ${config.accent}22`
+          : dark ? "none" : "0 2px 8px rgba(0,0,0,0.06)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Chap rang chizig'i */}
+      <div style={{
+        position: "absolute", left: 0, top: "20%", bottom: "20%",
+        width: 3, borderRadius: "0 3px 3px 0",
+        background: config.accent,
+        opacity: hovered ? 1 : 0.5,
+        transition: "opacity 0.2s",
+      }} />
+
+      {/* Icon */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+        background: config.iconBg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 12px ${config.accent}44`,
+        position: "relative",
+      }}>
+        {config.icon}
+        {isNew && (
+          <span style={{
+            position: "absolute", top: -3, right: -3,
+            width: 10, height: 10, borderRadius: "50%",
+            background: config.accent,
+            border: `2px solid ${dark ? "#0f1420" : "#fff"}`,
+            animation: "notif-pulse-dot 1.5s infinite",
+          }} />
+        )}
+      </div>
+
+      {/* Matn */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 13.5, fontWeight: 700,
+          color: dark ? "#f1f5f9" : "#0f172a",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          marginBottom: 3,
+        }}>
+          {item.name || item.barcode}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: config.accent }}>
+            {config.label}
+          </span>
+          <span style={{ fontSize: 10, color: dark ? "#64748b" : "#94a3b8" }}>
+            · {config.sublabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Miqdor */}
+      <span style={{
+        background: `${config.accent}22`,
+        color: config.accent,
+        padding: "3px 10px", borderRadius: 20,
+        fontSize: 12, fontWeight: 800, flexShrink: 0,
+        border: `1px solid ${config.accent}44`,
+      }}>
+        {item.quantity} {unit}
+      </span>
+    </div>
+  );
 };
 
 // ─────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────
-const Notification: React.FC<NotificationProps> = ({ theme }) => {
-  const [open, setOpen]       = useState(false);
-  const [animate, setAnimate] = useState(false);
-  const panelRef              = useRef<HTMLDivElement>(null);
+const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
+  const { t, language } = useTranslation();
+  const [open, setOpen]               = useState(false);
+  const [animate, setAnimate]         = useState(false);
+  const [panelVisible, setPanelVisible] = useState(false);
 
-  const { lowStockItems, seen, markAllSeen } = useNotifications();
+  // ✅ panelRef faqat panel div ga — Bell wrapper alohida
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Guruhlar
-  const outItems  = React.useMemo(() => lowStockItems.filter((p) => p.quantity === 0),              [lowStockItems]);
-  const warnItems = React.useMemo(() => lowStockItems.filter((p) => p.quantity > 0 && p.quantity <= 5), [lowStockItems]);
-  const cautItems = React.useMemo(() => lowStockItems.filter((p) => p.quantity > 5 && p.quantity <= 10), [lowStockItems]);
-  const allNotifs = React.useMemo(() => [...outItems, ...warnItems, ...cautItems], [outItems, warnItems, cautItems]);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+  const [seen, setSeen]               = useState<Set<string>>(loadSeen);
 
-  const unread = React.useMemo(
-    () => allNotifs.filter((p) => !seen.has(`${p.barcode}:${getLevel(p.quantity)}`)).length,
-    [allNotifs, seen]
+  const [notifEnabled, setNotifEnabled] = useState<boolean>(isNotificationsEnabled());
+  const notifEnabledRef = useRef(notifEnabled);
+  useEffect(() => { notifEnabledRef.current = notifEnabled; }, [notifEnabled]);
+
+  const loginRef = useRef<string | null>(getCurrentLogin());
+
+  // ✅ OVOZ MUAMMOSI YECHIMI:
+  // Birinchi yuklashda barcha mavjud barcodelarni "tanish" deb belgilaymiz
+  // Keyingi yuklanishlarda faqat YANGI qo'shilganlarga ovoz chiqaramiz
+  const knownRef = useRef<Set<string>>(
+    new Set(JSON.parse(localStorage.getItem(KNOWN_KEY) || "[]"))
   );
+  // Ilk mount bo'lganmi? (shu session ichida)
+  const isFirstLoadRef = useRef<boolean>(true);
 
-  // Animatsiya
+  // ─── Settings listener ──────────────────────────────────────────
   useEffect(() => {
-    if (unread === 0) return;
-    setAnimate(true);
-    const t = setTimeout(() => setAnimate(false), 1000);
-    return () => clearTimeout(t);
-  }, [unread]);
-
-  // Tashqariga bosish
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "notificationsEnabled") {
+        const val = e.newValue ? JSON.parse(e.newValue) : true;
+        setNotifEnabled(val);
+      }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const handleCustom = () => setNotifEnabled(isNotificationsEnabled());
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("notifSettingChanged", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("notifSettingChanged", handleCustom);
+    };
   }, []);
 
-  const handleOpen = () => {
-    if (!open) markAllSeen(allNotifs);
-    setOpen((o) => !o);
-  };
+  // ─── Mahsulot yuklash ────────────────────────────────────────────
+  const load = useCallback(async () => {
+    if (!notifEnabledRef.current) return;
+    const login = loginRef.current;
+    if (!login) return;
+    try {
+      const data = await loadProductsOfflineFirst(login);
+      const low = data
+        .filter((p: any) => Number(p.quantity ?? 0) <= 10)
+        .map((p: any) => ({
+          barcode: p.barcode,
+          name: p.name,
+          quantity: Number(p.quantity ?? 0),
+        }));
+      setLowStockItems(low);
+    } catch (err) {
+      console.error("Notif load error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!notifEnabled) return;
+    load();
+    window.addEventListener("online", load);
+    window.addEventListener("saleAdded", load);
+    return () => {
+      window.removeEventListener("online", load);
+      window.removeEventListener("saleAdded", load);
+    };
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    if (!notifEnabled) {
+      setOpen(false);
+      setLowStockItems([]);
+    } else {
+      load();
+    }
+  }, [notifEnabled, load]);
+
+  // ─── Gruplar ─────────────────────────────────────────────────────
+  const outItems  = lowStockItems.filter(p => p.quantity === 0);
+  const warnItems = lowStockItems.filter(p => p.quantity > 0 && p.quantity <= 5);
+  const cautItems = lowStockItems.filter(p => p.quantity > 5 && p.quantity <= 10);
+  const allItems  = [...outItems, ...warnItems, ...cautItems];
+
+  const unreadCount = lowStockItems.filter(
+    p => !seen.has(`${p.barcode}:${getLevel(p.quantity)}`)
+  ).length;
+
+  const markAllSeen = useCallback(() => {
+    const newSeen = new Set([
+      ...seen,
+      ...lowStockItems.map(p => `${p.barcode}:${getLevel(p.quantity)}`),
+    ]);
+    setSeen(newSeen);
+    saveSeen(newSeen);
+  }, [seen, lowStockItems]);
+
+  // ─── OVOZ: faqat haqiqiy yangi mahsulot kelganda ─────────────────
+  useEffect(() => {
+    if (!notifEnabled) return;
+    if (lowStockItems.length === 0) return;
+
+    const currentKeys = lowStockItems.map(p => `${p.barcode}:${getLevel(p.quantity)}`);
+
+    if (isFirstLoadRef.current) {
+      // ✅ BIRINCHI YUKLASH: ovoz YO'Q, faqat localStorage ni to'ldiramiz
+      // Sahifalar orasida o'tganda bu blok ishlaydi — ovoz chiqmaydi
+      isFirstLoadRef.current = false;
+
+      const updated = new Set([...knownRef.current, ...currentKeys]);
+      knownRef.current = updated;
+      localStorage.setItem(KNOWN_KEY, JSON.stringify([...updated]));
+      return;
+    }
+
+    // ✅ KEYINGI YUKLANISHLAR: faqat yangi barcode kelsa ovoz chiqar
+    const hasNew = currentKeys.some(key => !knownRef.current.has(key));
+
+    if (hasNew) {
+      setAnimate(true);
+      playNotificationSound();
+      const timer = setTimeout(() => setAnimate(false), 1000);
+
+      const updated = new Set([...knownRef.current, ...currentKeys]);
+      knownRef.current = updated;
+      localStorage.setItem(KNOWN_KEY, JSON.stringify([...updated]));
+
+      return () => clearTimeout(timer);
+    }
+  }, [lowStockItems, notifEnabled]);
+
+  // ─── Panel animatsiya ────────────────────────────────────────────
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => setPanelVisible(true), 10);
+      return () => clearTimeout(timer);
+    } else {
+      setPanelVisible(false);
+    }
+  }, [open]);
+
+  // ─── Tashqariga click ────────────────────────────────────────────
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const dark = theme === "dark";
-  const bg   = dark ? "#1a1f2e" : "#ffffff";
-  const bdr  = dark ? "#2a3144" : "#e2e8f0";
-  const tx   = dark ? "#e2e8f0" : "#1e293b";
-  const sub  = dark ? "#64748b" : "#94a3b8";
 
-  // Guruh konfiguratsiyasi — nesting kamaytirish uchun
-  const stockGroups: StockGroup[] = [
-    {
-      level: "out", label: "Tugagan mahsulotlar", color: "#ef4444", emoji: "🔴",
-      items: outItems,
-      rowBg: (d) => d ? "rgba(239,68,68,0.05)" : "#fff5f5",
-    },
-    {
-      level: "warn", label: "Kritik darajada kam (1–5 dona)", color: "#f97316", emoji: "🟠",
-      items: warnItems,
-    },
-    {
-      level: "caution", label: "Oz qolgan", color: "#f59e0b", emoji: "🟡",
-      items: cautItems,
-    },
-  ] as any;
-
-  const LEVEL_CONFIG = {
-    out:     { iconBg: "#ef444420", icon: <XCircle     size={18} color="#ef4444" />, badgeBg: "#ef444420", badgeColor: "#ef4444", subText: "Tugadi! Tezroq xarid qiling", subColor: "#ef4444" },
-    warn:    { iconBg: "#f9731620", icon: <AlertTriangle size={18} color="#f97316" />, badgeBg: "#f9731620", badgeColor: "#f97316", subText: "Tez orada tugaydi — xarid qiling", subColor: sub },
-    caution: { iconBg: "#f59e0b20", icon: <Package      size={18} color="#f59e0b" />, badgeBg: "#f59e0b20", badgeColor: "#f59e0b", subText: "Zaxira ozayib bormoqda", subColor: sub },
+  const safeT = (key: string) => {
+    try { return getTranslation(language as any, key as any); }
+    catch { return t(key); }
   };
 
-  return (
-    <div style={{ position: "relative" }} ref={panelRef}>
-      <BellButton
-        dark={dark}
-        unread={unread}
-        animate={animate}
-        hasOut={outItems.length > 0}
-        onClick={handleOpen}
-      />
+  if (!notifEnabled) return null;
 
+  // ─────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────
+  return (
+    // ✅ wrapperRef — tashqi div ga (click outside + panel anchor)
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+
+      {/* ══════════════════════════════════════
+          Bell tugmasi + Badge
+          overflow: visible bo'lgan alohida div
+      ══════════════════════════════════════ */}
+      <div
+        style={{
+          position: "relative",
+          display: "inline-flex",
+          // ✅ MUHIM: overflow hech qachon clip/hidden bo'lmasin
+          overflow: "visible",
+        }}
+      >
+        {/* Bell button */}
+        <button
+          onClick={() => {
+            if (!open) markAllSeen();
+            setOpen(prev => !prev);
+          }}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            border: "none",
+            background: dark ? "#1a1f2e" : "#f1f5f9",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s ease",
+            // ✅ overflow visible bo'lishi SHART — badge tashqariga chiqadi
+            overflow: "visible",
+            // ✅ position relative bo'lmasin — badge wrapper ga nisbatan joylashadi
+            position: "static",
+            animation: animate ? "notif-ring 0.6s ease" : "none",
+          }}
+        >
+          <Bell
+            size={20}
+            color={unreadCount > 0 ? "#f59e0b" : dark ? "#8b92a7" : "#64748b"}
+          />
+        </button>
+
+        {/* ✅ Badge — wrapper div ga nisbatan absolute, button tashqarisida */}
+        {unreadCount > 0 && (
+          <span
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -6,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+              background: outItems.length > 0
+                ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                : "linear-gradient(135deg, #f97316, #ea580c)",
+              border: `2.5px solid ${dark ? "#0a0e1a" : "#f8f9ff"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 9,
+              fontWeight: 900,
+              color: "#fff",
+              padding: "0 4px",
+              lineHeight: "1",
+              // ✅ z-index yuqori bo'lishi kerak
+              zIndex: 50,
+              pointerEvents: "none",
+              boxShadow: outItems.length > 0
+                ? "0 2px 8px rgba(239,68,68,0.6)"
+                : "0 2px 8px rgba(249,115,22,0.6)",
+              animation: "notif-badge-pop 0.35s cubic-bezier(0.34,1.56,0.64,1) both",
+            }}
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </div>
+      {/* ══ end Bell + Badge ══ */}
+
+      {/* ══════════════════════════════════════
+          Notification Panel
+      ══════════════════════════════════════ */}
       {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 10px)", right: 0,
-          width: 320, maxHeight: 480, background: bg,
-          border: `1px solid ${bdr}`, borderRadius: 20, zIndex: 1000,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-          display: "flex", flexDirection: "column",
-          animation: "slideDown 0.2s ease", overflow: "hidden",
-        }}>
-          {/* Sarlavha */}
-          <div style={{
-            padding: "16px 18px 12px", borderBottom: `1px solid ${bdr}`,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: dark ? "#111827" : "#f8fafc",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Bell size={16} color="#f59e0b" />
-              <span style={{ fontSize: 14, fontWeight: 700, color: tx }}>Bildirishnomalar</span>
-              {allNotifs.length > 0 && (
-                <span style={{
-                  background: outItems.length > 0 ? "#ef444420" : "#f59e0b20",
-                  color:      outItems.length > 0 ? "#ef4444"   : "#f59e0b",
-                  padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 12px)",
+            right: 0,
+            width: 360,
+            background: dark
+              ? "rgba(10,14,26,0.96)"
+              : "rgba(248,249,255,0.97)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+            border: `1px solid ${dark
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(0,0,0,0.08)"}`,
+            borderRadius: 24,
+            zIndex: 1000,
+            boxShadow: dark
+              ? "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)"
+              : "0 24px 64px rgba(0,0,0,0.15)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            transform: panelVisible
+              ? "translateY(0) scale(1)"
+              : "translateY(-12px) scale(0.97)",
+            opacity: panelVisible ? 1 : 0,
+            transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease",
+            transformOrigin: "top right",
+          }}
+        >
+          {/* ── Header ── */}
+          <div
+            style={{
+              padding: "18px 20px 14px",
+              borderBottom: `1px solid ${dark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(0,0,0,0.06)"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Bell icon */}
+              <div style={{
+                width: 36, height: 36, borderRadius: 12,
+                background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(249,115,22,0.1))",
+                border: "1px solid rgba(245,158,11,0.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <Bell size={16} color="#f59e0b" />
+              </div>
+
+              {/* Title */}
+              <div>
+                <div style={{
+                  fontSize: 15, fontWeight: 700,
+                  color: dark ? "#f1f5f9" : "#0f172a",
+                  lineHeight: 1.2,
                 }}>
-                  {allNotifs.length}
+                  Bildirishnomalar
+                </div>
+                <div style={{ fontSize: 11, color: dark ? "#64748b" : "#94a3b8", marginTop: 1 }}>
+                  {lowStockItems.length > 0
+                    ? `${lowStockItems.length} ta mahsulotga e'tibor bering`
+                    : "Hamma narsa yaxshi"}
+                </div>
+              </div>
+
+              {/* Count pill */}
+              {lowStockItems.length > 0 && (
+                <span style={{
+                  background: outItems.length > 0
+                    ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                    : "linear-gradient(135deg, #f97316, #ea580c)",
+                  color: "#fff",
+                  padding: "3px 10px", borderRadius: 20,
+                  fontSize: 11, fontWeight: 800, marginLeft: 4,
+                  flexShrink: 0,
+                  boxShadow: outItems.length > 0
+                    ? "0 2px 8px rgba(239,68,68,0.4)"
+                    : "0 2px 8px rgba(249,115,22,0.4)",
+                }}>
+                  {lowStockItems.length}
                 </span>
               )}
             </div>
+
+            {/* Close button */}
             <button
               onClick={() => setOpen(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: sub, padding: 4, borderRadius: 6 }}
+              style={{
+                width: 30, height: 30, borderRadius: 10,
+                border: "none", cursor: "pointer",
+                background: dark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(0,0,0,0.06)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: dark ? "#94a3b8" : "#64748b",
+                transition: "background 0.15s",
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background =
+                  dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background =
+                  dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+              }}
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           </div>
 
-          {/* Kontent */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {allNotifs.length === 0 ? (
-              <EmptyState sub={sub} />
-            ) : (
-              stockGroups.map(({ level, label, color, items, rowBg }) => {
-                if (items.length === 0) return null;
-                const cfg = LEVEL_CONFIG[level];
-                const emoji = { out: "🔴", warn: "🟠", caution: "🟡" }[level];
-                return (
-                  <div key={level}>
-                    <GroupHeader emoji={emoji} label={label} color={color} />
-                    {items.map((item) => (
-                      <NotifRow
-                        key={item.barcode}
-                        item={item}
-                        iconBg={cfg.iconBg}
-                        icon={cfg.icon}
-                        badgeBg={cfg.badgeBg}
-                        badgeColor={cfg.badgeColor}
-                        subText={cfg.subText}
-                        subColor={cfg.subColor}
-                        rowBg={rowBg ? rowBg(dark) : undefined}
-                        bdr={bdr}
-                        tx={tx}
-                      />
-                    ))}
+          {/* ── Filter pills ── */}
+          {lowStockItems.length > 0 && (
+            <div style={{
+              display: "flex", gap: 6,
+              padding: "12px 14px 4px",
+              flexWrap: "wrap",
+            }}>
+              {outItems.length > 0 && (
+                <span style={{
+                  background: "rgba(239,68,68,0.12)", color: "#ef4444",
+                  padding: "3px 10px", borderRadius: 20,
+                  fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  textTransform: "uppercase",
+                }}>
+                  Tugagan · {outItems.length}
+                </span>
+              )}
+              {warnItems.length > 0 && (
+                <span style={{
+                  background: "rgba(249,115,22,0.12)", color: "#f97316",
+                  padding: "3px 10px", borderRadius: 20,
+                  fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                  border: "1px solid rgba(249,115,22,0.2)",
+                  textTransform: "uppercase",
+                }}>
+                  Kritik · {warnItems.length}
+                </span>
+              )}
+              {cautItems.length > 0 && (
+                <span style={{
+                  background: "rgba(245,158,11,0.12)", color: "#f59e0b",
+                  padding: "3px 10px", borderRadius: 20,
+                  fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                  border: "1px solid rgba(245,158,11,0.2)",
+                  textTransform: "uppercase",
+                }}>
+                  Kam qoldi · {cautItems.length}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* ── Body ── */}
+          <div style={{
+            overflowY: "auto", flex: 1,
+            maxHeight: 420, paddingTop: 10, paddingBottom: 8,
+          }}>
+            {allItems.length === 0 ? (
+              <div style={{
+                padding: "48px 20px", textAlign: "center",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 12,
+              }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 18,
+                  background: dark
+                    ? "rgba(255,255,255,0.04)"
+                    : "rgba(0,0,0,0.04)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Package size={24} color={dark ? "#374151" : "#d1d5db"} />
+                </div>
+                <div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600,
+                    color: dark ? "#4b5563" : "#9ca3af", marginBottom: 4,
+                  }}>
+                    Hammasi joyida!
                   </div>
-                );
-              })
+                  <div style={{ fontSize: 11, color: dark ? "#374151" : "#d1d5db" }}>
+                    Hozircha bildirishnomalar yo'q
+                  </div>
+                </div>
+              </div>
+            ) : (
+              allItems.map((item, i) => (
+                <NotifCard
+                  key={item.barcode}
+                  item={item}
+                  level={getLevel(item.quantity)}
+                  dark={dark}
+                  unit={safeT("itemUnit") || "dona"}
+                  isNew={!seen.has(`${item.barcode}:${getLevel(item.quantity)}`)}
+                  index={i}
+                />
+              ))
             )}
           </div>
 
-          {/* Footer */}
-          {allNotifs.length > 0 && (
+          {/* ── Footer ── */}
+          {allItems.length > 0 && (
             <div style={{
-              padding: "12px 18px", borderTop: `1px solid ${bdr}`,
-              background: dark ? "#111827" : "#f8fafc",
-              display: "flex", alignItems: "center", gap: 8,
+              padding: "12px 20px",
+              borderTop: `1px solid ${dark
+                ? "rgba(255,255,255,0.07)"
+                : "rgba(0,0,0,0.06)"}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
-              <ShoppingCart size={14} color={sub} />
-              <span style={{ fontSize: 12, color: sub }}>
-                Jami <strong style={{ color: tx }}>{allNotifs.length}</strong> ta mahsulotga e'tibor bering
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <ShoppingCart size={13} color={dark ? "#475569" : "#94a3b8"} />
+                <span style={{ fontSize: 12, color: dark ? "#475569" : "#94a3b8" }}>
+                  Jami{" "}
+                  <strong style={{ color: dark ? "#94a3b8" : "#64748b" }}>
+                    {allItems.length}
+                  </strong>{" "}
+                  ta mahsulot
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "#22c55e",
+                  animation: "notif-pulse-dot 2s infinite",
+                }} />
+                <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>
+                  Jonli
+                </span>
+              </div>
             </div>
           )}
         </div>
       )}
+      {/* ══ end Panel ══ */}
 
       <style>{`
-        @keyframes ring {
+        @keyframes notif-ring {
           0%,100% { transform: rotate(0deg); }
-          20% { transform: rotate(-15deg); }
-          40% { transform: rotate(15deg); }
-          60% { transform: rotate(-10deg); }
-          80% { transform: rotate(10deg); }
+          20%     { transform: rotate(-15deg); }
+          40%     { transform: rotate(15deg); }
+          60%     { transform: rotate(-10deg); }
+          80%     { transform: rotate(10deg); }
         }
-        @keyframes pulse-dot {
-          0%,100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.4); opacity: 0.7; }
+        @keyframes notif-pulse-dot {
+          0%,100% { transform: scale(1);   opacity: 1;   }
+          50%     { transform: scale(1.4); opacity: 0.6; }
         }
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
+        @keyframes notif-badge-pop {
+          0%   { transform: scale(0); opacity: 0; }
+          60%  { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
+
     </div>
   );
 };
 
-export default Notification;
+export default NotificationBar;

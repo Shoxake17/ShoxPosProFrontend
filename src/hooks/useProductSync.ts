@@ -1,8 +1,21 @@
-
 const DB_NAME = 'ShoxPosDB';
 const DB_VERSION = 5;
 const STORE = 'products';
-const PENDING_STORE = 'pendingSync'; // sync kutayotgan mahsulotlar
+const PENDING_STORE = 'pendingSync';
+
+// ─── Background sync throttle — 5 daqiqada bir marta ─────────────────────
+// Har chaqirilganda MongoDB ga bormaydi, throttle qiladi
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 daqiqa
+const lastSyncMap = new Map<string, number>(); // login → timestamp
+
+function shouldSync(login: string): boolean {
+  const last = lastSyncMap.get(login) || 0;
+  return Date.now() - last > SYNC_INTERVAL_MS;
+}
+
+function markSynced(login: string): void {
+  lastSyncMap.set(login, Date.now());
+}
 
 // ─── IndexedDB ochish ──────────────────────────────────────────────────────
 export function openDB(): Promise<IDBDatabase> {
@@ -43,7 +56,10 @@ export async function saveToIDB(product: any): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put({ ...product, updatedAt: new Date().toISOString() });
+    tx.objectStore(STORE).put({
+      ...product,
+      updatedAt: new Date().toISOString(),
+    });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -61,7 +77,10 @@ export async function deleteFromIDB(barcode: string): Promise<void> {
 }
 
 // ─── Pending sync: qo'shish ───────────────────────────────────────────────
-export async function addToPending(product: any, action: 'add' | 'delete' | 'update'): Promise<void> {
+export async function addToPending(
+  product: any,
+  action: 'add' | 'delete' | 'update'
+): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PENDING_STORE, 'readwrite');
@@ -135,25 +154,23 @@ async function deleteFromMongoDB(barcode: string, login: string): Promise<boolea
 
 // ─── ASOSIY: Mahsulot qo'shish (offline-first) ───────────────────────────
 export async function addProductOfflineFirst(productData: any): Promise<void> {
-  // 1. Avval IndexedDB ga saqla
   await saveToIDB(productData);
 
   if (navigator.onLine) {
-    // 2. Online — MongoDB ga ham saqla
     const ok = await addToMongoDB(productData);
     if (!ok) {
-      // Muvaffaqiyatsiz bo'lsa pending ga qo'sh
       await addToPending(productData, 'add');
     }
   } else {
-    // 3. Offline — pending ga qo'sh
     await addToPending(productData, 'add');
   }
 }
 
 // ─── ASOSIY: Mahsulot o'chirish (offline-first) ──────────────────────────
-export async function deleteProductOfflineFirst(barcode: string, login: string): Promise<void> {
-  // 1. IndexedDB dan o'chir
+export async function deleteProductOfflineFirst(
+  barcode: string,
+  login: string
+): Promise<void> {
   await deleteFromIDB(barcode);
 
   if (navigator.onLine) {
@@ -167,15 +184,16 @@ export async function deleteProductOfflineFirst(barcode: string, login: string):
 }
 
 // ─── ASOSIY: Mahsulotlarni yuklash (offline-first + fallback) ────────────
+// ✅ TUZATISH: syncInBackground endi throttle qilingan —
+//    5 daqiqada bir martadan ko'p MongoDB ga bormaydi
 export async function loadProductsOfflineFirst(login: string): Promise<any[]> {
   // 1. IndexedDB dan ol
   const idbProducts = await getAllFromIDB(login);
 
   if (idbProducts.length > 0) {
-    // IndexedDB da bor — uni qaytaramiz
-    // Background da MongoDB bilan merge qilamiz
-    if (navigator.onLine) {
-      syncInBackground(login);
+    // ✅ Faqat throttle o'tsa background sync qilamiz
+    if (navigator.onLine && shouldSync(login)) {
+      syncInBackground(login); // fire-and-forget
     }
     return idbProducts;
   }
@@ -183,10 +201,10 @@ export async function loadProductsOfflineFirst(login: string): Promise<any[]> {
   // 2. IndexedDB bo'sh — MongoDB dan yukla
   if (navigator.onLine) {
     const mongoProducts = await fetchFromMongoDB(login);
-    // MongoDB dan olinganlarni IndexedDB ga saqla
     for (const p of mongoProducts) {
       await saveToIDB({ ...p, login });
     }
+    markSynced(login); // ✅ birinchi yuklash ham hisoblanadi
     return mongoProducts;
   }
 
@@ -207,7 +225,6 @@ export async function syncPendingToMongoDB(): Promise<number> {
     } else if (item.action === 'delete') {
       ok = await deleteFromMongoDB(item.barcode, item.login);
     }
-
     if (ok) {
       await removeFromPending(item.barcode);
       synced++;
@@ -218,18 +235,21 @@ export async function syncPendingToMongoDB(): Promise<number> {
 }
 
 // ─── Background sync: MongoDB + IndexedDB merge ───────────────────────────
+// ✅ TUZATISH: throttle qilingan — ko'p marta chaqirilsa ham bir marta ishlaydi
 async function syncInBackground(login: string): Promise<void> {
+  // ✅ Throttle check — agar hali vaqt bo'lmasa chiqib ketamiz
+  if (!shouldSync(login)) return;
+
+  // ✅ Darhol mark qilamiz — parallel chaqiruvlar kelsa ham bir marta ishlaydi
+  markSynced(login);
+
   try {
-    // 1. Pending larni yuborib ol
     await syncPendingToMongoDB();
 
-    // 2. MongoDB dan yangi mahsulotlarni ol
     const mongoProducts = await fetchFromMongoDB(login);
     const idbProducts = await getAllFromIDB(login);
-
     const idbBarcodes = new Set(idbProducts.map((p: any) => p.barcode));
 
-    // 3. MongoDB da bor, IndexedDB da yo'q — IndexedDB ga qo'sh
     for (const mp of mongoProducts) {
       if (!idbBarcodes.has(mp.barcode)) {
         await saveToIDB({ ...mp, login });
@@ -237,12 +257,21 @@ async function syncInBackground(login: string): Promise<void> {
     }
   } catch (err) {
     console.error('Background sync xatosi:', err);
+    // ✅ Xato bo'lsa — keyingi urinishda qayta sync qilish uchun reset
+    lastSyncMap.delete(login);
   }
 }
 
 // ─── Online event listener: avtomatik sync ───────────────────────────────
-export function setupOnlineListener(login: string, onSynced?: (count: number) => void): () => void {
+// ✅ Online bo'lganda throttle ni reset qilamiz — chunki ancha vaqt offline edi
+export function setupOnlineListener(
+  login: string,
+  onSynced?: (count: number) => void
+): () => void {
   const handler = async () => {
+    // ✅ Online bo'lganda throttle ni reset — yangi sync kerak
+    lastSyncMap.delete(login);
+
     const count = await syncPendingToMongoDB();
     await syncInBackground(login);
     if (onSynced && count > 0) onSynced(count);
@@ -250,4 +279,21 @@ export function setupOnlineListener(login: string, onSynced?: (count: number) =>
 
   window.addEventListener('online', handler);
   return () => window.removeEventListener('online', handler);
+}
+
+// ─── Manual sync: foydalanuvchi tugma bossa ───────────────────────────────
+// ✅ Throttle ni bypass qiladi — chunki foydalanuvchi o'zi so'radi
+export async function forceSyncFromMongoDB(login: string): Promise<any[]> {
+  lastSyncMap.delete(login); // throttle reset
+  const mongoProducts = await fetchFromMongoDB(login);
+  const idbProducts = await getAllFromIDB(login);
+  const idbBarcodes = new Set(idbProducts.map((p: any) => p.barcode));
+
+  for (const mp of mongoProducts) {
+    if (!idbBarcodes.has(mp.barcode)) {
+      await saveToIDB({ ...mp, login });
+    }
+  }
+  markSynced(login);
+  return mongoProducts;
 }

@@ -5,47 +5,50 @@ const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || '';
 
 let socket: Socket | null = null;
 
-// ✅ Event handlerlarni alohida funksiya — takrorlanmaslik uchun
+function getCurrentLogin(): string {
+  try {
+    const raw = sessionStorage.getItem('currentUser');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.login) return parsed.login;
+    }
+  } catch {
+  }
+  return '';
+}
+
+function getCurrentDeviceId(): string {
+  return sessionStorage.getItem('deviceId') || localStorage.getItem('deviceId') || '';
+}
+
 function attachHandlers(s: Socket, login: string, deviceId: string): void {
   s.on('connect', () => {
-    console.log('🔌 Socket ulandi:', s.id);
-
-    // ✅ localStorage emas — parametrdan kelgan qiymatni ishlatamiz
-    const _login = login || localStorage.getItem('currentLogin') || localStorage.getItem('login') || '';
-    const _deviceId = deviceId || localStorage.getItem('deviceId') || '';
+    const _login    = login    || getCurrentLogin();
+    const _deviceId = deviceId || getCurrentDeviceId();
 
     if (_login && _deviceId) {
       s.emit('registerUser', { login: _login, deviceId: _deviceId });
-      console.log(`📲 Socket register: ${_login} | ${_deviceId}`);
-    } else {
-      console.warn('⚠️ Socket: login yoki deviceId topilmadi!', { _login, _deviceId });
     }
   });
 
-  s.on('disconnect', (reason) => {
-    console.log('❌ Socket uzildi:', reason);
-  });
-
-  s.on('connect_error', (err) => {
-    console.error('🔴 Socket xatosi:', err.message);
-  });
+  s.on('disconnect', () => {});
+  s.on('connect_error', () => {});
 }
 
 function getSocket(): Socket {
   if (!socket) {
-    const login = localStorage.getItem('currentLogin') ||
-                  localStorage.getItem('login') || '';
-    const deviceId = localStorage.getItem('deviceId') || '';
+    const login    = getCurrentLogin();
+    const deviceId = getCurrentDeviceId();
 
     socket = io(SOCKET_URL, {
-      path: '/socket.io/',
-      autoConnect: true, // ✅ o'zgartiring: false → true
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-      reconnection: true,
+      path:                '/socket.io/',
+      autoConnect:         true,
+      withCredentials:     true,
+      transports:          ['websocket', 'polling'],
+      reconnection:        true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-      auth: { login, deviceId }
+      reconnectionDelay:   2000,
+      auth: { login, deviceId }, 
     });
 
     attachHandlers(socket, login, deviceId);
@@ -54,10 +57,7 @@ function getSocket(): Socket {
   return socket;
 }
 
-
 export function reconnectSocket(login: string, deviceId: string): void {
-  console.log(`🔄 Reconnect boshlanmoqda: ${login} | ${deviceId}`);
-
   // 1. Eski socketni tozalash
   if (socket) {
     socket.removeAllListeners();
@@ -65,26 +65,20 @@ export function reconnectSocket(login: string, deviceId: string): void {
     socket = null;
   }
 
-  // 2. localStorage yangilash
-  localStorage.setItem('currentLogin', login);
-  localStorage.setItem('deviceId', deviceId);
 
-  // 3. Yangi socket — to'g'ridan-to'g'ri parametrlar bilan
+
   socket = io(SOCKET_URL, {
-    path: '/socket.io/',
-    autoConnect: true,
-    withCredentials: true,
-    transports: ['websocket', 'polling'],
-    reconnection: true,
+    path:                '/socket.io/',
+    autoConnect:         true,
+    withCredentials:     true,
+    transports:          ['websocket', 'polling'],
+    reconnection:        true,
     reconnectionAttempts: 5,
-    reconnectionDelay: 2000,
-    auth: { login, deviceId } // ✅ localStorage emas, parametr
+    reconnectionDelay:   2000,
+    auth: { login, deviceId }, 
   });
 
-  // 4. Handlerlar — parametrdan kelgan login/deviceId bilan
   attachHandlers(socket, login, deviceId);
-
-  console.log(`✅ Socket reconnect tugadi: ${login} | ${deviceId}`);
 }
 
 export function disconnectSocket(): void {
@@ -94,7 +88,6 @@ export function disconnectSocket(): void {
       socket.disconnect();
     }
     socket = null;
-    console.log('👋 Socket disconnect qilindi va tozalandi');
   }
 }
 

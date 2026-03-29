@@ -43,7 +43,10 @@ const translations: Record<Language, Record<string, string>> = {
     stationery: "Kantselyariya mahsulotlari",
     petProducts: "Uy hayvonlari uchun tovarlar",
     medicine: "Dorilar",
-    allCategories: "Barcha"
+    allCategories: "Barcha",
+
+    // ── Hisobotlar sahifasi qo'shimcha matnlari ────────────
+    allSalesHistory: "Barcha Sotuvlar Tarixi",
   },
   ru: {
     reports: "Отчеты",
@@ -83,7 +86,10 @@ const translations: Record<Language, Record<string, string>> = {
     stationery: "Канцелярия",
     petProducts: "Товары для животных",
     medicine: "Лекарства",
-    allCategories: "Все"
+    allCategories: "Все",
+
+    // ── Hisobotlar sahifasi qo'shimcha matnlari ────────────
+    allSalesHistory: "История всех продаж",
   },
   en: {
     reports: "Reports",
@@ -123,7 +129,10 @@ const translations: Record<Language, Record<string, string>> = {
     stationery: "Stationery",
     petProducts: "Pet products",
     medicine: "Medicine",
-    allCategories: "All"
+    allCategories: "All",
+
+    // ── Hisobotlar sahifasi qo'shimcha matnlari ────────────
+    allSalesHistory: "All Sales History",
   }
 };
 

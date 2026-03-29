@@ -1,151 +1,162 @@
-// src/main.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import { registerSW } from 'virtual:pwa-register';
 
-import Menu from "./pages/Menu";
-import Settings from "./pages/Settings";
-import Chatbot from "./pages/Ai";
-import Chat from "./pages/Chat";
-import MaxQoshish from "./pages/MaxQoshish";
-import MaxsulotBazasi from "./pages/MaxsulotBazasi";
-import Scan from "./pages/Hisobotlar";
-import Scanner from "./pages/Scanner";
-import Sotilgan from "./pages/Sotilgan";
-import Qarzlar from "./pages/Qarzlar";
-import Login from "./pages/Login";
-import KirimBazasi from './pages/KirimBazasi';
-import Ai from "./pages/Ai";
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminPanel from "./adminPages/AdminMenu";
-import AdminSettings from "./adminPages/AdminSettings";
-import NotFound from "./pages/NotFound";
-import { getSocket, disconnectSocket } from "./utils/socket";
+import Menu            from "./pages/Menu";
+import Settings        from "./pages/Settings";
+import Chatbot         from "./pages/Ai";
+import Chat            from "./pages/Chat";
+import MaxQoshish      from "./pages/MaxQoshish";
+import MaxsulotBazasi  from "./pages/MaxsulotBazasi";
+import Scan            from "./pages/Hisobotlar";
+import Scanner         from "./pages/Scanner";
+import Sotilgan        from "./pages/Sotilgan";
+import Qarzlar         from "./pages/Qarzlar";
+import Login           from "./pages/Login";
+import KirimBazasi     from './pages/KirimBazasi';
+import ProtectedRoute  from "./components/ProtectedRoute";
+import AdminPanel      from "./adminPages/AdminMenu";
+import AdminSettings   from "./adminPages/AdminSettings";
+import NotFound        from "./pages/NotFound";
+
+import { getSocket, disconnectSocket }         from "./utils/socket";
+import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
+// ✅ stopAuthCheck import qilinmadi — socket handlerlardan chaqirish xato edi
+import { invalidateAuthCache }                 from "./components/ProtectedRoute";
+import { HandTrackingProvider }                from "./context/HandTrackingContext";
+import { TranslationProvider }                 from "./pages/Settings";
 
 registerSW({ immediate: true });
 
-// ✅ GLOBAL SOCKET LISTENER COMPONENT
+// ✅ CSRF token — app ochilganda bir marta
+// ✅ Shunday bo'lishi kerak
+fetch('/api/csrf-token', { method: 'GET', credentials: 'include' }).catch(() => {});
+
+// ─────────────────────────────────────────────────────────────
+// GlobalSocketListener — app umri davomida bir marta mount bo'ladi
+// ─────────────────────────────────────────────────────────────
 function GlobalSocketListener() {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
+  const navigateRef = useRef(navigate);
 
+  // ✅ FIX 1 & 3: navigate o'zgarganda IKKI NARSA qilamiz:
+  //   a) ref ni yangilaymiz (socket handler uchun)
+  //   b) setupAuthCheck ga yangi navigate beramiz (authUtils ref uchun)
+  //   setupAuthCheck isInitialized=true bo'lsa faqat navigateRef ni yangilaydi
+  //   isInitialized=false bo'lsa (login dan keyin) — yangi interval yaratadi
   useEffect(() => {
-    const login = localStorage.getItem('currentLogin') ||
-                  localStorage.getItem('login') || '';
-    const deviceId = localStorage.getItem('deviceId') || '';
+    navigateRef.current = navigate;
+    setupAuthCheck(navigate); // ✅ Har navigate o'zgarganda — idempotent
+  }, [navigate]);
 
-    if (!login || !deviceId) return;
-
+  // ✅ Socket — faqat bir marta, bo'sh dep array bilan
+  useEffect(() => {
     const socket = getSocket();
+    if (!socket.connected) socket.connect();
 
-    // ✅ Socket ulanmagan bo'lsa — ulan
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    // ✅ Ulanish bo'lganda registerUser yuborish
+    // Socket ulanganda foydalanuvchini ro'yxatdan o'tkazish
     const handleConnect = () => {
-      const _login = localStorage.getItem('currentLogin') || localStorage.getItem('login') || '';
-      const _deviceId = localStorage.getItem('deviceId') || '';
+      const _login    = localStorage.getItem('currentLogin') || '';
+      const _deviceId = localStorage.getItem('deviceId')     || '';
       if (_login && _deviceId) {
         socket.emit('registerUser', { login: _login, deviceId: _deviceId });
-        console.log(`📲 GlobalSocketListener register: ${_login} | ${_deviceId}`);
       }
     };
 
-    // Agar allaqachon ulangan bo'lsa — darhol register qil
-    if (socket.connected) {
-      handleConnect();
-    }
-
+    if (socket.connected) handleConnect();
     socket.on('connect', handleConnect);
 
+    // ✅ FIX 2 & 4: stopAuthCheck chaqirmaymiz — handleLogout ishlatamiz
+    // handleLogout (yangi authUtils da) intervalni tozalaydi lekin
+    // isInitialized ni false qilmaydi — shuning uchun loop yo'q
     const handleForceLogout = (data: { reason?: string }) => {
-      console.warn('⛔ forceLogout eventi keldi:', data);
       localStorage.removeItem('currentLogin');
       localStorage.removeItem('activeUser');
       localStorage.removeItem('login');
       sessionStorage.removeItem('currentUser');
+      invalidateAuthCache();
       disconnectSocket();
-      toast.warning(
-        data?.reason || '⛔ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz',
-        { duration: 6000 }
-      );
-      navigate('/login', { replace: true });
+
+      // ✅ handleLogout navigate olmaydi (navigateRef ichida saqlangan)
+      handleLogout(data?.reason || '⛔ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz');
     };
 
-    socket.on('forceLogout', handleForceLogout);
+    const handleBlocked = (data: { login?: string; reason?: string }) => {
+      const currentLogin = localStorage.getItem('currentLogin');
+      // Boshqa user bloklangan bo'lsa — o'zimizga tegishli emas
+      if (data.login && data.login !== currentLogin) return;
 
+      localStorage.removeItem('currentLogin');
+      localStorage.removeItem('activeUser');
+      sessionStorage.removeItem('currentUser');
+      invalidateAuthCache();
+      disconnectSocket();
+
+      toast.error('❌ Hisobingiz bloklandi', {
+        description: data?.reason || 'Administrator tomonidan bloklandi',
+        duration: 6000,
+      });
+
+      // ✅ navigateRef.current ishlatamiz — handleLogout emas
+      // (handleLogout toast ham chiqaradi, duplicate bo'ladi)
+      setTimeout(() => {
+        handleLogout(); // interval tozalaydi
+        navigateRef.current('/login', { replace: true });
+      }, 3000);
+    };
+
+    socket.on('forceLogout',  handleForceLogout);
+    socket.on('user:blocked', handleBlocked);
+
+    // ✅ Cleanup: FAQAT socket event listenerlarni olib tashlaymiz
+    // Auth interval va isInitialized ga tegmaymiz —
+    // component unmount bo'lmaydi (App umri davomida yashaydi)
     return () => {
-      socket.off('connect', handleConnect);
-      socket.off('forceLogout', handleForceLogout);
+      socket.off('connect',      handleConnect);
+      socket.off('forceLogout',  handleForceLogout);
+      socket.off('user:blocked', handleBlocked);
     };
-  }, [navigate]);
+  }, []); // ✅ Bo'sh array — bir marta
 
   return null;
 }
 
-// ====================================
-// ✅ ASOSIY APP
-// ====================================
+// ─────────────────────────────────────────────────────────────
+// App
+// ─────────────────────────────────────────────────────────────
 function App() {
-  // 🔐 Ilova ishga tushganda CSRF tokenni olish (bir marta)
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/csrf-token', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const token = data.csrfToken || data.token;
-        if (token) {
-          localStorage.setItem('csrfToken', token);
-          // console.log('CSRF token initialized');
-        }
-      } catch {
-        // CSRF token olinmasa ham ilova ishlashda davom etadi,
-        // lekin POST/PUT/DELETE so'rovlarda 403 bo'lishi mumkin.
-      }
-    })();
-  }, []);
-
   return (
-    <React.StrictMode>
+    <TranslationProvider>
       <BrowserRouter>
-        <Toaster position="top-center" richColors />
+        <HandTrackingProvider>
+          <Toaster position="top-center" richColors />
+          <GlobalSocketListener />
 
-        {/* ✅ Global socket listener — barcha sahifalarda ishlaydi */}
-        <GlobalSocketListener />
+          <Routes>
+            <Route path="/"       element={<Navigate to="/login" replace />} />
+            <Route path="/login"  element={<Login />} />
 
-        <Routes>
-          {/* ❌ Ochiq sahifalar */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
+            <Route path="/menu"           element={<ProtectedRoute><Menu /></ProtectedRoute>} />
+            <Route path="/settings"       element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/ai"             element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
+            <Route path="/chat"           element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+            <Route path="/add-product"    element={<ProtectedRoute><MaxQoshish /></ProtectedRoute>} />
+            <Route path="/products"       element={<ProtectedRoute><MaxsulotBazasi /></ProtectedRoute>} />
+            <Route path="/reports"        element={<ProtectedRoute><Scan /></ProtectedRoute>} />
+            <Route path="/scanner"        element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
+            <Route path="/sales"          element={<ProtectedRoute><Sotilgan /></ProtectedRoute>} />
+            <Route path="/debts"          element={<ProtectedRoute><Qarzlar /></ProtectedRoute>} />
+            <Route path="/kirim-bazasi"   element={<ProtectedRoute><KirimBazasi /></ProtectedRoute>} />
+            <Route path="/admin-panel"    element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+            <Route path="/admin-settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
 
-          {/* ✅ Himoyalangan sahifalar */}
-          <Route path="/menu" element={<ProtectedRoute><Menu /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/ai" element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/add-product" element={<ProtectedRoute><MaxQoshish /></ProtectedRoute>} />
-          <Route path="/products" element={<ProtectedRoute><MaxsulotBazasi /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
-          <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
-          <Route path="/sales" element={<ProtectedRoute><Sotilgan /></ProtectedRoute>} />
-          <Route path="/debts" element={<ProtectedRoute><Qarzlar /></ProtectedRoute>} />
-          <Route path="/kirim-bazasi" element={<ProtectedRoute><KirimBazasi /></ProtectedRoute>} />
-          <Route path="/admin-panel" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
-          <Route path="/admin-settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
-
-          {/* 404 */}
-          <Route path="*" element={<NotFound />}       
-          />
-        </Routes>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </HandTrackingProvider>
       </BrowserRouter>
-    </React.StrictMode>
+    </TranslationProvider>
   );
 }
 

@@ -103,16 +103,14 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
     if (sales.length === 0 || isPrinting) return;
     setIsPrinting(true);
     setStatus('idle');
-    setResultText('Printerga ulanmoqda...');
+    setResultText(t('printerConnecting'));   // "Printerga ulanmoqda..."
     setResultStatus('info');
 
     const receiptId  = generateReceiptId();
     const now        = new Date();
     const sana       = now.toLocaleString('uz-UZ');
 
-    // ✅ QR ichiga receiptId + sana + vaqt
-    // Format: "ID:517260956441|2026-03-11T17:29:40"
-    const isoDate = now.toISOString().slice(0, 19); // "2026-03-11T17:29:40"
+    const isoDate   = now.toISOString().slice(0, 19);
     const qrPayload = `ID:${receiptId}|${isoDate}`;
 
     try {
@@ -127,7 +125,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         cachedDevice.current = device;
       }
 
-      setResultText('Chek tayyorlanmoqda...');
+      setResultText(t('receiptPreparing'));  // "Chek tayyorlanmoqda..."
 
       // ── 2. ESC/POS ─────────────────────────
       const encoder = new TextEncoder();
@@ -171,7 +169,6 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         `  ShoxPay ilovasida scan qiling:\n\n`
       ));
 
-      // ✅ QR ichida receiptId + sana/vaqt
       const qrBitmap = await qrToBitmap(qrPayload, 280);
       parts.push(qrBitmap);
 
@@ -196,14 +193,24 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       registerCashback(receiptId, totalPrice);
       await finalizeSale();
 
-      setResultText('Chek chop etildi ✓');
+      setResultText(t('receiptPrinted'));    // "Chek chop etildi ✓"
       setResultStatus('success');
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2800);
 
     } catch (err: any) {
       console.error('Printer xatosi:', err);
-      setResultText(`Xato: ${err.message || 'Ulanib bo\'lmadi'}`);
+
+      // Foydalanuvchi printer tanlamay oynani yopganda
+      const isNotSelected =
+        err?.message?.includes('No device selected') ||
+        err?.name === 'NotFoundError';
+
+      const errorMsg = isNotSelected
+        ? t('noPrinterSelected')
+        : `${t('errorPrefix')}: ${err.message || t('connectionFailed')}`;
+
+      setResultText(errorMsg);
       setResultStatus('error');
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3200);
@@ -256,10 +263,18 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
             </div>
             <div>
               <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
-                {isPrinting ? 'Chop etilmoqda...' : status === 'success' ? 'Tayyor' : 'Chek Chop Etish'}
+                {isPrinting
+                  ? t('printing')           // "Chop etilmoqda..."
+                  : status === 'success'
+                    ? t('ready')            // "Tayyor"
+                    : t('printReceiptTitle') // "Chek Chop Etish"
+                }
               </h4>
               <p style={{ fontSize: 13, color: '#8b92a7', margin: '4px 0 0 0' }}>
-                {isPrinting ? 'Iltimos kuting' : 'QR cashback bilan chek'}
+                {isPrinting
+                  ? t('pleaseWait')         // "Iltimos kuting"
+                  : t('qrCashbackReceipt')  // "QR cashback bilan chek"
+                }
               </p>
             </div>
           </div>

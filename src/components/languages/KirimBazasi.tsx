@@ -53,6 +53,17 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Kantselyariya mahsulotlari",
     uyHayvonlariUchunTovarlar: "🐶 Uy hayvonlari uchun tovarlar",
     dorilar: "💊 Dorilar",
+    Daromad: "Daromad",
+
+    // ── KirimBazasi sahifasi qo'shimcha matnlari ───────────
+    sotilganMiqdor: "Sotilgan miqdor",
+    jadvalYuklanmoqda: "⏳ Yuklanmoqda...",
+    narxYangilandi: "Narx yangilandi",
+    miqdorYangilandi: "Miqdor yangilandi",
+    offlineSaqlandi: "📴 Offline saqlandi — keyinchalik sync bo'ladi",
+    internetYoq: "Internet yo'q",
+    barchiMalumotYuklandi: "Barcha ma'lumot yuklandi",
+    ozgarishSyncBoldi: "{count} ta o'zgarish sync bo'ldi",
   },
   ru: {
     KirimBazasi: "База Входа",
@@ -103,6 +114,17 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Канцелярские товары",
     uyHayvonlariUchunTovarlar: "🐶 Товары для домашних животных",
     dorilar: "💊 Лекарства",
+    Daromad: "Доход",
+
+    // ── KirimBazasi sahifasi qo'shimcha matnlari ───────────
+    sotilganMiqdor: "Проданное количество",
+    jadvalYuklanmoqda: "⏳ Загрузка...",
+    narxYangilandi: "Цена обновлена",
+    miqdorYangilandi: "Количество обновлено",
+    offlineSaqlandi: "📴 Сохранено офлайн — синхронизируется позже",
+    internetYoq: "Нет интернета",
+    barchiMalumotYuklandi: "Все данные загружены",
+    ozgarishSyncBoldi: "{count} изменений синхронизировано",
   },
   en: {
     KirimBazasi: "Incoming Base",
@@ -153,6 +175,17 @@ const translations: Record<Language, Record<string, string>> = {
     kantselyariyaMahsulotlari: "✏️ Stationery",
     uyHayvonlariUchunTovarlar: "🐶 Pet products",
     dorilar: "💊 Medicines",
+    Daromad: "Income",
+
+    // ── KirimBazasi sahifasi qo'shimcha matnlari ───────────
+    sotilganMiqdor: "Sold quantity",
+    jadvalYuklanmoqda: "⏳ Loading...",
+    narxYangilandi: "Price updated",
+    miqdorYangilandi: "Quantity updated",
+    offlineSaqlandi: "📴 Saved offline — will sync later",
+    internetYoq: "No internet",
+    barchiMalumotYuklandi: "All data loaded",
+    ozgarishSyncBoldi: "{count} changes synced",
   }
 };
 

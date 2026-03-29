@@ -285,8 +285,8 @@ export const useBiometric = () => {
 
         if (res.ok && data.success) {
           // ✅ Tokenlar cookie'da saqlanadi
-          localStorage.setItem("currentLogin", userLogin);
-          localStorage.setItem("activeUser", userLogin);
+          sessionStorage.setItem("currentLogin", userLogin);
+          sessionStorage.setItem("activeUser", userLogin);
 
           if (data.user) {
             sessionStorage.setItem("currentUser", JSON.stringify(data.user));

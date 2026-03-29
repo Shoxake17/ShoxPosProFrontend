@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from "../components/MainLayout";
-import { useTranslation, TranslationProvider } from '../components/languages/Settings';
+import { useTranslation, TranslationProvider } from '../components/languages/KirimBazasi';
 import { getCategories, getCategoryEmoji, translateCategory } from '../components/Category';
 import { Search, TrendingUp, TrendingDown, Package, DollarSign, RefreshCw } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
@@ -172,13 +172,12 @@ function KirimBazasiContent() {
       setIsOnline(true);
       setSyncing(true);
       const count = await syncPendingToMongoDB(login);
-      if (count > 0) toast.success(`✅ ${count} ta o'zgarish MongoDB ga sync bo'ldi`);
+      if (count > 0) toast.success(`✅ ${t('ozgarishSyncBoldi', { count: String(count) })}`);
       setSyncing(false);
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    // Component yuklanganda pending larni ham sync qilamiz
     if (navigator.onLine) syncPendingToMongoDB(login);
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -197,7 +196,6 @@ function KirimBazasiContent() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 1. IndexedDB dan ol
       const idbProducts = await getAllFromIDB(login);
       setIdbCount(idbProducts.length);
 
@@ -205,10 +203,8 @@ function KirimBazasiContent() {
         const normalized = idbProducts.map(p => ({ ...p, basePrice: p.basePrice || 0 }));
         setProducts(normalized);
         setFilteredProducts(normalized);
-        // Background da MongoDB bilan sync
         if (navigator.onLine) syncFromMongoDB(idbProducts);
       } else if (navigator.onLine) {
-        // 2. IndexedDB bo'sh — MongoDB dan yukla
         await syncFromMongoDB([]);
       }
     } catch (err) {
@@ -218,7 +214,6 @@ function KirimBazasiContent() {
     }
   };
 
-  // MongoDB dan ma'lumot olib IndexedDB ga saqlash
   const syncFromMongoDB = async (existingIdb: any[]) => {
     try {
       const res = await fetch(`/api/products/user-products/${login}`);
@@ -228,13 +223,11 @@ function KirimBazasiContent() {
 
       const normalized = data.map((p: any) => ({ ...p, basePrice: p.basePrice || 0, login }));
 
-      // MongoDB da bor, IndexedDB da yo'q — qo'sh
       const idbBarcodes = new Set(existingIdb.map((p: any) => p.barcode));
       for (const p of normalized) {
         if (!idbBarcodes.has(p.barcode)) await saveToIDB(p);
       }
 
-      // UI ni yangilaymiz (faqat IndexedDB bo'sh bo'lganda to'liq yangilash)
       if (existingIdb.length === 0) {
         setProducts(normalized);
         setFilteredProducts(normalized);
@@ -277,31 +270,27 @@ function KirimBazasiContent() {
   const updateBasePrice = async (barcode: string, newBasePrice: number) => {
     if (newBasePrice < 0) return;
 
-    // 1. UI ni darhol yangilaymiz
     const updated = products.map(p => p.barcode === barcode ? { ...p, basePrice: newBasePrice } : p);
     setProducts(updated);
 
-    // 2. IndexedDB ga saqlash
     const product = products.find(p => p.barcode === barcode);
     if (product) await saveToIDB({ ...product, basePrice: newBasePrice, login });
 
     if (navigator.onLine) {
-      // 3. MongoDB ga yuborish
       try {
         const res = await fetch('/api/products/update-base-price', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode, newBasePrice, login }),
         });
-        if (res.ok) toast.success(t('Narx Yangilandi'));
+        if (res.ok) toast.success(t('narxYangilandi'));       // ✅ to'g'ri kalit
         else await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price');
       } catch {
         await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price');
       }
     } else {
-      // Offline — pending ga qo'shish
       await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price');
-      toast.info('📴 Offline saqlanda — keyinchalik sync bo\'ladi');
+      toast.info(t('offlineSaqlandi'));                        // ✅ tarjima
     }
   };
 
@@ -309,11 +298,9 @@ function KirimBazasiContent() {
   const updateQuantity = async (barcode: string, newQuantity: number) => {
     if (newQuantity < 0) return;
 
-    // 1. UI
     const updated = products.map(p => p.barcode === barcode ? { ...p, quantity: newQuantity } : p);
     setProducts(updated);
 
-    // 2. IndexedDB
     const product = products.find(p => p.barcode === barcode);
     if (product) await saveToIDB({ ...product, quantity: newQuantity, login });
 
@@ -324,25 +311,29 @@ function KirimBazasiContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode, newQuantity, login }),
         });
-        if (res.ok) toast.success(t('Miqdor Yangilandi') || 'Miqdor yangilandi');
+        if (res.ok) toast.success(t('miqdorYangilandi'));     // ✅ to'g'ri kalit
         else await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity');
       } catch {
         await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity');
       }
     } else {
       await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity');
-      toast.info('📴 Offline saqlanda — keyinchalik sync bo\'ladi');
+      toast.info(t('offlineSaqlandi'));                        // ✅ tarjima
     }
   };
 
   // ─── Qo'lda sync ─────────────────────────────────────────────────────
   const manualSync = async () => {
-    if (!navigator.onLine) { toast.warning('Internet yo\'q'); return; }
+    if (!navigator.onLine) { toast.warning(t('internetYoq')); return; }  // ✅ tarjima
     setSyncing(true);
     const count = await syncPendingToMongoDB(login);
     await syncFromMongoDB(products);
     setSyncing(false);
-    toast.success(count > 0 ? ` ${count} ta o'zgarish sync bo'ldi` : 'Barcha ma\'lumot yuklandi');
+    toast.success(
+      count > 0
+        ? t('ozgarishSyncBoldi', { count: String(count) })   // ✅ "{count} ta o'zgarish..."
+        : t('barchiMalumotYuklandi')                          // ✅ tarjima
+    );
   };
 
   // ─── Statistika ───────────────────────────────────────────────────────
@@ -367,8 +358,6 @@ function KirimBazasiContent() {
   return (
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('KirimBazasi')}>
 
-    
-        
       {/* ── Filter ── */}
       <div className="filters-container">
         <div className="search-box">
@@ -392,10 +381,10 @@ function KirimBazasiContent() {
       {/* ── Statistika kartalar ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px', marginTop: '24px' }}>
         {[
-          { icon: <TrendingUp size={20} color="#10b981" />, label: t('UmumiyKirim'), value: totalKirim, color: '#10b981' },
-          { icon: <TrendingDown size={20} color="#ef4444" />, label: t('UmumiyChiqim'), value: totalChiqim, color: '#ef4444' },
+          { icon: <TrendingUp size={20} color="#10b981" />,   label: t('UmumiyKirim'),   value: totalKirim,             color: '#10b981' },
+          { icon: <TrendingDown size={20} color="#ef4444" />, label: t('UmumiyChiqim'),  value: totalChiqim,            color: '#ef4444' },
           { icon: <DollarSign size={20} color={totalDaromad >= 0 ? '#22c55e' : '#ef4444'} />, label: t('Daromad'), value: totalDaromad, color: totalDaromad >= 0 ? '#22c55e' : '#ef4444' },
-          { icon: <Package size={20} color="#f59e0b" />, label: 'Sotilgan miqdor', value: totalIncomingQuantity, color: '#f59e0b', noUnit: true },
+          { icon: <Package size={20} color="#f59e0b" />,      label: t('sotilganMiqdor'), value: totalIncomingQuantity, color: '#f59e0b', noUnit: true }, // ✅ tarjima
         ].map((card, i) => (
           <div key={i} style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)' : '#fff', borderRadius: '16px', padding: '24px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -426,7 +415,7 @@ function KirimBazasiContent() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="empty-state">⏳ Yuklanmoqda...</td></tr>
+                <tr><td colSpan={7} className="empty-state">{t('jadvalYuklanmoqda')}</td></tr>  
               ) : filteredProducts.length === 0 ? (
                 <tr><td colSpan={7} className="empty-state">{t('noData')}</td></tr>
               ) : (
