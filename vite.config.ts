@@ -58,18 +58,18 @@ export default defineConfig(({ mode }) => {
           ]
         }
       }),
-      !isDev && obfuscator({
-        options: {
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.75,
-          numbersToExpressions: true,
-          simplify: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          splitStrings: true,
-          unicodeEscapeSequence: false,
-        },
-      }),
+      // !isDev && obfuscator({
+      //   options: {
+      //     controlFlowFlattening: true,
+      //     controlFlowFlatteningThreshold: 0.75,
+      //     numbersToExpressions: true,
+      //     simplify: true,
+      //     stringArray: true,
+      //     stringArrayThreshold: 0.75,
+      //     splitStrings: true,
+      //     unicodeEscapeSequence: false,
+      //   },
+      // }),
     ].filter(Boolean),
 
     resolve: {
@@ -114,7 +114,7 @@ export default defineConfig(({ mode }) => {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://cbu.uz",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://api.openai.com https://cbu.uz",
         ].join('; '),
       },
     },
