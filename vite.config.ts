@@ -83,6 +83,23 @@ export default defineConfig(({ mode }) => {
       host: true,
       strictPort: true,
       allowedHosts: ['localhost', '*.ngrok-free.dev', '*.ngrok.io'],
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/socket.io': {
+          target: 'ws://localhost:3000',
+          ws: true,
+        },
+        '/ip-api': {
+          target: 'https://freeipapi.com/api',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/ip-api/, ''),
+        },
+      },
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
@@ -97,24 +114,8 @@ export default defineConfig(({ mode }) => {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://cbu.uz",
         ].join('; '),
-      },
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3000',
-          changeOrigin: true,
-          secure: false,
-          cookieDomainRewrite: 'localhost',
-          headers: { 'Origin': 'http://localhost:3000' },
-        },
-        '/socket.io': {
-          target: 'http://localhost:3000',
-          changeOrigin: true,
-          secure: false,
-          ws: true,
-          headers: { 'Origin': 'http://localhost:3000' },
-        },
       },
     },
 
@@ -132,11 +133,11 @@ export default defineConfig(({ mode }) => {
           "base-uri 'self'",
           "frame-ancestors 'none'",
           "object-src 'none'",
-          "script-src 'self' https://cdn.jsdelivr.net",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://cbu.uz",
         ].join('; '),
       },
       proxy: {
@@ -153,6 +154,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
           ws: true,
           headers: { 'Origin': 'http://localhost:3000' },
+        },
+        '/ip-api': {
+          target: 'https://freeipapi.com/api',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/ip-api/, ''),
         },
       },
     },

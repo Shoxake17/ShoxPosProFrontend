@@ -94,8 +94,8 @@ export const getLocationInfo = async () => {
   };
   
   try {
-    // 1-urinish: freeipapi.com (CORS uchun juda yaxshi)
-    const res = await fetch('https://freeipapi.com/api/json', {
+    // 1-urinish: /ip-api (Vite proxy orqali CORS muammosini chetlab o'tish)
+    const res = await fetch('/ip-api/json', {
       signal: AbortSignal.timeout(3000)
     });
 
