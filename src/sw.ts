@@ -16,12 +16,12 @@ self.addEventListener('install', (event) => {
 
 // Activate event
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(self.clients.claim());
 });
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  let data = { title: 'ShoxPosPro', body: 'Yangi xabar keldi!', icon: '/shoxpospro.png' };
+  let data: any = { title: 'ShoxPosPro', body: 'Yangi xabar keldi!', icon: '/shoxpospro.png' };
 
   if (event.data) {
     try {
@@ -59,7 +59,7 @@ self.addEventListener('notificationclick', (event) => {
   if (event.action === 'close') return;
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // If a window is already open, focus it
       for (const client of clientList) {
         if (client.url === event.notification.data.url && 'focus' in client) {
@@ -67,8 +67,8 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       // If no window is open, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(event.notification.data.url || '/');
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(event.notification.data.url || '/');
       }
     })
   );

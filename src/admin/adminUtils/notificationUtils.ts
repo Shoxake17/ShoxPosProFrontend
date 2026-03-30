@@ -1,13 +1,4 @@
 // src/admin/adminUtils/notificationUtils.ts
-//
-// ✅ Muammolar hal qilindi:
-//   1. document.hasFocus() olib tashlandi → HAR DOIM custom UI chiqadi
-//   2. Ovoz: AudioContext unlock + CDN ishlamasa Web Audio beep fallback
-//   3. Logo: "/ShoxPosPro.png" — public/ papkasidan to'g'ri yo'l
-
-// ─── Audio unlock ──────────────────────────────────────────────────────────
-// Brauzer foydalanuvchi interaksiyasisiz audio play ni bloklaydi.
-// Birinchi klik/keydown da AudioContext unlock qilinadi.
 
 let _audioUnlocked = false;
 
@@ -85,7 +76,6 @@ export function showBrowserNotification(
         badge: icon,
         data: { url: window.location.origin + (document.location.pathname.startsWith('/admin') ? "/admin-chat" : "/chat") },
         tag: "shoxpos-msg",
-        renotify: true,
         requireInteraction: false,
         silent: true 
       });

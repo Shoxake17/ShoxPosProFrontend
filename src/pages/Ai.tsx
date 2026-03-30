@@ -145,7 +145,7 @@ export default function Ai() {
         const history: Message[] = await res.json();
         const newChats: ChatStore = { ...EMPTY_CHATS };
         history.forEach(msg => {
-          const mId = msg.modelId as ModelId;
+          const mId = msg.modelId as any;
           const targetId = mId === 'gemini-pro' ? 'gemini-2.5-flash' : mId;
           if (newChats[targetId as ModelId]) {
             newChats[targetId as ModelId].push(msg);
@@ -216,7 +216,7 @@ QARZLAR: ${debtsData.length} ta`;
 
     try {
       const body: any = { question: text, login, useStore, modelId: currentModelId };
-      if (model.groqModel) body.groqModel = model.groqModel;
+      if ('groqModel' in model && model.groqModel) body.groqModel = model.groqModel;
       if (model.orModel) body.orModel = model.orModel;
       if ('togetherModel' in model) body.togetherModel = (model as any).togetherModel;
 

@@ -35,7 +35,7 @@ import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
 import { invalidateAuthCache }                 from "./components/ProtectedRoute";
 import { hydrateSessionUserFromCookie, getSessionLogin, clearAuthClientState } from "./utils/clientSession";
 
-import { setMemoryCsrfToken } from "./api/axiosInstance";
+import axiosInstance, { setMemoryCsrfToken } from "./api/axiosInstance";
 
 registerSW({ immediate: true });
 
