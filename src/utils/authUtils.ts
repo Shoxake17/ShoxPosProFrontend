@@ -5,13 +5,25 @@ import axiosInstance from "../api/axiosInstance";
 import { NavigateFunction } from "react-router-dom";
 import { getSocket as getMainSocket, disconnectSocket as mainDisconnect } from "./socket";
 import { invalidateAuthCache } from "../components/ProtectedRoute";
+import { clearAuthClientState, getSessionLogin } from "./clientSession";
 
 let authCheckInterval: ReturnType<typeof setInterval> | null = null;
 let isCheckingAuth = false;
 let isInitialized  = false;
-let navigateRef: NavigateFunction | null = null; // ✅ Global saqlaymiz
+let setupAuthInFlight = false;
+let navigateRef: NavigateFunction | null = null;
 
 const AUTH_INTERVAL_MS = 5 * 60 * 1000; // 5 daqiqa
+
+/** Keyingi muvaffaqiyatli kirishdan oldin yoki logout dan keyin interval qayta yig'ilishi uchun */
+export function prepareAuthCheckForNewSession(): void {
+  if (authCheckInterval) {
+    clearInterval(authCheckInterval);
+    authCheckInterval = null;
+  }
+  isInitialized = false;
+  setupAuthInFlight = false;
+}
 
 // ─────────────────────────────────────────────
 // checkAuthStatus
@@ -21,7 +33,15 @@ async function checkAuthStatus() {
   isCheckingAuth = true;
 
   try {
-    // ✅ Faqat bitta endpoint — verify-session ichida user ham bor
+    // 🛡️ A09: Auth statusni keshdan tekshiramiz (ProtectedRoute keshidan farqli o'laroq bu fon tekshiruvi)
+    const cached = sessionStorage.getItem("authCache");
+    if (cached) {
+      const { timestamp } = JSON.parse(cached);
+      const age = Date.now() - timestamp;
+      // Agar kesh hali juda yangi bo'lsa (1 min), serverga so'rov yubormaymiz
+      if (age < 60000) return;
+    }
+
     const sessionRes = await axiosInstance.get("/verify-session");
 
     if (sessionRes.status !== 200 || !sessionRes.data.valid) {
@@ -31,7 +51,7 @@ async function checkAuthStatus() {
 
     // ✅ user-status ni faqat blocked tekshirish uchun — va kamroq tez-tez
     // Bu alohida interval bilan yoki verify-session response ichiga qo'shilsin
-    const login = localStorage.getItem("currentLogin");
+    const login = getSessionLogin();
     if (!login) {
       handleLogout("Login topilmadi");
       return;
@@ -56,33 +76,60 @@ async function checkAuthStatus() {
 // ─────────────────────────────────────────────
 // setupAuthCheck — FAQAT bir marta, main.tsx dan
 // ─────────────────────────────────────────────
-export function setupAuthCheck(navigate: NavigateFunction): () => void {
-  navigateRef = navigate; // ✅ Har safar yangilaydi (navigate o'zgarganda)
-
-  // ✅ Allaqachon ishga tushgan — faqat navigate ni yangiladik, qaytamiz
-  if (isInitialized) return () => {};
-
-  const currentLogin = localStorage.getItem("currentLogin");
-  if (!currentLogin) {
-    navigate("/login", { replace: true });
-    return () => {};
-  }
-
-  isInitialized = true;
-
-  // Darhol bir marta tekshir
-  checkAuthStatus();
-
-  // 5 daqiqada bir marta
+function startInterval() {
+  if (authCheckInterval) clearInterval(authCheckInterval);
   authCheckInterval = setInterval(() => {
-    if (!localStorage.getItem("currentLogin")) {
+    if (!getSessionLogin()) {
       stopAuthCheck();
       return;
     }
     checkAuthStatus();
   }, AUTH_INTERVAL_MS);
+}
 
-  // ✅ Cleanup: app yopilganda tozalash (navigate o'zgarganda EMAS!)
+export function setupAuthCheck(navigate: NavigateFunction): () => void {
+  navigateRef = navigate;
+
+  if (isInitialized) return () => {};
+  if (setupAuthInFlight) return () => {};
+
+  // 🛡️ Agar sessiya allaqachon mavjud bo'lsa (main.tsx bootstrap dan), qayta so'ramaymiz
+  if (sessionStorage.getItem("currentUser")) {
+    isInitialized = true;
+    startInterval();
+    return () => {};
+  }
+
+  setupAuthInFlight = true;
+
+  void (async () => {
+    try {
+      // fetch: mehmon foydalanuvchida axios 401 → refresh zanjirini ishga tushirmaslik uchun
+      const sessionRes = await fetch("/api/verify-session", { credentials: "include" });
+      if (!sessionRes.ok) return;
+      const body = (await sessionRes.json()) as {
+        valid?: boolean;
+        user?: { login?: string; id?: string; role?: string };
+      };
+      if (body?.valid !== true) return;
+      const user = body.user;
+      const login = user?.login;
+      if (!login) return;
+
+      if (!sessionStorage.getItem("currentUser")) {
+        sessionStorage.setItem("currentUser", JSON.stringify(user));
+      }
+
+      isInitialized = true;
+      checkAuthStatus();
+      startInterval();
+    } catch {
+      /* tarmoq / JSON */
+    } finally {
+      setupAuthInFlight = false;
+    }
+  })();
+
   return () => {};
 }
 
@@ -91,24 +138,18 @@ export function setupAuthCheck(navigate: NavigateFunction): () => void {
 // ─────────────────────────────────────────────
 function handleBlockedUser(reason: string) {
   if (!navigateRef) return;
-  if (localStorage.getItem("__blockHandled__") === "1") return;
+  if (sessionStorage.getItem("__blockHandled__") === "1") return;
 
-  const blockedLogin = localStorage.getItem("currentLogin");
+  const blockedLogin = getSessionLogin();
   if (!blockedLogin) return;
 
-  localStorage.setItem("__blockHandled__", "1");
-  localStorage.removeItem("currentLogin");
-  localStorage.removeItem("activeUser");
-  sessionStorage.removeItem("currentUser");
+  sessionStorage.setItem("__blockHandled__", "1");
+  clearAuthClientState();
 
   invalidateAuthCache();
   mainDisconnect();
 
-  // ✅ stopAuthCheck CHAQIRMAYMIZ — isInitialized = false bo'lmasin!
-  if (authCheckInterval) {
-    clearInterval(authCheckInterval);
-    authCheckInterval = null;
-  }
+  prepareAuthCheckForNewSession();
 
   toast.error("❌ Hisobingiz bloklandi", {
     description: `Login: ${blockedLogin} | Sabab: ${reason}`,
@@ -116,7 +157,7 @@ function handleBlockedUser(reason: string) {
   });
 
   setTimeout(() => {
-    localStorage.removeItem("__blockHandled__");
+    sessionStorage.removeItem("__blockHandled__");
     navigateRef?.("/login", { replace: true });
   }, 3000);
 }
@@ -127,19 +168,11 @@ function handleBlockedUser(reason: string) {
 export function handleLogout(reason?: string) {
   if (!navigateRef) return;
 
-  localStorage.removeItem("currentLogin");
-  localStorage.removeItem("activeUser");
-  sessionStorage.removeItem("currentUser");
-
+  clearAuthClientState();
   invalidateAuthCache();
   mainDisconnect();
 
-  // ✅ isInitialized ni SAQLAYMIZ — faqat intervalni tozalaymiz
-  if (authCheckInterval) {
-    clearInterval(authCheckInterval);
-    authCheckInterval = null;
-  }
-  // isInitialized = false EMAS! ← Eng muhim fix
+  prepareAuthCheckForNewSession();
 
   toast.error("Sessiya tugadi", {
     description: reason || "Iltimos, qayta kiring",
@@ -153,13 +186,9 @@ export function handleLogout(reason?: string) {
 // stopAuthCheck — faqat app completely yopilganda
 // ─────────────────────────────────────────────
 export function stopAuthCheck() {
-  if (authCheckInterval) {
-    clearInterval(authCheckInterval);
-    authCheckInterval = null;
-  }
-  isInitialized  = false; // ← Faqat shu funksiya reset qiladi
+  prepareAuthCheckForNewSession();
   isCheckingAuth = false;
-  navigateRef    = null;
+  navigateRef = null;
 }
 
 export function getSocket()        { return getMainSocket(); }

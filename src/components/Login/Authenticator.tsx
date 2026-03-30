@@ -1,7 +1,8 @@
 // src/components/Login/Authenticator.tsx
 import { useState } from 'react';
-import { getFullDeviceInfo } from '../../utils/deviceUtils';
-import { getMemoryCsrfToken } from '../../api/axiosInstance';
+import { getDeviceInfo } from '../../utils/deviceUtils';
+import axiosInstance, { getMemoryCsrfToken } from '../../api/axiosInstance';
+import { api } from '../../utils/api';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -83,7 +84,7 @@ export const useAuthenticator = () => {
         return { success: false, message: "Qurilma identifikatori topilmadi" };
       }
 
-      const info = await getFullDeviceInfo();
+      const info = getDeviceInfo();
 
       const body: Record<string, unknown> = {
         login:       login.trim().toLowerCase(),
@@ -108,19 +109,11 @@ export const useAuthenticator = () => {
 
       // CSRF token — argument → memory — biri bo'lishi shart
       const csrfToken = _csrfTokenArg || getMemoryCsrfToken();
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (csrfToken) {
-        headers["CSRF-Token"] = csrfToken;
-        // ❌ "X-CSRF-Token" ikkinchi nom O'CHIRILDI
-      }
 
-      const response = await fetch("/api/login", {
+      const response = await api("/api/login", {
         method:      "POST",
-        credentials: "include", // HttpOnly cookie avtomatik yuboriladi
-        headers,
         body:        JSON.stringify(body),
+        headers: csrfToken ? { "CSRF-Token": csrfToken } : {},
       });
 
       // response.json() xatosi uchun himoya
@@ -184,14 +177,10 @@ export const useAuthenticator = () => {
     login: string,
   ): Promise<{ enabled: boolean; method?: string }> => {
     try {
-      // login query param — URL encode qilish XSS/injection oldini oladi
-      const params = new URLSearchParams({ login: login.trim() });
-      const res = await fetch(`/api/2fa-settings?${params}`, {
-        credentials: "include",
+      const res = await axiosInstance.get("/2fa-settings", {
+        params: { login: login.trim() }
       });
-      if (!res.ok) return { enabled: false };
-      const data = await res.json();
-      return { enabled: !!data.enabled, method: data.method };
+      return { enabled: !!res.data.enabled, method: res.data.method };
     } catch {
       return { enabled: false };
     }
@@ -202,21 +191,13 @@ export const useAuthenticator = () => {
     login: string,
   ): Promise<{ qrCode?: string; secret?: string; error?: string }> => {
     try {
-      const csrfToken = getMemoryCsrfToken();
-      const res = await fetch("/api/google-auth/generate", {
-        method:      "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ login: login.trim() }),
+      const res = await axiosInstance.post("/google-auth/generate", { 
+        login: login.trim() 
       });
-      if (!res.ok) return { error: "QR kod olishda xatolik" };
-      const data = await res.json();
-      return { qrCode: data.qrCode, secret: data.secret };
-    } catch {
-      return { error: "Server bilan bog'lanib bo'lmadi" };
+      
+      return { qrCode: res.data.qrCode, secret: res.data.secret };
+    } catch (err: any) {
+      return { error: err.response?.data?.message || "Server bilan bog'lanib bo'lmadi" };
     }
   };
 
@@ -229,23 +210,20 @@ export const useAuthenticator = () => {
       return { success: false, message: "Kod 6 ta raqamdan iborat bo'lishi kerak" };
     }
     try {
-      const csrfToken = getMemoryCsrfToken();
-      const res = await fetch("/api/google-auth/enable", {
-        method:      "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ login: login.trim(), code: verificationCode }),
+      const res = await axiosInstance.post("/google-auth/enable", { 
+        login: login.trim(), 
+        code: verificationCode 
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      
+      if (res.data.success) {
         return { success: true, message: "Google Authenticator muvaffaqiyatli faollashtirildi" };
       }
-      return { success: false, message: data.message ?? "Faollashtirish xatosi" };
-    } catch {
-      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
+      return { success: false, message: res.data.message ?? "Faollashtirish xatosi" };
+    } catch (err: any) {
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Server bilan bog'lanib bo'lmadi" 
+      };
     }
   };
 
@@ -254,23 +232,19 @@ export const useAuthenticator = () => {
     login: string,
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      const csrfToken = getMemoryCsrfToken();
-      const res = await fetch("/api/google-auth/disable", {
-        method:      "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ login: login.trim() }),
+      const res = await axiosInstance.post("/google-auth/disable", { 
+        login: login.trim() 
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      
+      if (res.data.success) {
         return { success: true, message: "Google Authenticator o'chirildi" };
       }
-      return { success: false, message: data.message ?? "O'chirish xatosi" };
-    } catch {
-      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
+      return { success: false, message: res.data.message ?? "O'chirish xatosi" };
+    } catch (err: any) {
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Server bilan bog'lanib bo'lmadi" 
+      };
     }
   };
 
@@ -279,23 +253,19 @@ export const useAuthenticator = () => {
     login: string,
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      const csrfToken = getMemoryCsrfToken();
-      const res = await fetch("/api/2fa/send-email", {
-        method:      "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ login: login.trim() }),
+      const res = await axiosInstance.post("/2fa/send-email", { 
+        login: login.trim() 
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      
+      if (res.data.success) {
         return { success: true, message: "Kod emailga yuborildi" };
       }
-      return { success: false, message: data.message ?? "Kod yuborishda xatolik" };
-    } catch {
-      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
+      return { success: false, message: res.data.message ?? "Kod yuborishda xatolik" };
+    } catch (err: any) {
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Server bilan bog'lanib bo'lmadi" 
+      };
     }
   };
 
@@ -304,23 +274,19 @@ export const useAuthenticator = () => {
     login: string,
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      const csrfToken = getMemoryCsrfToken();
-      const res = await fetch("/api/2fa/send-sms", {
-        method:      "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "CSRF-Token": csrfToken } : {}),
-        },
-        body: JSON.stringify({ login: login.trim() }),
+      const res = await axiosInstance.post("/2fa/send-sms", { 
+        login: login.trim() 
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      
+      if (res.data.success) {
         return { success: true, message: "Kod SMS orqali yuborildi" };
       }
-      return { success: false, message: data.message ?? "SMS yuborishda xatolik" };
-    } catch {
-      return { success: false, message: "Server bilan bog'lanib bo'lmadi" };
+      return { success: false, message: res.data.message ?? "SMS yuborishda xatolik" };
+    } catch (err: any) {
+      return { 
+        success: false, 
+        message: err.response?.data?.message || "Server bilan bog'lanib bo'lmadi" 
+      };
     }
   };
 

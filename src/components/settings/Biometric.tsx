@@ -18,6 +18,11 @@ interface BiometricProps {
   handleSessionExpired: () => void;
 }
 
+// ✅ deviceId ni sessionStorage'dan olish (localStorage fallback — migration uchun)
+const getDeviceId = (): string | null => {
+  return sessionStorage.getItem('deviceId') ?? localStorage.getItem('deviceId');
+};
+
 const Biometric: React.FC<BiometricProps> = ({
   theme, t,
   hoveredSetting, setHoveredSetting, idx,
@@ -25,8 +30,6 @@ const Biometric: React.FC<BiometricProps> = ({
 }) => {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
-  // ✅ currentLogin, handleSessionExpired, t, theme — ref orqali
-  // Prop sifatida kelgan funksiyalar har render yangi bo'lishi mumkin
   const currentLoginRef         = useRef(currentLogin);
   const handleSessionExpiredRef = useRef(handleSessionExpired);
   const tRef                    = useRef(t);
@@ -37,17 +40,22 @@ const Biometric: React.FC<BiometricProps> = ({
   useEffect(() => { tRef.current                    = t;                   }, [t]);
   useEffect(() => { themeRef.current                = theme;               }, [theme]);
 
-  // ✅ Bir marta — mount da status tekshirish
+  // ✅ Mount da biometrik holat tekshirish
   useEffect(() => {
     const fetchBiometricStatus = async () => {
-      if (!currentLoginRef.current) return;
-      const deviceId = localStorage.getItem('deviceId');
+      const deviceId = getDeviceId();
       if (!deviceId) {
-        console.warn('⚠️ Device ID topilmadi. Biometrik holati aniqlanmadi.');
+        // ✅ TUZATISH: console.warn o'chirildi — production da ma'lumot chiqarmaydi
+        if (import.meta.env.DEV) {
+          console.warn('[Biometric] Device ID topilmadi.');
+        }
         return;
       }
+
       try {
-        const res = await api(`/api/users/${currentLoginRef.current}?deviceId=${deviceId}`);
+        // ✅ TUZATISH: /api/biometric-status — login/Biometric.tsx bilan bir xil endpoint
+        // Avval /api/users/:login?deviceId= ishlatilardi — holat mos kelmasdi
+        const res = await api(`/api/biometric-status?deviceId=${deviceId}`);
         if (res.ok) {
           const data = await res.json();
           setBiometricEnabled(data.biometricEnabled || false);
@@ -55,12 +63,14 @@ const Biometric: React.FC<BiometricProps> = ({
           handleSessionExpiredRef.current();
         }
       } catch (err) {
-        console.error('Biometric status yuklash xatosi:', err);
+        if (import.meta.env.DEV) {
+          console.error('[Biometric] Status yuklash xatosi:', err);
+        }
       }
     };
 
     fetchBiometricStatus();
-  }, []); // ✅ bo'sh — hech qachon qayta ishlaydi
+  }, []);
 
   const handleToggle = async () => {
     if (!currentLoginRef.current) {
@@ -69,52 +79,78 @@ const Biometric: React.FC<BiometricProps> = ({
     }
 
     if (biometricEnabled) {
-      // O'chirish
+      // ── Biometrikni o'chirish ──────────────────────────────────────────────
       showConfirm(
         tRef.current('Biometrik o\'chirish'),
         tRef.current('confirmDisableBiometric'),
         async () => {
           try {
-            const deviceId = localStorage.getItem('deviceId');
+            const deviceId = getDeviceId();
+
             const res = await api('/api/disable-biometric', {
               method: 'POST',
               body: JSON.stringify({ deviceId })
             });
+
             if (res.ok) {
-              localStorage.removeItem(`biometric_${deviceId}`);
+              // ✅ TUZATISH: biometric_ localStorage kaliti O'CHIRILDI
+              // Eski ma'lumot qolgan bo'lsa, uni tozalash (migration)
+              if (deviceId) {
+                localStorage.removeItem(`biometric_${deviceId}`);
+              }
+
               setBiometricEnabled(false);
               toast.error(
                 tRef.current('Biometrik autentifikatsiya o\'chirildi') || "Biometrik autentifikatsiya o'chirildi",
-                { position: "top-right", autoClose: 4000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, theme: themeRef.current === 'dark' ? 'dark' : 'light' }
+                {
+                  position: "top-right",
+                  autoClose: 4000,
+                  hideProgressBar: false,
+                  closeOnClick: true,
+                  pauseOnHover: true,
+                  draggable: true,
+                  theme: themeRef.current === 'dark' ? 'dark' : 'light'
+                }
               );
             } else {
               const data = await res.json();
               toast.error(data.message || tRef.current('Xato yuz berdi'), {
-                position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+                position: "top-right",
+                autoClose: 5000,
+                theme: themeRef.current === 'dark' ? 'dark' : 'light',
               });
             }
           } catch (err) {
-            console.error('❌ Disable biometric error:', err);
+            // ✅ TUZATISH: faqat dev da log
+            if (import.meta.env.DEV) {
+              console.error('[Biometric] Disable xatosi:', err);
+            }
             toast.error(tRef.current('Server xatosi'), {
-              position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+              position: "top-right",
+              autoClose: 5000,
+              theme: themeRef.current === 'dark' ? 'dark' : 'light',
             });
           }
         }
       );
     } else {
-      // Yoqish — WebAuthn
+      // ── Biometrikni yoqish — WebAuthn ─────────────────────────────────────
       try {
         if (!window.PublicKeyCredential) {
           toast.error(tRef.current('Biometrik bu qurilmada mavjud emas'), {
-            position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+            position: "top-right",
+            autoClose: 5000,
+            theme: themeRef.current === 'dark' ? 'dark' : 'light',
           });
           return;
         }
 
-        const deviceId = localStorage.getItem('deviceId');
+        const deviceId = getDeviceId();
         if (!deviceId) {
           toast.error(tRef.current('DeviceId topilmadi'), {
-            position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+            position: "top-right",
+            autoClose: 5000,
+            theme: themeRef.current === 'dark' ? 'dark' : 'light',
           });
           return;
         }
@@ -125,15 +161,22 @@ const Biometric: React.FC<BiometricProps> = ({
         const userId = new Uint8Array(16);
         crypto.getRandomValues(userId);
 
-        console.log("🔐 Biometrik ro'yxatdan o'tish:", currentLoginRef.current);
+        // ✅ TUZATISH: console.log o'chirildi — login nomi konsolda ko'rinmaydi
+        if (import.meta.env.DEV) {
+          console.log('[Biometric] Registration boshlandi');
+        }
 
         const credential = await navigator.credentials.create({
           publicKey: {
             challenge,
             rp: { name: "POS System", id: getRpId() },
-            user: { id: userId, name: currentLoginRef.current!, displayName: currentLoginRef.current! },
+            user: {
+              id: userId,
+              name: currentLoginRef.current!,
+              displayName: currentLoginRef.current!
+            },
             pubKeyCredParams: [
-              { alg: -7, type: "public-key" },
+              { alg: -7,   type: "public-key" },
               { alg: -257, type: "public-key" }
             ],
             authenticatorSelection: {
@@ -147,15 +190,14 @@ const Biometric: React.FC<BiometricProps> = ({
         }) as PublicKeyCredential;
 
         if (!credential) throw new Error("Credential yaratilmadi");
-        console.log("✅ Credential yaratildi");
 
-        const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+        const credentialId = btoa(
+          String.fromCharCode(...new Uint8Array(credential.rawId))
+        );
 
-        localStorage.setItem(`biometric_${deviceId}`, JSON.stringify({
-          credentialId,
-          userLogin: currentLoginRef.current,
-          enabledAt: new Date().toISOString()
-        }));
+        // ✅ TUZATISH: localStorage.setItem(`biometric_${deviceId}`, ...) O'CHIRILDI
+        // credentialId FAQAT serverga yuboriladi — brauzerda saqlanmaydi
+        // Sabab: localStorage XSS hujumiga ochiq, WebAuthn ma'lumoti server DB'da bo'lishi shart
 
         const res = await api('/api/enable-biometric', {
           method: 'POST',
@@ -163,7 +205,7 @@ const Biometric: React.FC<BiometricProps> = ({
             deviceId,
             credentialId,
             deviceType: info.deviceType,
-            deviceOS: info.deviceOS
+            deviceOS:   info.deviceOS
           })
         });
 
@@ -173,27 +215,49 @@ const Biometric: React.FC<BiometricProps> = ({
           setBiometricEnabled(true);
           toast.success(
             tRef.current('Biometrik autentifikatsiya yoqildi') || "Biometrik autentifikatsiya yoqildi",
-            { position: "top-right", autoClose: 4000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, theme: themeRef.current === 'dark' ? 'dark' : 'light' }
+            {
+              position: "top-right",
+              autoClose: 4000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              theme: themeRef.current === 'dark' ? 'dark' : 'light'
+            }
           );
-          console.log("✅ Backend ga saqlandi");
+          // ✅ TUZATISH: console.log o'chirildi
+          if (import.meta.env.DEV) {
+            console.log('[Biometric] Backend ga muvaffaqiyatli saqlandi');
+          }
         } else {
-          console.error("❌ Backend xatosi:", data);
+          // ✅ TUZATISH: console.error o'chirildi
+          if (import.meta.env.DEV) {
+            console.error('[Biometric] Backend xatosi:', data);
+          }
           toast.error(data.message || tRef.current('Xato yuz berdi'), {
-            position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+            position: "top-right",
+            autoClose: 5000,
+            theme: themeRef.current === 'dark' ? 'dark' : 'light',
           });
+          // ✅ Eski biometric_ kalitini tozalash (migration — agar qolgan bo'lsa)
           localStorage.removeItem(`biometric_${deviceId}`);
         }
       } catch (err: any) {
-        console.error("❌ Biometrik faollashtirish xatosi:", err);
+        // ✅ TUZATISH: faqat dev da log
+        if (import.meta.env.DEV) {
+          console.error('[Biometric] Faollashtirish xatosi:', err);
+        }
 
         let errorMsg = tRef.current('Xato yuz berdi');
-        if (err.name === 'NotAllowedError')  errorMsg = tRef.current('Biometrik faollashtirish bekor qilindi');
-        else if (err.name === 'SecurityError') errorMsg = tRef.current('Xavfsizlik xatosi. HTTPS kerak bo\'lishi mumkin');
-        else if (err.name === 'NotSupportedError') errorMsg = tRef.current('Biometrik bu qurilmada qo\'llab-quvvatlanmaydi');
-        else errorMsg = `Xato: ${err.message}`;
+        if      (err.name === 'NotAllowedError')    errorMsg = tRef.current('Biometrik faollashtirish bekor qilindi');
+        else if (err.name === 'SecurityError')       errorMsg = tRef.current('Xavfsizlik xatosi. HTTPS kerak bo\'lishi mumkin');
+        else if (err.name === 'NotSupportedError')   errorMsg = tRef.current('Biometrik bu qurilmada qo\'llab-quvvatlanmaydi');
+        else                                          errorMsg = tRef.current('Xato yuz berdi');
 
         toast.error(errorMsg, {
-          position: "top-right", autoClose: 5000, theme: themeRef.current === 'dark' ? 'dark' : 'light',
+          position: "top-right",
+          autoClose: 5000,
+          theme: themeRef.current === 'dark' ? 'dark' : 'light',
         });
       }
     }
@@ -205,30 +269,58 @@ const Biometric: React.FC<BiometricProps> = ({
       onMouseLeave={() => setHoveredSetting(null)}
       onClick={handleToggle}
       style={{
-        background: theme === 'dark' ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
-        borderRadius: '16px', padding: '20px',
-        border: hoveredSetting === idx ? '1px solid #667eea' : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
-        cursor: 'pointer', transition: 'all 0.3s ease',
+        background: theme === 'dark'
+          ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
+          : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
+        borderRadius: '16px',
+        padding: '20px',
+        border: hoveredSetting === idx
+          ? '1px solid #667eea'
+          : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
         transform: hoveredSetting === idx ? 'translateY(-2px)' : 'translateY(0)',
         boxShadow: hoveredSetting === idx ? '0 8px 24px rgba(102,126,234,0.2)' : 'none',
       }}
     >
       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)', color: '#667eea', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{
+          width: '40px', height: '40px', borderRadius: '10px',
+          background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
+          color: '#667eea', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', flexShrink: 0
+        }}>
           <Fingerprint size={20} />
         </div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: '19px', fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
+          <h3 style={{
+            fontSize: '19px', fontWeight: 600,
+            color: theme === 'dark' ? '#fff' : '#1a1f2e'
+          }}>
             {t('biometric')}
           </h3>
-          <p style={{ fontSize: '13px', color: theme === 'dark' ? '#8b92a7' : '#64748b', marginBottom: '8px' }}>
+          <p style={{
+            fontSize: '13px',
+            color: theme === 'dark' ? '#8b92a7' : '#64748b',
+            marginBottom: '8px'
+          }}>
             {t('biometricDescription')}
           </p>
-          <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '6px', background: theme === 'dark' ? '#0f1420' : '#f1f5f9', fontSize: '12px', color: biometricEnabled ? '#4caf50' : '#ef4444', fontWeight: 500 }}>
+          <span style={{
+            display: 'inline-block', padding: '4px 12px', borderRadius: '6px',
+            background: theme === 'dark' ? '#0f1420' : '#f1f5f9',
+            fontSize: '12px',
+            color: biometricEnabled ? '#4caf50' : '#ef4444',
+            fontWeight: 500
+          }}>
             {biometricEnabled ? t('enabled') : t('disabled')}
           </span>
         </div>
-        <ChevronRight size={20} color={theme === 'dark' ? '#8b92a7' : '#64748b'} style={{ flexShrink: 0, marginTop: '10px' }} />
+        <ChevronRight
+          size={20}
+          color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+          style={{ flexShrink: 0, marginTop: '10px' }}
+        />
       </div>
     </div>
   );

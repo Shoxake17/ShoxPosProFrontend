@@ -1,0 +1,36 @@
+{
+  "name": "ShoxPosPro",
+  "short_name": "ShoxPos",
+  "description": "ShoxPosPro - Modern POS System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/shoxpospro.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/ShoxPosProLogo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "orientation": "portrait",
+  "categories": ["business", "finance"],
+  "shortcuts": [
+    {
+      "name": "Chat",
+      "url": "/admin-chat",
+      "description": "Support Chat"
+    },
+    {
+      "name": "Kirim Bazasi",
+      "url": "/kirim-bazasi",
+      "description": "Kirim Bazasi"
+    }
+  ]
+}

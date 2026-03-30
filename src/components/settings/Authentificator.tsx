@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, ChevronRight, X, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from '../languages/Settings';
+import axiosInstance from '../../api/axiosInstance';
 
 interface GoogleAuthProps {
   theme: 'dark' | 'light';
@@ -42,13 +43,14 @@ export default function GoogleAuth({
     const checkStatus = async () => {
       if (!currentLoginRef.current) return;
       try {
-        const res = await fetch('/api/google-auth/status', { credentials: 'include' });
-        if (res.status === 401) { handleSessionExpiredRef.current(); return; }
-        if (res.ok) {
-          const data = await res.json();
-          setIsEnabled(data.enabled);
+        const res = await axiosInstance.get('/google-auth/status');
+        if (res.status === 200) {
+          setIsEnabled(res.data.enabled);
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          handleSessionExpiredRef.current();
+        }
         console.error('Status error:', error);
       }
     };
@@ -63,19 +65,19 @@ export default function GoogleAuth({
         async () => {
           setLoading(true);
           try {
-            const res = await fetch('/api/google-auth/disable', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ login: currentLoginRef.current })
+            const res = await axiosInstance.post('/google-auth/disable', {
+              login: currentLoginRef.current
             });
-            if (res.status === 401) { handleSessionExpiredRef.current(); return; }
-            if (res.ok) {
+            if (res.status === 200) {
               setIsEnabled(false);
               toast.success(tRef.current('authDisabledSuccess'));
             }
-          } catch {
-            toast.error(tRef.current('errUnexpected'));
+          } catch (error: any) {
+            if (error.response?.status === 401) {
+              handleSessionExpiredRef.current();
+            } else {
+              toast.error(tRef.current('errUnexpected'));
+            }
           } finally {
             setLoading(false);
           }
@@ -89,21 +91,20 @@ export default function GoogleAuth({
   const handleEnableGoogleAuth = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/google-auth/setup', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: currentLoginRef.current })
+      const res = await axiosInstance.post('/google-auth/setup', {
+        login: currentLoginRef.current
       });
-      if (res.status === 401) { handleSessionExpiredRef.current(); return; }
-      if (res.ok) {
-        const data = await res.json();
-        setQrCodeUrl(data.qrCodeUrl);
+      if (res.status === 200) {
+        setQrCodeUrl(res.data.qrCodeUrl);
         setIsModalOpen(true);
         setStep('qr');
       }
-    } catch {
-      toast.error(tRef.current('errNoConnection'));
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        handleSessionExpiredRef.current();
+      } else {
+        toast.error(tRef.current('errNoConnection'));
+      }
     } finally {
       setLoading(false);
     }
@@ -116,14 +117,11 @@ export default function GoogleAuth({
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/google-auth/verify', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: currentLoginRef.current, token: verificationCode })
+      const res = await axiosInstance.post('/google-auth/verify', {
+        login: currentLoginRef.current,
+        token: verificationCode
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.status === 200 && res.data.success) {
         setIsEnabled(true);
         setIsModalOpen(false);
         setVerificationCode('');
@@ -131,8 +129,12 @@ export default function GoogleAuth({
       } else {
         toast.error(tRef.current('errCodeInvalid'));
       }
-    } catch {
-      toast.error(tRef.current('errUnexpected'));
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        handleSessionExpiredRef.current();
+      } else {
+        toast.error(tRef.current('errUnexpected'));
+      }
     } finally {
       setLoading(false);
     }

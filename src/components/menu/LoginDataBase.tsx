@@ -18,14 +18,12 @@ const LoginDataBase: React.FC<UserProductsCountProps> = ({ theme }) => {
 
   useEffect(() => {
     const getUserLogin = () => {
-      const currentUser = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
-      return (
-        currentUser?.login ||
-        localStorage.getItem("currentLogin") ||
-        localStorage.getItem("login") ||
-        localStorage.getItem("activeUser") ||
-        null
-      );
+      try {
+        const currentUser = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
+        return currentUser?.login || null;
+      } catch {
+        return null;
+      }
     };
 
     const login = getUserLogin();

@@ -68,16 +68,9 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     setPasswordMessage("");
 
     try {
-      const csrfToken = getMemoryCsrfToken() ?? '';
-
       const res = await api('/api/change-password', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'CSRF-Token': csrfToken,
-        },
-        // ✅ login YO'Q — server req.user.login dan oladi
+        // ✅ api.ts endi avtomatik CSRF qo'shadi
         body: JSON.stringify({ currentPassword, newPassword }),
       });
 

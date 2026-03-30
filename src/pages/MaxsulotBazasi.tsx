@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 import MainLayout from '../components/MainLayout';
 import { Search, Trash2, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../components/languages/MaxsulotBazasi';
+import { useCurrency } from '../context/CurrencyContext';
 import { getCategories, getCategoryEmoji, translateCategory } from '../components/Category';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -28,6 +30,7 @@ interface Product {
 export default function MaxsulotBazasi() {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
+  const { currency, convert, format } = useCurrency();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -39,7 +42,7 @@ export default function MaxsulotBazasi() {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-  const login = user?.login || localStorage.getItem('login');
+  const login = user?.login || "";
 
   const categoryOptions = getCategories(language);
 
@@ -109,7 +112,7 @@ export default function MaxsulotBazasi() {
     setProducts(localResult);
     if (navigator.onLine && text.trim() && localResult.length === 0) {
       try {
-        const globalRes = await fetch(`/api/products/search?q=${encodeURIComponent(text.trim())}`);
+        const globalRes = await api(`/api/products/search?q=${encodeURIComponent(text.trim())}`);
         if (globalRes.ok) {
           let globalData: Product[] = await globalRes.json();
           if (category) globalData = globalData.filter(p => p.category === category);
@@ -127,9 +130,8 @@ export default function MaxsulotBazasi() {
     const product = allProducts.find(p => p.barcode === barcode);
     if (product) await saveToIDB({ ...product, price: newPrice, login });
     if (navigator.onLine) {
-      fetch('/api/update-price', {
+      api(`/api/products/update-price/${login}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ barcode, newPrice, login }),
       }).catch(console.error);
     } else {
@@ -247,12 +249,24 @@ export default function MaxsulotBazasi() {
                       <td className="barcode-cell">{p.barcode}</td>
                       <td className="name-cell">{p.name || '-'}</td>
                       <td>
-                        <input
-                          type="number"
-                          className="table-input"
-                          value={p.price}
-                          onChange={e => updatePrice(p.barcode, Number(e.target.value))}
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <input
+                            type="number"
+                            className="table-input"
+                            step={currency === 'UZS' ? '1' : '0.01'}
+                            value={convert(p.price, 'UZS', currency).toFixed(currency === 'UZS' ? 0 : 2)}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              const inUZS = convert(val, currency, 'UZS');
+                              updatePrice(p.barcode, inUZS);
+                            }}
+                          />
+                          {currency !== 'UZS' && (
+                            <span style={{ fontSize: '10px', color: '#64748b' }}>
+                              {p.price.toLocaleString()} so'm
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="text-center font-medium">
                         <span style={{

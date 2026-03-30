@@ -54,9 +54,9 @@ const saveSeen = (s: Set<string>) =>
 const getCurrentLogin = (): string | null => {
   try {
     const user = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
-    return user?.login || localStorage.getItem("login");
+    return user?.login || null;
   } catch {
-    return localStorage.getItem("login");
+    return null;
   }
 };
 
@@ -279,9 +279,9 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
 
   // ─── Mahsulot yuklash ────────────────────────────────────────────
   const load = useCallback(async () => {
-    if (!notifEnabledRef.current) return;
-    const login = loginRef.current;
-    if (!login) return;
+      if (!notifEnabledRef.current) return;
+      const login = getCurrentLogin();
+      if (!login) return;
     try {
       const data = await loadProductsOfflineFirst(login);
       const low = data

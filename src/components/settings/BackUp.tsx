@@ -194,7 +194,7 @@ const Backup: React.FC<BackupProps> = ({ theme, hoveredSetting, setHoveredSettin
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const login = JSON.parse(sessionStorage.getItem('currentUser') || '{}')?.login || localStorage.getItem('login') || 'unknown';
+  const login = JSON.parse(sessionStorage.getItem("currentUser") || "{}")?.login || "unknown";
 
   return (
     <>

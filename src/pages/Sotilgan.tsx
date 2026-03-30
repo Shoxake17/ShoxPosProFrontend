@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Sotilgan';
+import { useCurrency } from '../context/CurrencyContext';
 
 // ─── IndexedDB — modül darajasida bir marta ochiladi ─────────────────────
 let reportsDB: IDBDatabase | null = null;
@@ -45,6 +46,7 @@ const loadReportsFromIDB = async (): Promise<any[]> => {
 // ─────────────────────────────────────────────────────────────────────────
 function ReportsContent() {
   const { t } = useTranslation();
+  const { format } = useCurrency();
 
   const [reports,         setReports]         = useState<any[]>([]);
   const [filteredReports, setFilteredReports] = useState<any[]>([]);
@@ -181,7 +183,7 @@ function ReportsContent() {
         gap: 20, marginBottom: 32,
       }}>
         {statCard(<TrendingUp size={20} color="#10b981" />, t("totalAmount"),
-          `${totalSum.toLocaleString()} ${t('currencyUnit')}`, "#10b981")}
+          format(totalSum), "#10b981")}
         {statCard(<FileText size={20} color="#667eea" />, t("uniqueProductsCount"),
           new Set(filteredReports.map(i => i.barcode)).size, "#667eea")}
         {statCard(<Package size={20} color="#f59e0b" />, t("soldProducts"),
@@ -261,10 +263,10 @@ function ReportsContent() {
                   <td style={{ padding: 16, textAlign: 'center', color: subText }}>{item.barcode}</td>
                   <td style={{ padding: 16, textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
                   <td style={{ padding: 16, textAlign: 'right', color: subText }}>
-                    {Number(item.price).toLocaleString()} {t('currencyUnit')}
+                    {format(item.price)}
                   </td>
                   <td style={{ padding: 16, textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
-                    {Number(item.total).toLocaleString()} {t('currencyUnit')}
+                    {format(item.total)}
                   </td>
                   <td style={{ padding: 16, textAlign: 'right', fontSize: 13, color: subText }}>
                     {item.soldAt ? new Date(item.soldAt).toLocaleString('uz-UZ', {

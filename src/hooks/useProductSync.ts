@@ -1,3 +1,5 @@
+import { api } from '../utils/api';
+
 const DB_NAME = 'ShoxPosDB';
 const DB_VERSION = 5;
 const STORE = 'products';
@@ -115,7 +117,7 @@ async function removeFromPending(barcode: string): Promise<void> {
 // ─── MongoDB dan mahsulotlarni olish ──────────────────────────────────────
 export async function fetchFromMongoDB(login: string): Promise<any[]> {
   try {
-    const res = await fetch(`/api/products/user-products/${login}`);
+    const res = await api(`/api/products/user-products/${login}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -127,9 +129,8 @@ export async function fetchFromMongoDB(login: string): Promise<any[]> {
 // ─── MongoDB ga mahsulot qo'shish ─────────────────────────────────────────
 async function addToMongoDB(product: any): Promise<boolean> {
   try {
-    const res = await fetch('/api/products/add', {
+    const res = await api('/api/products/add', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product),
     });
     return res.ok;
@@ -141,9 +142,8 @@ async function addToMongoDB(product: any): Promise<boolean> {
 // ─── MongoDB dan mahsulot o'chirish ───────────────────────────────────────
 async function deleteFromMongoDB(barcode: string, login: string): Promise<boolean> {
   try {
-    const res = await fetch('/api/products/delete-product', {
+    const res = await api('/api/products/delete-product', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ barcode, login }),
     });
     return res.ok;

@@ -63,7 +63,7 @@ export function useHandTracking(options: UseHandTrackingOptions = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const handsRef  = useRef<any>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
 
   const optionsRef = useRef(options);
   useEffect(() => { optionsRef.current = options; }, [options]);
@@ -79,7 +79,7 @@ export function useHandTracking(options: UseHandTrackingOptions = {}) {
   const scrollVelocityRef    = useRef(0);
   const prevTwoFingerYRef    = useRef<number | null>(null);
   const isTwoFingerRef       = useRef(false);
-  const scrollRafRef         = useRef<number>();
+  const scrollRafRef         = useRef<number | undefined>(undefined);
 
   // ── Finger tap tracking ────────────────────────────────────────────────────
   // Har bir barmoq uchun: klaviatura zone'ga kirdi/chiqdi state'i

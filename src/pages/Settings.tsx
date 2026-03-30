@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, ChevronRight } from 'lucide-react';
-import axiosInstance, { getMemoryCsrfToken } from '../api/axiosInstance'; // ✅ getMemoryCsrfToken
+import axiosInstance, { getMemoryCsrfToken, setMemoryCsrfToken } from '../api/axiosInstance'; // ✅ getMemoryCsrfToken
 import { getSocket } from '../utils/socket';
+import { clearAuthClientState } from '../utils/clientSession';
 import MainLayout from "../components/MainLayout";
 import Profile from "../components/settings/Profile";
 import { TranslationProvider as Provider, useTranslation } from '../components/languages/Settings';
@@ -20,6 +21,7 @@ import GoogleAuth from "../components/settings/Authentificator";
 import HandControl from "../components/settings/HandControl";
 import Languages from "../components/settings/Languages";
 import Theme from "../components/settings/Theme";
+import Currency from "../components/settings/Valyuta";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -64,6 +66,8 @@ function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message }
     </div>
   );
 }
+
+
 
 // ✅ currentLogin — sessionStorage dan xavfsiz olish
 const getCurrentLogin = (): string | null => {
@@ -129,12 +133,6 @@ function POSSettingsPageContent() {
     alertSuccess(themeRef.current, msg);
   }, []);
 
-  // ✅ CSRF token — memory ga yuklanadi (axiosInstance interceptor orqali)
-  // localStorage.setItem('csrfToken') O'CHIRILDI
-  useEffect(() => {
-    axiosInstance.get('/csrf-token').catch(() => {});
-  }, []);
-
   // ✅ Til o'zgarganda alert
   useEffect(() => {
     if (prevLanguageRef.current !== language) {
@@ -154,12 +152,9 @@ function POSSettingsPageContent() {
   useEffect(() => {
     const socket = getSocket();
     const handleForceLogout = () => {
-      // ✅ localStorage.clear() O'CHIRILDI — faqat keraklisi tozalanadi
-      sessionStorage.removeItem('currentUser');
-      sessionStorage.removeItem('deviceId');
-      localStorage.removeItem('deviceId');
+      clearAuthClientState();
       alertForceLogout(themeRef.current, tRef.current);
-      setTimeout(() => navigateRef.current('/login', { replace: true }), 2000);
+      setTimeout(() => navigateRef.current("/login", { replace: true }), 2000);
     };
     socket.on('force-logout', handleForceLogout);
     return () => { socket.off('force-logout', handleForceLogout); };
@@ -224,7 +219,7 @@ function POSSettingsPageContent() {
   return (
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('settings')}>
 
-      {/* ✅ csrfToken prop O'CHIRILDI — ChangePassword ichida getMemoryCsrfToken() ishlatadi */}
+     
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => {
@@ -310,6 +305,7 @@ function POSSettingsPageContent() {
             {gIdx === 0 && (
               <>
                 <Languages    theme={theme} t={t} language={language} setLanguage={setLanguage} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />
+                <Currency     theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />
                 <Theme        theme={theme} t={t} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />
                 <Notification theme={theme} t={t} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />
               </>

@@ -11,6 +11,7 @@ import {
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Hisobotlar';
+import { api } from '../utils/api';
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -52,7 +53,7 @@ const loadReportsFromIDB = async (): Promise<any[]> => {
 
 const loadReportsFromMongoDB = async (login: string): Promise<any[]> => {
   try {
-    const res = await fetch(`/api/sales/${login}`);
+    const res = await api(`/api/sales/${login}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -113,7 +114,7 @@ function ReportsContent() {
     isFetching.current = true;
 
     const user  = JSON.parse(sessionStorage.getItem("currentUser") || '{}');
-    const login = user?.login || localStorage.getItem('login') || '';
+    const login = user?.login || '';
 
     setLoading(true);
     try {

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from "../utils/api";
 import MainLayout from "../components/MainLayout";
 import { useResponsive } from "../hooks/useResponsive";
 import { useTranslation, TranslationProvider } from '../components/languages/Qarzlar';
+import { useCurrency } from '../context/CurrencyContext';
 import { Plus, X, TrendingUp, Users, DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
+import { clearAuthClientState } from "../utils/clientSession";
 
 interface Qarz {
   id: string;
@@ -21,6 +24,7 @@ function formatDate(dateStr: string): string {
 
 function QarzlarContent() {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
 
@@ -40,7 +44,14 @@ function QarzlarContent() {
 
   // ✅ login — bir marta o'qiladi, ref sifatida saqlanadi
   const loginRef = useRef<string>(
-    localStorage.getItem('currentLogin') || ''
+    (() => {
+      try {
+        const u = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
+        return u?.login || "";
+      } catch {
+        return "";
+      }
+    })()
   );
   const login = loginRef.current;
 
@@ -66,13 +77,13 @@ function QarzlarContent() {
   const fetchDebts = useCallback(async () => {
     if (!loginRef.current) return;
     try {
-      const res = await fetch(`/api/debts/${loginRef.current}`);
+      const res = await api(`/api/debts/${loginRef.current}`);
       if (res.ok) {
         const data = await res.json();
         setQarzlar(data);
       } else if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('currentLogin');
-        navigateRef.current('/login');
+        clearAuthClientState();
+        navigateRef.current("/login");
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -124,9 +135,8 @@ function QarzlarContent() {
     }
 
     try {
-      const res = await fetch(`/api/debts/pay/${login}`, {
+      const res = await api(`/api/debts/pay/${login}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ debtId: selectedDebt.id, paymentAmount: tolov })
       });
 
@@ -165,9 +175,8 @@ function QarzlarContent() {
     }
 
     try {
-      const res = await fetch(`/api/debts/${login}`, {
+      const res = await api(`/api/debts/${login}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), phone, amount: Number(amount) })
       });
 
@@ -205,7 +214,7 @@ function QarzlarContent() {
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("debts")}>
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <StatCard icon={<TrendingUp size={20} color="#ef4444" />} title={t("totalDebt")} value={`${umumiyQarz.toLocaleString()} ${t('currencyUnit')}`} color="#ef4444" theme={theme} />
+        <StatCard icon={<TrendingUp size={20} color="#ef4444" />} title={t("totalDebt")} value={format(umumiyQarz)} color="#ef4444" theme={theme} />
         <StatCard icon={<Users size={20} color="#667eea" />} title={t("debtorsCount")} value={qarzlar.length.toString()} color="#667eea" theme={theme} />
       </div>
 
@@ -251,7 +260,7 @@ function QarzlarContent() {
                     <td style={{ padding: '16px', borderRadius: '12px 0 0 12px', fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{index + 1}</td>
                     <td style={{ padding: '16px', fontSize: '15px', fontWeight: 500, color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{qarz.name}</td>
                     <td style={{ padding: '16px', fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{qarz.phone}</td>
-                    <td style={{ padding: '16px', textAlign: 'right', fontSize: '15px', fontWeight: 600, color: '#ef4444' }}>{qarz.amount.toLocaleString()} {t('currencyUnit')}</td>
+                    <td style={{ padding: '16px', textAlign: 'right', fontSize: '15px', fontWeight: 600, color: '#ef4444' }}>{format(qarz.amount)}</td>
                     <td style={{ padding: '16px', textAlign: 'center', fontSize: '13px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{formatDate(qarz.lastPayment)}</td>
                     <td style={{ padding: '16px', textAlign: 'center', borderRadius: '0 12px 12px 0' }}>
                       <button onClick={() => openPaymentModal(qarz)} className="pay-btn">{t("pay")}</button>

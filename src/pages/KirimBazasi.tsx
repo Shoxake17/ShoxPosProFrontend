@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/KirimBazasi';
 import { getCategories, getCategoryEmoji, translateCategory } from '../components/Category';
 import { Search, TrendingUp, TrendingDown, Package, DollarSign, RefreshCw } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
+import { getSessionLogin } from "../utils/clientSession";
+import { useCurrency } from '../context/CurrencyContext';
 
 // ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
 const IDB_NAME = 'ShoxPosDB';
@@ -98,16 +101,14 @@ async function syncPendingToMongoDB(login: string): Promise<number> {
     try {
       let ok = false;
       if (item.action === 'update-base-price') {
-        const res = await fetch('/api/products/update-base-price', {
+        const res = await api('/api/products/update-base-price', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode: item.barcode, newBasePrice: item.basePrice, login }),
         });
         ok = res.ok;
       } else if (item.action === 'update-quantity') {
-        const res = await fetch('/api/products/update-quantity', {
+        const res = await api('/api/products/update-quantity', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode: item.barcode, newQuantity: item.quantity, login }),
         });
         ok = res.ok;
@@ -143,6 +144,7 @@ interface SoldProduct {
 // ─── Asosiy komponent ─────────────────────────────────────────────────────
 function KirimBazasiContent() {
   const { t, language } = useTranslation();
+  const { currency, convert, format } = useCurrency();
   const navigate = useNavigate();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -159,12 +161,11 @@ function KirimBazasiContent() {
 
   const categories = getCategories(language);
 
-  const currentLogin = localStorage.getItem('currentLogin');
+  const login = getSessionLogin();
   useEffect(() => {
-    if (!currentLogin) navigate('/login', { replace: true });
-  }, [currentLogin, navigate]);
-  if (!currentLogin) return null;
-  const login = currentLogin;
+    if (!login) navigate("/login", { replace: true });
+  }, [login, navigate]);
+  if (!login) return null;
 
   // ─── Online/Offline listener ──────────────────────────────────────────
   useEffect(() => {
@@ -216,7 +217,7 @@ function KirimBazasiContent() {
 
   const syncFromMongoDB = async (existingIdb: any[]) => {
     try {
-      const res = await fetch(`/api/products/user-products/${login}`);
+      const res = await api(`/api/products/user-products/${login}`);
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
@@ -241,7 +242,7 @@ function KirimBazasiContent() {
   const fetchSoldProducts = async () => {
     if (!navigator.onLine) return;
     try {
-      const res = await fetch(`/api/sales/${login}`);
+      const res = await api(`/api/sales/${login}`);
       if (res.ok) {
         const data = await res.json();
         setSoldProducts(Array.isArray(data) ? data : []);
@@ -278,9 +279,8 @@ function KirimBazasiContent() {
 
     if (navigator.onLine) {
       try {
-        const res = await fetch('/api/products/update-base-price', {
+        const res = await api('/api/products/update-base-price', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode, newBasePrice, login }),
         });
         if (res.ok) toast.success(t('narxYangilandi'));       // ✅ to'g'ri kalit
@@ -306,9 +306,8 @@ function KirimBazasiContent() {
 
     if (navigator.onLine) {
       try {
-        const res = await fetch('/api/products/update-quantity', {
+        const res = await api('/api/products/update-quantity', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ barcode, newQuantity, login }),
         });
         if (res.ok) toast.success(t('miqdorYangilandi'));     // ✅ to'g'ri kalit
@@ -392,7 +391,7 @@ function KirimBazasiContent() {
               <span style={{ fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{card.label}</span>
             </div>
             <div style={{ fontSize: '28px', fontWeight: 700, color: card.color }}>
-              {card.value.toLocaleString()}{!card.noUnit && ` ${t('som')}`}
+              {card.noUnit ? card.value.toLocaleString() : format(Number(card.value))}
             </div>
           </div>
         ))}
@@ -425,11 +424,23 @@ function KirimBazasiContent() {
                     <td className="barcode-cell">{p.barcode}</td>
                     <td className="name-cell">{p.name || '-'}</td>
                     <td>
-                      <input
-                        type="number" className="table-input"
-                        value={p.basePrice}
-                        onChange={e => updateBasePrice(p.barcode, Number(e.target.value))}
-                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <input
+                          type="number" className="table-input"
+                          step={currency === 'UZS' ? '1' : '0.01'}
+                          value={convert(p.basePrice, 'UZS', currency).toFixed(currency === 'UZS' ? 0 : 2)}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            const inUZS = convert(val, currency, 'UZS');
+                            updateBasePrice(p.barcode, inUZS);
+                          }}
+                        />
+                        {currency !== 'UZS' && (
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>
+                            {p.basePrice.toLocaleString()} so'm
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <input
@@ -439,7 +450,7 @@ function KirimBazasiContent() {
                       />
                     </td>
                     <td style={{ fontWeight: 700 }}>
-                      {(p.basePrice * (p.quantity || 1)).toLocaleString()} {t('som')}
+                      {format(p.basePrice * (p.quantity || 1))}
                     </td>
                     <td>
                       <span className="category-badge">

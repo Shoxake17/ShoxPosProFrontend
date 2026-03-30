@@ -30,7 +30,7 @@ export default function MaxsulotQoshish() {
   const [quantity, setQuantity] = useState('0');
 
   const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-  const login = user?.login || localStorage.getItem('login');
+  const login = user?.login || "";
 
   const categories = getCategories(language);
 

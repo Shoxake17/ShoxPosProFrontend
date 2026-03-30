@@ -2,6 +2,23 @@ import React, { useState, useEffect } from "react";
 import { X, User, Mail, Phone, Edit2, Save, Camera } from "lucide-react";
 import { useTranslation } from "../languages/Settings";
 
+function readProfileKey(key: string): string | null {
+  let v = sessionStorage.getItem(key);
+  if (v !== null) return v;
+  const legacy = localStorage.getItem(key);
+  if (legacy !== null) {
+    sessionStorage.setItem(key, legacy);
+    localStorage.removeItem(key);
+    return legacy;
+  }
+  return null;
+}
+
+function writeProfileKey(key: string, value: string): void {
+  sessionStorage.setItem(key, value);
+  localStorage.removeItem(key);
+}
+
 interface ProfileProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,9 +36,9 @@ export default function Profile({ isOpen, onClose, theme, userImage, handleImage
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
-    const savedName = localStorage.getItem("userName") || t("Foydalanuvchi");
-    const savedEmail = localStorage.getItem("userEmail") || "";
-    const savedPhone = localStorage.getItem("userPhone") || "";
+    const savedName = readProfileKey("userName") || t("Foydalanuvchi");
+    const savedEmail = readProfileKey("userEmail") || "";
+    const savedPhone = readProfileKey("userPhone") || "";
 
     setName(savedName);
     setEmail(savedEmail);
@@ -34,16 +51,16 @@ export default function Profile({ isOpen, onClose, theme, userImage, handleImage
       return;
     }
 
-    localStorage.setItem("userName", name.trim());
-    localStorage.setItem("userEmail", email.trim());
-    localStorage.setItem("userPhone", phone.trim());
+    writeProfileKey("userName", name.trim());
+    writeProfileKey("userEmail", email.trim());
+    writeProfileKey("userPhone", phone.trim());
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    const savedName = localStorage.getItem("userName") || t("Foydalanuvchi");
-    const savedEmail = localStorage.getItem("userEmail") || "";
-    const savedPhone = localStorage.getItem("userPhone") || "";
+    const savedName = readProfileKey("userName") || t("Foydalanuvchi");
+    const savedEmail = readProfileKey("userEmail") || "";
+    const savedPhone = readProfileKey("userPhone") || "";
 
     setName(savedName);
     setEmail(savedEmail);

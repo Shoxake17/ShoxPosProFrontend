@@ -6,9 +6,12 @@ import {
   DollarSign, Receipt, ChevronRight
 } from 'lucide-react';
 
-import MainLayout from "../components/MainLayout";
+import { api } from "../utils/api";
+import MainLayout, { tc } from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Scanner';
+import { useCurrency } from '../context/CurrencyContext';
 import { getSocket } from '../utils/socket';
+import { getSessionLogin } from '../utils/clientSession';
 import PrinterButton from '../components/PrinterButton';
 
 // ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
@@ -88,20 +91,11 @@ const toggleStyles = `
 
 function ScannerContent() {
   const { t } = useTranslation();
+  const { format } = useCurrency();
   const navigate = useNavigate();
 
   // ✅ login — bir marta ref sifatida
-  const loginRef = useRef<string>(
-    (() => {
-      const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-      return (
-        user?.login ||
-        localStorage.getItem('login') ||
-        localStorage.getItem('currentLogin') ||
-        'unknown'
-      );
-    })()
-  );
+  const loginRef = useRef<string>(getSessionLogin() || "unknown");
 
   // ✅ t ref — closure muammosini oldini oladi
   const tRef = useRef(t);
@@ -303,7 +297,7 @@ function ScannerContent() {
       if (navigator.onLine) {
         try {
           // ✅ Barcha mahsulotni emas, faqat qidiruv so'rovi
-          const res = await fetch(
+          const res = await api(
             `/api/products/search?q=${encodeURIComponent(query)}&login=${encodeURIComponent(login)}`
           );
           if (res.ok) {
@@ -361,9 +355,8 @@ function ScannerContent() {
 
         if (navigator.onLine) {
           try {
-            await fetch('/api/update-or-add-user-product', {
+            await api('/api/products/update-or-add-user-product', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 login,
                 barcode: product.barcode,
@@ -437,7 +430,7 @@ function ScannerContent() {
       });
 
       setResultText(
-        `${product.name} — ${count} ${tRef.current('added')} (${productPrice.toLocaleString()} ${tRef.current('currencyUnit')})`
+        `${product.name} — ${count} ${tRef.current('added')} (${format(productPrice)})`
       );
       setResultStatus('success');
       setManualBarcode('');
@@ -572,9 +565,8 @@ function ScannerContent() {
       const payload = Array.from(groupedSales.values());
 
       if (navigator.onLine) {
-        const res = await fetch(`/api/sell-product/${login}`, {
+        const res = await api(`/api/sell-product/${login}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sales: payload }),
         });
         if (!res.ok) throw new Error(tRef.current('saleSaveError'));
@@ -903,7 +895,7 @@ function ScannerContent() {
                   </div>
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 'bold', textAlign: 'right' }}>
-                  {t('total')}: {totalPrice.toLocaleString()} {t('currencyUnit')}
+                  {t('total')}: {format(totalPrice)}
                 </div>
               </div>
 
@@ -986,7 +978,7 @@ function ScannerContent() {
               fontSize: 20, fontWeight: 'bold',
               textAlign: 'right', marginBottom: 16,
             }}>
-              {t('total')}: {totalPrice.toLocaleString()} {t('currencyUnit')}
+              {t('total')}: {format(totalPrice)}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -1055,7 +1047,7 @@ function ScannerContent() {
                         theme === 'dark' ? '#2a3144' : '#e2e8f0'
                       }`,
                     }}>
-                      {item.price.toLocaleString()} {t('currencyUnit')}
+                      {format(item.price)}
                     </td>
                     <td style={{
                       padding: 12, textAlign: 'right', fontWeight: 'bold',
@@ -1063,8 +1055,7 @@ function ScannerContent() {
                         theme === 'dark' ? '#2a3144' : '#e2e8f0'
                       }`,
                     }}>
-                      {(item.count * item.price).toLocaleString()}{' '}
-                      {t('currencyUnit')}
+                      {format(item.count * item.price)}
                     </td>
                   </tr>
                 ))}

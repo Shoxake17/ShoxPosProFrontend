@@ -6,7 +6,7 @@ import axiosInstance                   from '../api/axiosInstance';
 import { reconnectSocket, getSocket }  from '../utils/socket';
 import { getLayoutStyles }             from "../components/MainLayout";
 import { invalidateAuthCache }         from "../components/ProtectedRoute";
-import { setupAuthCheck }              from "../utils/authUtils"; // ✅ YANGI import
+import { setupAuthCheck }              from "../utils/authUtils";
 import {
   User, Lock, Eye, EyeOff, ArrowRight, CheckCircle,
   AlertTriangle, XCircle, Shield, ScanFace, Fingerprint, Smartphone
@@ -98,20 +98,15 @@ export default function Login() {
   }, [biometricEnabled, biometricAvailable, hasAttemptedAutoBiometric, loading, biometricLoginHandler, navigate]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  /** Faqat xodim rollariga ruxsat */
   const validateStaffRole = (user: any): boolean => {
     const role = user?.role?.toLowerCase()?.trim() || "";
-    if (role === "admin" || role === "seller" || role === "cashier") return true;
-    if (role === "customer" || role === "user") {
-      setMessage("error:Bu ilova faqat xodimlar uchun.");
-      return false;
-    }
-    setMessage("warning:Noma'lum foydalanuvchi turi. Administrator bilan bog'laning.");
+    if (role === "admin" || role === "cashier") return true;
+    
+    // Boshqa barcha rollar rad etiladi
+    setMessage("error:Login yoki parol noto'g'ri");
     return false;
   };
 
-  /** Muvaffaqiyatli logindan keyin socketni ishga tushirish */
   const initSocketAfterLogin = (
     loginName: string,
     deviceId: string,
@@ -131,16 +126,6 @@ export default function Login() {
     }, 500);
   };
 
-  /**
-   * Login muvaffaqiyatli bo'lganda umumiy saqlash + yo'naltirish
-   *
-   * ✅ FIX: setupAuthCheck(navigate) qo'shildi —
-   *   GlobalSocketListener useEffect([]) faqat bir marta ishlaydi.
-   *   Agar oldin forceLogout yoki session tugashi sababli
-   *   isInitialized=false bo'lgan bo'lsa, bu yerda yangi interval
-   *   yaratiladi. Agar isInitialized=true bo'lsa — faqat navigateRef
-   *   yangilanadi, ikkinchi interval yaratilmaydi (idempotent).
-   */
   const onLoginSuccess = (
     user: any,
     loginName: string,
@@ -148,25 +133,14 @@ export default function Login() {
     deviceType: string,
     deviceOS: string
   ) => {
-    // 1. LocalStorage ga yozish
-    localStorage.setItem("currentLogin", loginName);
-    localStorage.setItem("activeUser",   loginName);
     if (user) sessionStorage.setItem("currentUser", JSON.stringify(user));
 
-    // 2. Cache invalidate — ProtectedRoute yangi sessiyani API dan oladi
     invalidateAuthCache();
-
-    // 3. Socket ishga tushirish
     initSocketAfterLogin(loginName, deviceId, deviceType, deviceOS);
-
-    // ✅ 4. Auth interval ni (qayta) ishga tushirish
-    //   — bu qator bo'lmasa, forceLogout dan keyin login qilganda
-    //     5 daqiqalik tekshiruv hech qachon boshlanmaydi
     setupAuthCheck(navigate);
 
-    // 5. Xabar + yo'naltirish
     setMessage(`success:Xush kelibsiz, ${loginName}!`);
-    const role = user?.role?.toLowerCase() || "seller";
+    const role = user?.role?.toLowerCase() || "cashier";
     setTimeout(
       () => navigate(role === "admin" ? "/admin-panel" : "/menu", { replace: true }),
       1500
@@ -199,27 +173,23 @@ export default function Login() {
     try {
       const result = await submitLoginWithAuth(login, password, csrfToken);
 
-      // ── Bloklangan ─────────────────────────────────────────────────────────
       if (result.user?.blocked) {
         setMessage(`error:${result.message || "Hisob bloklangan."}`);
         return;
       }
 
-      // ── Google Authenticator ───────────────────────────────────────────────
       if (result.requiresGoogleAuth) {
         setShowGoogleAuthInput(true);
         setMessage("info:Google Authenticator kodini kiriting");
         return;
       }
 
-      // ── 2FA (SMS/Email) ────────────────────────────────────────────────────
       if (result.requires2FA) {
         setShow2FAInput(true);
         setMessage("info:2FA kodini kiriting");
         return;
       }
 
-      // ── Boshqa qurilma faol ────────────────────────────────────────────────
       if (result.message === "CONFIRM_DEVICE" || result.requires2FAAfterConfirm) {
         setPendingDeviceInfo(result.activeDevice || null);
         setShowDeviceConfirm(true);
@@ -227,17 +197,12 @@ export default function Login() {
         return;
       }
 
-      // ── Muvaffaqiyatli ─────────────────────────────────────────────────────
       if (result.success) {
         if (!validateStaffRole(result.user)) {
-          localStorage.removeItem("currentLogin");
-          localStorage.removeItem("activeUser");
           sessionStorage.removeItem("currentUser");
           return;
         }
 
-        // ✅ Cookie tekshiruvi — login dan keyin session mavjudligini tasdiqlash
-        // Bu bitta so'rov, loop emas. Muvaffaqiyatsiz bo'lsa foydalanuvchiga xabar.
         try {
           const cookieCheck = await axiosInstance.get("/verify-session");
           if (cookieCheck.status !== 200) {
@@ -280,8 +245,6 @@ export default function Login() {
         setShowDeviceConfirm(false);
 
         if (!validateStaffRole(data.user)) {
-          localStorage.removeItem("currentLogin");
-          localStorage.removeItem("activeUser");
           sessionStorage.removeItem("currentUser");
           return;
         }

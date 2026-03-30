@@ -65,8 +65,10 @@ const DataExport: React.FC<DataExportProps> = ({ theme, hoveredSetting, setHover
     let debts: any[] = [];
 
     try {
-      const login = localStorage.getItem('login') || (sessionStorage.getItem('currentUser') ? JSON.parse(sessionStorage.getItem('currentUser') || '{}').login : null);
-      if (login) {
+        const login = sessionStorage.getItem("currentUser")
+          ? JSON.parse(sessionStorage.getItem("currentUser") || "{}").login
+          : null;
+        if (login) {
         const prodRes = await api(`/api/products/user-products/${login}`);
         if (prodRes.ok) products = await prodRes.json();
       }

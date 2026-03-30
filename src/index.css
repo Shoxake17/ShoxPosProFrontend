@@ -1,8 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ← DM Sans, Lora, IBM Plex Mono kerak bo'lsa shu qolsin */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 2.5;
-  font-weight: 500;
-  
+  /* ✅ system-ui o'rniga Inter */
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
@@ -27,7 +37,9 @@ body {
   display: flex;
   place-items: center;
   min-width: 320px;
-  min-height: 200vh;
+  min-height: 100vh;
+  /* ✅ Inter birinchi o'rinda */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 h1 {
@@ -41,6 +53,7 @@ button {
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
+  /* ✅ font-family: inherit — button ham Inter oladi */
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
@@ -66,27 +79,15 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @layer base {
   :root {
-    /* Google-inspired Modern Design Palette */
-    /* Primary: Google Blue with custom twist */
-    /* Secondary: Clean whites and light grays */
-    /* Accent: Vibrant coral for CTAs */
-    
-    /* Colors - Custom Google OAuth Theme */
     --background: 0 0% 100%;
     --foreground: 220 13% 18%;
     --card: 0 0% 100%;
     --card-foreground: 220 13% 18%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 13% 18%;
-    /* Custom Google-inspired blue */
     --primary: 217 89% 61%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 217 89% 71%;
@@ -94,7 +95,6 @@ button:focus-visible {
     --secondary-foreground: 220 13% 18%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    /* Vibrant coral accent for CTAs */
     --accent: 14 100% 66%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
@@ -102,15 +102,11 @@ button:focus-visible {
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 217 89% 61%;
-
-    /* Charts */
     --chart-1: 217 89% 61%;
     --chart-2: 14 100% 66%;
     --chart-3: 142 76% 36%;
     --chart-4: 271 91% 65%;
     --chart-5: 48 96% 53%;
-
-    /* Sidebar */
     --sidebar: 0 0% 100%;
     --sidebar-foreground: 220 13% 18%;
     --sidebar-primary: 217 89% 61%;
@@ -120,12 +116,11 @@ button:focus-visible {
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 217 89% 61%;
 
-    /* Fonts */
-    --font-sans: DM Sans, sans-serif;
+    /* ✅ Inter asosiy font */
+    --font-sans: 'Inter', DM Sans, sans-serif;
     --font-serif: Lora, serif;
     --font-mono: IBM Plex Mono, monospace;
 
-    /* Shadows */
     --shadow-2xs: 0px 4px 8px -1px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0px 4px 8px -1px hsl(0 0% 0% / 0.05);
     --shadow-sm: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 1px 2px -2px hsl(0 0% 0% / 0.10);
@@ -134,15 +129,12 @@ button:focus-visible {
     --shadow-lg: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 4px 6px -2px hsl(0 0% 0% / 0.10);
     --shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
     --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
-
-    /* Misc */
     --tracking-normal: 0em;
     --spacing: 0.25rem;
     --radius: 0.5rem;
   }
 
   .dark {
-    /* Dark mode - Google-inspired with deep navy tones */
     --background: 222 47% 11%;
     --foreground: 210 40% 96%;
     --card: 222 47% 15%;
@@ -163,15 +155,11 @@ button:focus-visible {
     --border: 217 33% 23%;
     --input: 217 33% 23%;
     --ring: 217 89% 61%;
-
-    /* Charts */
     --chart-1: 217 89% 61%;
     --chart-2: 14 100% 66%;
     --chart-3: 142 76% 46%;
     --chart-4: 271 91% 65%;
     --chart-5: 48 96% 53%;
-
-    /* Sidebar */
     --sidebar: 222 47% 15%;
     --sidebar-foreground: 210 40% 96%;
     --sidebar-primary: 217 89% 61%;
@@ -188,7 +176,8 @@ button:focus-visible {
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    /* ✅ Inter birinchi */
+    font-family: 'Inter', var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     letter-spacing: var(--tracking-normal);
   }
 }
@@ -202,10 +191,8 @@ button:focus-visible {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-

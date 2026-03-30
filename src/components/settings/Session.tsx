@@ -6,6 +6,7 @@ import { useTranslation } from '../../components/languages/Settings';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getSocket } from '../../utils/socket';
+import { clearAuthClientState } from '../../utils/clientSession';
 
 // ✅ sessionStorage ustunligi — localStorage fallback
 const getCurrentDeviceId = (): string =>
@@ -36,10 +37,9 @@ const forceLogout = (message: string, theme: 'dark' | 'light') => {
     position: 'top-right', autoClose: 5000,
     theme: theme === 'dark' ? 'dark' : 'light',
   });
-  // ✅ Faqat device ma'lumotlari tozalanadi
+  clearAuthClientState();
   localStorage.removeItem('deviceId');
   sessionStorage.removeItem('deviceId');
-  sessionStorage.removeItem('currentUser');
   setTimeout(() => { window.location.href = '/login'; }, 3000);
 };
 

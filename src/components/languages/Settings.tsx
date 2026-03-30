@@ -238,6 +238,14 @@ const translations: Record<Language, Record<string, string>> = {
     sessionExpired: "Sessiya tugadi. Qayta kirish kerak.",
     forceLogout: "Sizning ShoxPosPro ilovasidan chiqarib yuborildingiz",
     languageChanged: "Til o'zgartirildi",
+    currency: "Valyuta",
+    currencyDescription: "Asosiy valyutani tanlang",
+    currencyChanged: "Valyuta o'zgartirildi",
+    selectCurrency: "Valyutani tanlang",
+    currentRate: "Joriy kurs",
+    uzs: "O'zbek so'mi",
+    usd: "AQSH dollari",
+    rub: "Rossiya rubli",
 
     
 
@@ -460,6 +468,14 @@ const translations: Record<Language, Record<string, string>> = {
     sessionExpired: "Сессия истекла. Необходимо войти снова.",
     forceLogout: "Вы были выгнаны из приложения ShoxPosPro",
     languageChanged: "Язык изменён",
+    currency: "Валюта",
+    currencyDescription: "Выберите основную валюту",
+    currencyChanged: "Валюта изменена",
+    selectCurrency: "Выберите валюту",
+    currentRate: "Текущий курс",
+    uzs: "Узбекский сум",
+    usd: "Доллар США",
+    rub: "Российский рубль",
 
 
   },
@@ -672,6 +688,14 @@ const translations: Record<Language, Record<string, string>> = {
     sessionExpired: "Session expired. Please log in again.",
     forceLogout: "You have been logged out of ShoxPosPro",
     languageChanged: "Language changed",
+    currency: "Currency",
+    currencyDescription: "Select primary currency",
+    currencyChanged: "Currency changed",
+    selectCurrency: "Select currency",
+    currentRate: "Current rate",
+    uzs: "Uzbek Sum",
+    usd: "US Dollar",
+    rub: "Russian Ruble",
   }
 };
 
@@ -686,10 +710,18 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     localStorage.setItem('language', language);
   }, [language]);
 
-  const t = (key: string) => translations[language][key] || key;
+  const t = React.useCallback((key: string) => {
+    return translations[language][key] || key;
+  }, [language]);
+
+  const value = React.useMemo(() => ({
+    t,
+    language,
+    setLanguage
+  }), [t, language]);
 
   return (
-    <TranslationContext.Provider value={{ t, language, setLanguage }}>
+    <TranslationContext.Provider value={value}>
       {children}
     </TranslationContext.Provider>
   );
