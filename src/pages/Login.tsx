@@ -7,6 +7,7 @@ import { reconnectSocket, getSocket }  from '../utils/socket';
 import { getLayoutStyles }             from "../components/MainLayout";
 import { invalidateAuthCache }         from "../components/ProtectedRoute";
 import { setupAuthCheck }              from "../utils/authUtils";
+import { subscribeToPushNotifications } from '../utils/pushNotification';
 import {
   User, Lock, Eye, EyeOff, ArrowRight, CheckCircle,
   AlertTriangle, XCircle, Shield, ScanFace, Fingerprint, Smartphone
@@ -138,6 +139,8 @@ export default function Login() {
     invalidateAuthCache();
     initSocketAfterLogin(loginName, deviceId, deviceType, deviceOS);
     setupAuthCheck(navigate);
+
+    subscribeToPushNotifications();
 
     setMessage(`success:Xush kelibsiz, ${loginName}!`);
     const role = user?.role?.toLowerCase() || "cashier";

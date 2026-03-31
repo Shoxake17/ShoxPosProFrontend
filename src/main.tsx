@@ -11,7 +11,7 @@ import NotFound         from "./pages/NotFound";
 import { TranslationProvider, useTranslation } from "./components/languages/Settings";
 import { HandTrackingProvider } from "./context/HandTrackingContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
-
+import { subscribeToPushNotifications } from './utils/pushNotification';
 // Lazy loading components for other pages
 const Menu           = lazy(() => import("./pages/Menu"));
 const Settings       = lazy(() => import("./pages/Settings"));
@@ -57,7 +57,11 @@ function GlobalSocketListener() {
 
   useEffect(() => {
     const socket = getSocket();
-    
+
+    const login = getSessionLogin();
+    if (login) {
+      subscribeToPushNotifications()
+    }    
     // 🛡️ Ulanishni tekshirish
     if (!socket.connected) socket.connect();
 
