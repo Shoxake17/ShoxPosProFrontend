@@ -134,7 +134,7 @@ const NetworkIndicator: React.FC<{ isOnline: boolean; isMobile: boolean }> = ({ 
 const ProfileAvatar: React.FC<{
   userImage: string | null | undefined; isMobile: boolean; theme: Theme;
 }> = ({ userImage, isMobile, theme }) => {
-  const { t } = useTranslation<MainLayoutLanguageKeys>();
+  const { t } = useTranslation();
   return (
     <div
       onClick={() => !isMobile && document.getElementById("fileInput")?.click()}

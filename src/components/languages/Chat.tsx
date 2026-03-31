@@ -34,6 +34,7 @@ interface TranslationKeys {
   selectUserToWriteMessage: string;
   deleteHistory: string;
   confirmDelete: string;
+  adminAvatarPlaceholder: string;
 }
 
 const translations: Record<string, TranslationKeys> = {
@@ -61,6 +62,7 @@ const translations: Record<string, TranslationKeys> = {
     selectUserToWriteMessage: "Xabar yozish uchun foydalanuvchini tanlang",
     deleteHistory:            "Tarixni o'chirish",
     confirmDelete:            "O'chirish",
+    adminAvatarPlaceholder: "A",
   },
   ru: {
     errorLoadingUsers:        "Ошибка загрузки пользователей:",
@@ -86,6 +88,7 @@ const translations: Record<string, TranslationKeys> = {
     selectUserToWriteMessage: "Выберите пользователя для написания сообщения",
     deleteHistory:            "Удалить историю",
     confirmDelete:            "Удалить",
+    adminAvatarPlaceholder: "A",
   },
   en: {
     errorLoadingUsers:        "Error loading users:",
@@ -111,6 +114,7 @@ const translations: Record<string, TranslationKeys> = {
     selectUserToWriteMessage: "Select a user to write a message",
     deleteHistory:            "Delete history",
     confirmDelete:            "Delete",
+    adminAvatarPlaceholder: "A",
   },
 };
 
