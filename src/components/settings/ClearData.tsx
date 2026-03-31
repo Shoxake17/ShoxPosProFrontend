@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, ChevronRight } from 'lucide-react';
-import { useTranslation } from '../../components/languages/Settings'; // ✅ Yo'lni tekshiring
+import { useTranslation } from '../../components/languages/Settings'; // ✅ Yo'lni tekshirings
 
 interface ClearDataProps {
   theme: 'dark' | 'light';
