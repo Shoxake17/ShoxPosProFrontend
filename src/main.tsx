@@ -8,7 +8,7 @@ import Login            from "./pages/Login";
 import ProtectedRoute   from "./components/ProtectedRoute";
 import NotFound         from "./pages/NotFound";
 
-import { TranslationProvider } from "./components/languages/Settings";
+import { TranslationProvider, useTranslation } from "./components/languages/Settings";
 import { HandTrackingProvider } from "./context/HandTrackingContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
 
@@ -48,6 +48,7 @@ import { showBrowserNotification, notificationStorage } from "./admin/adminUtils
 function GlobalSocketListener() {
   const navigate    = useNavigate();
   const navigateRef = useRef(navigate);
+  const { t } = useTranslation();
 
   useEffect(() => {
     navigateRef.current = navigate;
@@ -56,40 +57,51 @@ function GlobalSocketListener() {
 
   useEffect(() => {
     const socket = getSocket();
+    
+    // 🛡️ Ulanishni tekshirish
     if (!socket.connected) socket.connect();
 
-    const handleConnect = () => {
-      const _login = getSessionLogin();
-      const _deviceId =
-        sessionStorage.getItem("deviceId") || localStorage.getItem("deviceId") || "";
-      if (_login && _deviceId) {
-        socket.emit("registerUser", { login: _login, deviceId: _deviceId });
-      }
-    };
-
-    if (socket.connected) handleConnect();
-    socket.on('connect', handleConnect);
-
-    // ── Yangi xabarlarni tinglash ──
+    // ── Yangi xabarlarni tinglash (Global bildirishnoma va ovoz uchun) ──
     const handleNewMessage = (msg: any) => {
       const currentUserLogin = getSessionLogin();
       
-      if (notificationStorage.isEnabled() && msg.sender !== currentUserLogin) {
-        // Faqat OS darajasida bildirishnoma
-        showBrowserNotification(
-          `Yangi xabar: ${msg.sender}`,
-          msg.content
-        );
+      // Agar xabar boshqa odamdan kelgan bo'lsa
+      if (msg.sender !== currentUserLogin) {
+        // 1. Ovoz chiqarish va OS notification
+        // notificationStorage.isEnabled() ichida showBrowserNotification o'zi playNotificationSound() ni chaqiradi
+        if (notificationStorage.isEnabled()) {
+          showBrowserNotification(
+            t('newChatMessage', { sender: msg.sender }),
+            msg.content
+          );
+        } else {
+          // Agar OS notification o'chiq bo'lsa, faqat ovoz chiqsin (agar foydalanuvchi chatda bo'lmasa)
+          const isChatPage = window.location.pathname.includes('/chat') || window.location.pathname.includes('/admin-chat');
+          if (!isChatPage) {
+            import("./admin/adminUtils/notificationUtils").then(m => m.playNotificationSound());
+          }
+        }
+
+        // 2. Toast bildirishnoma (Ilova ochiq bo'lsa va chatda bo'lmasa ko'rinadi)
+        const isChatPage = window.location.pathname.includes('/chat') || window.location.pathname.includes('/admin-chat');
+        if (!isChatPage) {
+          toast(t('newChatMessage', { sender: msg.sender }), {
+            description: msg.content,
+            icon: <MessageSquare size={18} />,
+            action: {
+              label: t('open'),
+              onClick: () => navigateRef.current(msg.sender === 'admin' ? '/admin-chat' : '/chat')
+            }
+          });
+        }
       }
     };
-
-    socket.on('privateMessage', handleNewMessage);
 
     const handleForceLogout = (data: { reason?: string }) => {
       clearAuthClientState();
       invalidateAuthCache();
       disconnectSocket();
-      handleLogout(data?.reason || '⛔ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz');
+      handleLogout(data?.reason || t('forcedLogout'));
     };
 
     const handleBlocked = (data: { login?: string; reason?: string }) => {
@@ -100,8 +112,8 @@ function GlobalSocketListener() {
       invalidateAuthCache();
       disconnectSocket();
 
-      toast.error('❌ Hisobingiz bloklandi', {
-        description: data?.reason || 'Administrator tomonidan bloklandi',
+      toast.error(t('accountBlocked'), {
+        description: data?.reason || t('blockedByAdmin'),
         duration: 6000,
       });
 
@@ -111,13 +123,14 @@ function GlobalSocketListener() {
       }, 3000);
     };
 
-    socket.on('forceLogout',  handleForceLogout);
-    socket.on('user:blocked', handleBlocked);
+    socket.on('privateMessage', handleNewMessage);
+    socket.on('forceLogout',    handleForceLogout);
+    socket.on('user:blocked',   handleBlocked);
 
     return () => {
-      socket.off('connect',      handleConnect);
-      socket.off('forceLogout',  handleForceLogout);
-      socket.off('user:blocked', handleBlocked);
+      socket.off('privateMessage', handleNewMessage);
+      socket.off('forceLogout',    handleForceLogout);
+      socket.off('user:blocked',   handleBlocked);
     };
   }, []);
 

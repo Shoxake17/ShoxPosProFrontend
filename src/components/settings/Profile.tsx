@@ -1,23 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Edit2, Save, Camera } from "lucide-react";
+import { X, User, Phone, Edit2, Save, Camera, Hash } from "lucide-react";
 import { useTranslation } from "../languages/Settings";
-
-function readProfileKey(key: string): string | null {
-  let v = sessionStorage.getItem(key);
-  if (v !== null) return v;
-  const legacy = localStorage.getItem(key);
-  if (legacy !== null) {
-    sessionStorage.setItem(key, legacy);
-    localStorage.removeItem(key);
-    return legacy;
-  }
-  return null;
-}
-
-function writeProfileKey(key: string, value: string): void {
-  sessionStorage.setItem(key, value);
-  localStorage.removeItem(key);
-}
+import { api } from "../../utils/api";
+import { toast } from "sonner";
+import { getSessionLogin } from "../../utils/clientSession";
 
 interface ProfileProps {
   isOpen: boolean;
@@ -27,48 +13,135 @@ interface ProfileProps {
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function Profile({ isOpen, onClose, theme, userImage, handleImageUpload }: ProfileProps) {
-  const { t } = useTranslation();
+export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
+    const { t } = useTranslation();
+  const login = getSessionLogin();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
+    avatarUrl: "",
+    uniqueChatId: ""
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Profil ma'lumotlarini yuklash
   useEffect(() => {
-    const savedName = readProfileKey("userName") || t("Foydalanuvchi");
-    const savedEmail = readProfileKey("userEmail") || "";
-    const savedPhone = readProfileKey("userPhone") || "";
+    if (!isOpen || !login) return;
 
-    setName(savedName);
-    setEmail(savedEmail);
-    setPhone(savedPhone);
-  }, [isOpen, t]);
+    const fetchProfile = async () => {
+      try {
+        const res = await api(`/api/users/profile?login=${login}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFormData({
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            phoneNumber: data.phoneNumber || "",
+            avatarUrl: data.avatarUrl || "",
+            uniqueChatId: data.uniqueChatId || ""
+          });
+          setPreviewUrl(data.avatarUrl);
+        }
+      } catch (err) {
+        console.error(t("errorLoadingProfile"), err);
+      }
+    };
 
-  const handleSave = () => {
-    if (!name.trim()) {
-      alert(t("nameEmptyError"));
+    fetchProfile();
+  }, [isOpen, login, t]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.firstName.trim()) {
+      toast.error(t("nameRequired"));
       return;
     }
 
-    writeProfileKey("userName", name.trim());
-    writeProfileKey("userEmail", email.trim());
-    writeProfileKey("userPhone", phone.trim());
-    setIsEditing(false);
+    setLoading(true);
+    const data = new FormData();
+    data.append("login", login!);
+    data.append("firstName", formData.firstName);
+    data.append("lastName", formData.lastName);
+    data.append("phoneNumber", formData.phoneNumber);
+    if (selectedFile) {
+      data.append("avatar", selectedFile);
+    }
+
+    try {
+      const res = await api("/api/users/profile", {
+        method: "PUT",
+        body: data,
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(t("updateSuccess"));
+        
+        // SessionStorage ni yangilash
+        const sessionUserRaw = sessionStorage.getItem("currentUser");
+        if (sessionUserRaw) {
+          const sessionUser = JSON.parse(sessionUserRaw);
+          sessionUser.firstName = result.user.firstName;
+          sessionUser.lastName = result.user.lastName;
+          sessionUser.image = result.user.avatarUrl;
+          sessionStorage.setItem("currentUser", JSON.stringify(sessionUser));
+        }
+
+        if (result.user.avatarUrl) {
+          localStorage.setItem("userImage", result.user.avatarUrl);
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new Event("profileUpdated"));
+        }
+        setIsEditing(false);
+      } else {
+        toast.error(t("updateError"));
+      }
+    } catch (err) {
+      toast.error(t("serverError"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
-    const savedName = readProfileKey("userName") || t("Foydalanuvchi");
-    const savedEmail = readProfileKey("userEmail") || "";
-    const savedPhone = readProfileKey("userPhone") || "";
-
-    setName(savedName);
-    setEmail(savedEmail);
-    setPhone(savedPhone);
     setIsEditing(false);
+    setSelectedFile(null);
+    setPreviewUrl(formData.avatarUrl);
   };
 
   if (!isOpen) return null;
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: "12px",
+    fontSize: "15px",
+    background: theme === "dark" ? "#0f1420" : "#f8f9ff",
+    border: `1px solid ${theme === "dark" ? "#2a3144" : "#e2e8f0"}`,
+    color: theme === "dark" ? "#fff" : "#1a1f2e",
+    boxSizing: "border-box",
+    transition: "all 0.2s ease"
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    marginBottom: "8px",
+    fontSize: "14px",
+    fontWeight: 500,
+    color: theme === "dark" ? "#8b92a7" : "#64748b"
+  };
 
   return (
     <div
@@ -88,6 +161,7 @@ export default function Profile({ isOpen, onClose, theme, userImage, handleImage
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative",
         }}
       >
+        {/* Yopish tugmasi */}
         <button
           onClick={onClose}
           style={{
@@ -98,117 +172,115 @@ export default function Profile({ isOpen, onClose, theme, userImage, handleImage
           <X size={24} />
         </button>
 
+        {/* Avatar qismi */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div
-            onClick={() => document.getElementById("profileImageInput")?.click()}
+            onClick={() => isEditing && document.getElementById("profileImageInput")?.click()}
             style={{
               width: "120px", height: "120px", borderRadius: "50%",
               background: "linear-gradient(135deg, #667eea, #764ba2)",
               margin: "0 auto 20px", display: "flex", alignItems: "center",
-              justifyContent: "center", cursor: "pointer", overflow: "hidden",
+              justifyContent: "center", cursor: isEditing ? "pointer" : "default", overflow: "hidden",
               position: "relative", border: `4px solid ${theme === "dark" ? "#1a1f2e" : "#e2e8f0"}`,
             }}
           >
-            {userImage ? (
-              <img src={userImage} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            {previewUrl ? (
+              <img src={previewUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
               <User size={56} color="#fff" />
             )}
-            <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", borderRadius: "50%", padding: "8px" }}>
-              <Camera size={18} color="#fff" />
-            </div>
+            {isEditing && (
+              <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", borderRadius: "50%", padding: "8px" }}>
+                <Camera size={18} color="#fff" />
+              </div>
+            )}
           </div>
-          <input id="profileImageInput" type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+          <input id="profileImageInput" type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
 
           <h2 style={{ fontSize: "26px", fontWeight: 700, marginBottom: "8px", color: theme === "dark" ? "#fff" : "#1a1f2e" }}>
-            {t("profile")}
+            {t("profileTitle")}
           </h2>
-          <p style={{ color: theme === "dark" ? "#8b92a7" : "#64748b" }}>
-            {t("profileDescription")}
+          <p style={{ color: theme === "dark" ? "#8b92a7" : "#64748b", fontSize: "14px" }}>
+            {t("profileSubtitle")}
           </p>
         </div>
 
+        {/* Forma qismi */}
         <div style={{ display: "grid", gap: "20px" }}>
-          {/* Ism */}
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", color: theme === "dark" ? "#8b92a7" : "#64748b" }}>
-              {t("nameLabel")}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={!isEditing}
-              placeholder={t("namePlaceholder")}
-              style={{
-                width: "100%", padding: "14px 16px", borderRadius: "12px", fontSize: "15px",
-                background: theme === "dark" ? "#0f1420" : "#f8f9ff",
-                border: `1px solid ${theme === "dark" ? "#2a3144" : "#e2e8f0"}`,
-                color: theme === "dark" ? "#fff" : "#1a1f2e", boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", color: theme === "dark" ? "#8b92a7" : "#64748b" }}>
-              {t("email")}
-            </label>
-            <div style={{ position: "relative" }}>
-              <Mail style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#667eea", pointerEvents: "none" }} size={20} />
+          <div style={{ display: "flex", gap: "15px" }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>{t("firstName")}</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 disabled={!isEditing}
-                placeholder={t("emailPlaceholder")}
-                style={{
-                  width: "100%", padding: "14px 16px 14px 48px", borderRadius: "12px", fontSize: "15px",
-                  background: theme === "dark" ? "#0f1420" : "#f8f9ff",
-                  border: `1px solid ${theme === "dark" ? "#2a3144" : "#e2e8f0"}`,
-                  color: theme === "dark" ? "#fff" : "#1a1f2e", boxSizing: "border-box",
-                }}
+                placeholder={t("firstNamePlaceholder")}
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>{t("lastName")}</label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                disabled={!isEditing}
+                placeholder={t("lastNamePlaceholder")}
+                style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Telefon */}
           <div>
-            <label style={{ display: "block", marginBottom: "8px", color: theme === "dark" ? "#8b92a7" : "#64748b" }}>
-              {t("phoneLabel")}
-            </label>
+            <label style={labelStyle}>{t("phoneLabel")}</label>
             <div style={{ position: "relative" }}>
               <Phone style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#667eea", pointerEvents: "none" }} size={20} />
               <input
                 type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                 disabled={!isEditing}
-                placeholder={t("phonePlaceholder")}
+                placeholder="+998 90 123 45 67"
+                style={{ ...inputStyle, paddingLeft: "48px" }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>{t("chatIdLabel")}</label>
+            <div style={{ position: "relative" }}>
+              <Hash style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#6366f1", pointerEvents: "none" }} size={20} />
+              <input
+                type="text"
+                value={formData.uniqueChatId}
+                readOnly
                 style={{
-                  width: "100%", padding: "14px 16px 14px 48px", borderRadius: "12px", fontSize: "15px",
-                  background: theme === "dark" ? "#0f1420" : "#f8f9ff",
-                  border: `1px solid ${theme === "dark" ? "#2a3144" : "#e2e8f0"}`,
-                  color: theme === "dark" ? "#fff" : "#1a1f2e", boxSizing: "border-box",
+                  ...inputStyle,
+                  paddingLeft: "48px",
+                  background: theme === "dark" ? "#091020" : "#f1f5f9",
+                  color: "#6366f1",
+                  fontWeight: 700
                 }}
               />
             </div>
           </div>
         </div>
 
+        {/* Tugmalar */}
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginTop: "32px" }}>
           {isEditing ? (
             <>
               <button
                 onClick={handleSave}
+                disabled={loading}
                 style={{
                   padding: "14px 36px", background: "linear-gradient(135deg, #28a745 0%, #218838 100%)",
                   color: "#fff", border: "none", borderRadius: "12px", fontSize: "16px", fontWeight: 600,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
+                  cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "8px",
                 }}
               >
-                <Save size={20} />
-                {t("saveBtn")}
+                {loading ? t("savingBtn") : <><Save size={20} /> {t("saveBtn")}</>}
               </button>
               <button
                 onClick={handleCancel}

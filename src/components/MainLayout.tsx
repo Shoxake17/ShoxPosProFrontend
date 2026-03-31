@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useResponsive } from "../hooks/useResponsive";
 import Notification from "./NotificationBar";
+import { useTranslation } from "./languages/Settings"; // Global useTranslation
+import { MainLayoutLanguageKeys } from "./languages/MainLayout"; // Component-specific keys
 
 // HandCursor va video/canvas endi HandTrackingContext ichida — bu yerda kerak emas
 import { useHandTrackingContext } from "../context/HandTrackingContext";
@@ -131,28 +133,31 @@ const NetworkIndicator: React.FC<{ isOnline: boolean; isMobile: boolean }> = ({ 
 
 const ProfileAvatar: React.FC<{
   userImage: string | null | undefined; isMobile: boolean; theme: Theme;
-}> = ({ userImage, isMobile, theme }) => (
-  <div
-    onClick={() => !isMobile && document.getElementById("fileInput")?.click()}
-    style={{
-      width: isMobile ? 36 : 44,
-      height: isMobile ? 36 : 44,
-      borderRadius: "50%",
-      background: "linear-gradient(135deg, #667eea, #764ba2)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: isMobile ? "default" : "pointer",
-      overflow: "hidden",
-      border: `2px solid ${tc(theme, "#1a1f2e", "#e2e8f0")}`,
-      flexShrink: 0,
-      transition: "all 0.3s ease",
-    }}
-  >
-    {userImage
-      ? <img src={userImage} alt="User" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      : <User size={isMobile ? 18 : 20} color="#fff" />
-    }
-  </div>
-);
+}> = ({ userImage, isMobile, theme }) => {
+  const { t } = useTranslation<MainLayoutLanguageKeys>();
+  return (
+    <div
+      onClick={() => !isMobile && document.getElementById("fileInput")?.click()}
+      style={{
+        width: isMobile ? 36 : 44,
+        height: isMobile ? 36 : 44,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg, #667eea, #764ba2)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: isMobile ? "default" : "pointer",
+        overflow: "hidden",
+        border: `2px solid ${tc(theme, "#1a1f2e", "#e2e8f0")}`,
+        flexShrink: 0,
+        transition: "all 0.3s ease",
+      }}
+    >
+      {userImage
+        ? <img src={userImage} alt={t('userAvatarAlt')} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : <User size={isMobile ? 18 : 20} color="#fff" />
+      }
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────
 // Main Layout Component

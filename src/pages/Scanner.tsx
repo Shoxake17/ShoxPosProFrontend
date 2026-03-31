@@ -395,7 +395,7 @@ function ScannerContent() {
             product.source === 'user' &&
             newCount > (existing.maxQuantity || 0)
           ) {
-            setResultText('Mahsulot qolmagan');
+            setResultText(tRef.current('outOfStock'));
             setResultStatus('error');
             return prev;
           }
@@ -407,7 +407,7 @@ function ScannerContent() {
             product.source === 'user' &&
             count > (product.quantity || 0)
           ) {
-            setResultText('Mahsulot qolmagan');
+            setResultText(tRef.current('outOfStock'));
             setResultStatus('error');
             return prev;
           }
@@ -447,7 +447,7 @@ function ScannerContent() {
       if (value < 1) return prev.filter(s => s.barcode !== barcode);
       const item = prev[itemIndex];
       if (item.source === 'user' && value > (item.maxQuantity || 0)) {
-        setResultText('Mahsulot qolmagan');
+        setResultText(tRef.current('outOfStock'));
         setResultStatus('error');
         return prev;
       }
@@ -534,7 +534,7 @@ function ScannerContent() {
       item => item.source === 'user' && item.count > (item.maxQuantity || 0)
     );
     if (hasInsufficientStock) {
-      setResultText('Mahsulot qolmagan');
+        setResultText(tRef.current('outOfStock'));
       setResultStatus('error');
       return;
     }

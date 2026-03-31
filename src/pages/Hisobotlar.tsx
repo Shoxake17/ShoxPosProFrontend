@@ -12,7 +12,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Hisobotlar';
 import { api } from '../utils/api';
-
+import { useCurrency } from '../context/CurrencyContext';
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, ArcElement, Title, Tooltip, Legend, Filler
@@ -63,7 +63,7 @@ const loadReportsFromMongoDB = async (login: string): Promise<any[]> => {
 // ─────────────────────────────────────────────────────────────────────────
 function ReportsContent() {
   const { t } = useTranslation();
-
+  const { format, convert } = useCurrency();
   const [reports,         setReports]         = useState<any[]>([]);
   const [filteredReports, setFilteredReports] = useState<any[]>([]);
   const [totalSum,        setTotalSum]        = useState(0);
@@ -89,23 +89,23 @@ function ReportsContent() {
 
   // ─── Kategoriyalar — t ref orqali ─────────────────────────────────────
   const getCategories = () => [
-    { value: 'Don va un',                    label: `🌾 ${tRef.current('grainFlour')}` },
-    { value: "Go'sht",                       label: `🥩 ${tRef.current('meat')}` },
-    { value: 'Sabzavot',                     label: `🥬 ${tRef.current('vegetables')}` },
-    { value: 'Mevalar',                      label: `🍎 ${tRef.current('fruits')}` },
-    { value: 'Ichimliklar',                  label: `🧃 ${tRef.current('drinks')}` },
-    { value: "Yog'",                         label: `🧈 ${tRef.current('oil')}` },
-    { value: 'Sut mahsulotlari',             label: `🥛 ${tRef.current('dairy')}` },
-    { value: 'Qandolat mahsulotlari',        label: `🍫 ${tRef.current('sweets')}` },
-    { value: 'Kiyim',                        label: `🧥 ${tRef.current('clothing')}` },
-    { value: 'Texnika',                      label: `🛠️ ${tRef.current('electronics')}` },
-    { value: 'Avtotransport vositalari',     label: `🚗 ${tRef.current('vehicles')}` },
-    { value: 'Gigiyena vositalari',          label: `🧼 ${tRef.current('hygiene')}` },
-    { value: 'Oshxona jihozlari',            label: `🍽️ ${tRef.current('kitchenware')}` },
-    { value: 'Bolalar mahsulotlari',         label: `🧸 ${tRef.current('babyProducts')}` },
-    { value: 'Kantselyariya mahsulotlari',   label: `✏️ ${tRef.current('stationery')}` },
-    { value: 'Uy hayvonlari uchun tovarlar', label: `🐶 ${tRef.current('petProducts')}` },
-    { value: 'Dorilar',                      label: `💊 ${tRef.current('medicine')}` },
+    { value: 'grainFlour',      label: `🌾 ${tRef.current('grainFlour')}` },
+    { value: 'meat',            label: `🥩 ${tRef.current('meat')}` },
+    { value: 'vegetables',      label: `🥬 ${tRef.current('vegetables')}` },
+    { value: 'fruits',          label: `🍎 ${tRef.current('fruits')}` },
+    { value: 'drinks',          label: `🧃 ${tRef.current('drinks')}` },
+    { value: 'oil',             label: `🧈 ${tRef.current('oil')}` },
+    { value: 'dairy',           label: `🥛 ${tRef.current('dairy')}` },
+    { value: 'sweets',          label: `🍫 ${tRef.current('sweets')}` },
+    { value: 'clothing',        label: `🧥 ${tRef.current('clothing')}` },
+    { value: 'electronics',     label: `🛠️ ${tRef.current('electronics')}` },
+    { value: 'vehicles',        label: `🚗 ${tRef.current('vehicles')}` },
+    { value: 'hygiene',         label: `🧼 ${tRef.current('hygiene')}` },
+    { value: 'kitchenware',     label: `🍽️ ${tRef.current('kitchenware')}` },
+    { value: 'babyProducts',    label: `🧸 ${tRef.current('babyProducts')}` },
+    { value: 'stationery',      label: `✏️ ${tRef.current('stationery')}` },
+    { value: 'petProducts',     label: `🐶 ${tRef.current('petProducts')}` },
+    { value: 'medicine',        label: `💊 ${tRef.current('medicine')}` },
   ];
 
   // ─── Data yuklash — ✅ bo'sh dependency, faqat bir marta yaratiladi ───
@@ -387,7 +387,7 @@ function ReportsContent() {
       y: {
         ticks: {
           color: sub,
-          callback: (v: any) => v.toLocaleString() + ' ' + t('currencyUnit'),
+          callback: (v: any) => format(Number(v)),
         },
         grid: { color: bdr },
       },
@@ -483,7 +483,7 @@ function ReportsContent() {
             gap: 20,
             marginBottom: 32,
           }}>
-            {statCard(<TrendingUp size={20} color="#10b981" />, t("totalIncome"),  `${totalSum.toLocaleString()} ${t('currencyUnit')}`, "#10b981")}
+            {statCard(<TrendingUp size={20} color="#10b981" />, t("totalIncome"),  format(totalSum), "#10b981")}
             {statCard(<FileText   size={20} color="#667eea" />, t("salesCount"),   totalProducts,   "#667eea")}
             {statCard(<Package    size={20} color="#f59e0b" />, t("soldQuantity"), totalItemsSold,  "#f59e0b")}
           </div>

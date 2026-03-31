@@ -1,19 +1,32 @@
 // src/admin/adminUtils/notificationUtils.ts
 
 let _audioUnlocked = false;
+let _audioContext: AudioContext | null = null;
+
+function _getAudioContext(): AudioContext {
+  if (!_audioContext) {
+    _audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return _audioContext;
+}
 
 function _unlockAudio(): void {
   if (_audioUnlocked) return;
+  const ctx = _getAudioContext();
+  if (ctx.state === 'suspended') {
+    ctx.resume();
+  }
+  
+  // Qisqa tovush chiqarib ko'ramiz (ba'zi brauzerlar uchun kerak)
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(0);
+  osc.stop(0.1);
+  
   _audioUnlocked = true;
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
-    ctx.close();
-  } catch (_) {}
 }
 
 if (typeof window !== "undefined") {
@@ -43,32 +56,19 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 /**
  * Bildirishnoma ko'rsatish.
- * HAR DOIM custom UI ishlatadi (focus sharti yo'q).
- *
- * ⚠️  icon yo'li:
- *   - public/ShoxPosPro.png bo'lsa → icon = "/ShoxPosPro.png"
- *   - src/assets/ da bo'lsa:
- *       import logo from '../../assets/ShoxPosPro.png'
- *       showBrowserNotification(title, body, logo)
  */
 export function showBrowserNotification(
   title: string,
   body: string,
   icon: string = "/shoxpospro.png"
 ): void {
-  // 1. Ovoz (Ilova ochiqligida ovoz chiqadi)
+  // 1. Ovoz
   playNotificationSound();
 
-  // 2. OS darajasidagi bildirishnoma (PWA uchun)
+  // 2. OS darajasidagi bildirishnoma
   if (!("Notification" in window)) return;
 
-  // Agar ruxsat berilmagan bo'lsa, so'raymiz
-  if (Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-
   if (Notification.permission === "granted") {
-    // Service Worker orqali yuborish (Async ishlaydi)
     navigator.serviceWorker.ready.then((registration) => {
       registration.showNotification(title, {
         body,
@@ -80,8 +80,13 @@ export function showBrowserNotification(
         silent: true 
       });
     }).catch(err => {
-      // SW tayyor bo'lmasa oddiy Notification
       new Notification(title, { body, icon });
+    });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        new Notification(title, { body, icon });
+      }
     });
   }
 }
@@ -90,31 +95,47 @@ export function showBrowserNotification(
 
 /**
  * Qisqa ping ovozi chaladi.
- * @param url   Ixtiyoriy: o'z audio faylingiz, masalan "/sounds/ping.mp3"
  */
 export function playNotificationSound(url?: string): void {
   const src = url || "/sounds/notification.mp3";
   const audio = new Audio(src);
-  audio.volume = 0.55;
-  audio.play().catch(() => _playBeep());
+  audio.volume = 0.6;
+  
+  // AudioContext orqali ovozni kafolatlash
+  if (_audioUnlocked) {
+    const ctx = _getAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  audio.play().catch(() => {
+    console.warn("Audio autoplay blocked, trying fallback beep...");
+    _playBeep();
+  });
 }
 
-/** Internet yo'qda yoki CDN ishlamasa Web Audio beep */
+/** Internet yo'qda yoki brauzer bloklasa Web Audio beep */
 function _playBeep(): void {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = _getAudioContext();
+    if (ctx.state === 'suspended') {
+      // Agar hali unlock bo'lmagan bo'lsa, hech narsa qilolmaymiz
+      if (!_audioUnlocked) return;
+      ctx.resume();
+    }
+    
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = "sine";
     osc.frequency.setValueAtTime(880, ctx.currentTime);
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.4);
-    osc.onended = () => ctx.close();
-  } catch (_) {}
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (err) {
+    console.error("Beep xatosi:", err);
+  }
 }
 
 /**

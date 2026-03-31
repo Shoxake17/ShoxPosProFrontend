@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User as UserIcon, MessageSquare, Search, Phone, Video, MoreVertical, Paperclip, Smile, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { Send, MessageSquare, Search, MoreVertical, Paperclip, Smile, PanelLeftClose, PanelLeftOpen, X, ChevronLeft } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
 import { getSessionLogin, getSessionUserImage } from "../utils/clientSession";
+import { useResponsive } from "../hooks/useResponsive";
 import { api } from "../utils/api";
 import { getSocket } from "../utils/socket";
+import { toast } from 'sonner';
+import { useTranslation } from "../components/languages/Chat";
 
-const EMOJIS = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+const EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃'];
 
 interface ChatUser {
   login: string;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
   lastMessage?: string;
   unreadCount?: number;
   isSecret?: boolean;
+  avatarUrl?: string;
+  uniqueChatId?: string;
 }
 
 interface Message {
@@ -24,320 +31,256 @@ interface Message {
 }
 
 export default function Chat() {
-  const login = getSessionLogin();
-  const userImage = getSessionUserImage();
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [users, setUsers] = useState<ChatUser[]>([]);
-  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const login     = getSessionLogin();
+  const [userImage] = useState<string|null>(localStorage.getItem('userImage'));
+  const { t } = useTranslation();
+
+  // ✅ 1-FIX: useResponsive hook — MainLayout bilan bir xil manba
+  const { isMobile } = useResponsive();
+
+  // ✅ 2-FIX: theme localStorage dan o'qiladi — Ai.tsx kabi
+  const [theme] = useState<'dark' | 'light'>(
+    () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  );
+
+  const [users,           setUsers]           = useState<ChatUser[]>([]);
+  const [selectedUser,    setSelectedUser]    = useState<ChatUser | null>(null);
+  const [messages,        setMessages]        = useState<Message[]>([]);
+  const [newMessage,      setNewMessage]      = useState('');
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [loading,         setLoading]         = useState(false);
+  const [onlineUsers,     setOnlineUsers]     = useState<string[]>([]);
+  const [editingMessage,  setEditingMessage]  = useState<Message | null>(null);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [isSecret, setIsSecret] = useState(false);
+  const [showMenu,        setShowMenu]        = useState(false);
+  const [isSecret,        setIsSecret]        = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const socket = getSocket();
+  const menuRef        = useRef<HTMLDivElement>(null);
+  const socket         = getSocket();
 
-  // Emojini tanlash
+  // ✅ isMobile uchun alohida useEffect va window.addEventListener kerak emas — useResponsive ichida bor
+
   const addEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji);
     setShowEmojiPicker(false);
   };
 
-  // Tashqariga bosilganda yopish
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) setShowEmojiPicker(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Foydalanuvchilarni yuklash
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await api('/api/chat/users');
         if (res.ok) {
           const data = await res.json();
-          // Admin (Support) ni doim birinchi qilish va joriy foydalanuvchini olib tashlash
+          setUsers(data);
           const admin = data.find((u: any) => u.role === 'admin' && u.login !== login);
-          const others = data.filter((u: any) => u.login !== login && (u.role !== 'admin' || u.login === admin?.login));
-          
-          const sortedUsers = admin ? [admin, ...others.filter((u: any) => u.login !== admin.login)] : others;
-          setUsers(sortedUsers);
-          
-          // O'zining secret holatini tekshirish
-          const me = data.find((u: any) => u.login === login);
+          const me    = data.find((u: any) => u.login === login);
           if (me) setIsSecret(!!me.isSecret);
-
-          // Agar tanlanmagan bo'lsa, default admin (Support) ni tanlash
-          if (!selectedUser && admin) {
-            setSelectedUser(admin);
-          }
+          if (!selectedUser && admin && !isMobile) setSelectedUser(admin);
         }
-      } catch (err) {
-        console.error("Foydalanuvchilarni yuklashda xato:", err);
-      }
+      } catch (err) { console.error(t('errorLoadingUsers'), err); }
     };
     fetchUsers();
-  }, [login]);
+  }, [login, isMobile]);
 
-  // Secret holatini o'zgartirish
-  const toggleSecret = async () => {
-    try {
-      const res = await api('/api/chat/toggle-secret', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setIsSecret(data.isSecret);
-        setShowMenu(false);
-      }
-    } catch (err) {
-      console.error("Secret toggle xatosi:", err);
-    }
-  };
-
-  // Chat tarixini o'chirish
-  const deleteHistory = async () => {
-    if (!selectedUser || !window.confirm("Haqiqatan ham ushbu chat tarixini butunlay o'chirib tashlamoqchimisiz?")) return;
-    
-    try {
-      const res = await api('/api/chat/delete-history', {
-        method: 'POST',
-        body: JSON.stringify({ withUser: selectedUser.login })
-      });
-      if (res.ok) {
-        setMessages([]);
-        setShowMenu(false);
-      }
-    } catch (err) {
-      console.error("Tarixni o'chirishda xato:", err);
-    }
-  };
-
-  // Onlayn foydalanuvchilarni boshqarish
   useEffect(() => {
     if (!socket) return;
-
     socket.emit('getOnlineUsers');
-    
-    socket.on('onlineUsersList', (logins: string[]) => {
-      setOnlineUsers(logins);
+    socket.on('onlineUsersList', (logins: string[]) => setOnlineUsers(logins));
+    socket.on('userStatusChange', ({ login: l, status }: { login: string; status: 'online' | 'offline' }) => {
+      setOnlineUsers(prev => status === 'online' ? (prev.includes(l) ? prev : [...prev, l]) : prev.filter(x => x !== l));
     });
-
-    socket.on('userStatusChange', ({ login: changedLogin, status }: { login: string, status: 'online' | 'offline' }) => {
-      setOnlineUsers(prev => {
-        if (status === 'online') {
-          return prev.includes(changedLogin) ? prev : [...prev, changedLogin];
-        } else {
-          return prev.filter(l => l !== changedLogin);
-        }
-      });
-    });
-
-    return () => {
-      socket.off('onlineUsersList');
-      socket.off('userStatusChange');
-    };
+    return () => { socket.off('onlineUsersList'); socket.off('userStatusChange'); };
   }, [socket]);
 
-  // Tanlangan foydalanuvchi o'zgarganda tarixni yuklash
   useEffect(() => {
     if (!selectedUser) return;
-
     const fetchHistory = async () => {
       setLoading(true);
       try {
         const res = await api(`/api/chat/history/${selectedUser.login}`);
-        if (res.ok) {
-          const data = await res.json();
-          setMessages(data);
-        }
-      } catch (err) {
-        console.error("Tarixni yuklashda xato:", err);
-      } finally {
-        setLoading(false);
-      }
+        if (res.ok) setMessages(await res.json());
+      } catch (err) { console.error(t('errorLoadingHistory'), err); }
+      finally { setLoading(false); }
     };
-
     fetchHistory();
   }, [selectedUser]);
 
-  // Socket orqali yangi xabarlarni qabul qilish
   useEffect(() => {
     if (!socket) return;
-
     const handleMessage = (msg: Message) => {
-      // Agar xabar hozirgi ochiq chatdan bo'lsa yoki men yuborgan bo'lsam
-      if (msg.sender === selectedUser?.login || msg.sender === login) {
-        setMessages(prev => [...prev, msg]);
-      }
-      
-      // Ro'yxatdagi lastMessage va unreadCount ni yangilash
+      setMessages(prev => {
+        const isDuplicate = prev.some(m => m.sender === msg.sender && new Date(m.timestamp).getTime() === new Date(msg.timestamp).getTime());
+        if (isDuplicate) return prev;
+        if (msg.sender === selectedUser?.login || msg.sender === login) return [...prev, msg];
+        return prev;
+      });
       setUsers(prev => prev.map(u => {
-        if (u.login === msg.sender) {
-          return { 
-            ...u, 
-            lastMessage: msg.content, 
-            unreadCount: (u.login === selectedUser?.login) ? 0 : (u.unreadCount || 0) + 1 
-          };
-        }
-        if (msg.sender === login && u.login === selectedUser?.login) {
-          return { ...u, lastMessage: msg.content };
-        }
+        if (u.login === msg.sender) return { ...u, lastMessage: msg.content, unreadCount: u.login === selectedUser?.login ? 0 : (u.unreadCount || 0) + 1 };
+        if (msg.sender === login && u.login === selectedUser?.login) return { ...u, lastMessage: msg.content };
         return u;
       }));
     };
-
     socket.on('privateMessage', handleMessage);
-
-    const handleMessageEdited = ({ sender, timestamp, newContent }: any) => {
-      setMessages(prev => prev.map(m => 
-        (m.sender === sender && new Date(m.timestamp).getTime() === new Date(timestamp).getTime())
-          ? { ...m, content: newContent, isEdited: true }
-          : m
-      ));
-      
-      if (selectedUser?.login === sender) {
-        setUsers(prev => prev.map(u => 
-          u.login === sender ? { ...u, lastMessage: newContent } : u
-        ));
-      }
+    const handleEdited = ({ sender, timestamp, newContent }: any) => {
+      setMessages(prev => prev.map(m => (m.sender === sender && new Date(m.timestamp).getTime() === new Date(timestamp).getTime()) ? { ...m, content: newContent, isEdited: true } : m));
+      setUsers(prev => prev.map(u => u.login === sender ? { ...u, lastMessage: newContent } : u));
     };
+    socket.on('messageEdited', handleEdited);
+    return () => { socket.off('privateMessage', handleMessage); socket.off('messageEdited', handleEdited); };
+  }, [socket, selectedUser?.login, login]);
 
-    socket.on('messageEdited', handleMessageEdited);
-
-    return () => {
-      socket.off('privateMessage', handleMessage);
-      socket.off('messageEdited', handleMessageEdited);
-    };
-  }, [socket, selectedUser, login]);
-
-  // Avtomatik scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleSendMessage = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!newMessage.trim() || !selectedUser || !socket) return;
-
     if (editingMessage) {
-      // Tahrirlash
-      socket.emit('editMessage', {
-        receiver: selectedUser.login,
-        timestamp: editingMessage.timestamp,
-        newContent: newMessage.trim()
-      });
-
-      setMessages(prev => prev.map(m => 
-        (m.sender === login && new Date(m.timestamp).getTime() === new Date(editingMessage.timestamp).getTime())
-          ? { ...m, content: newMessage.trim(), isEdited: true }
-          : m
-      ));
+      socket.emit('editMessage', { receiver: selectedUser.login, timestamp: editingMessage.timestamp, newContent: newMessage.trim() });
+      setMessages(prev => prev.map(m => (m.sender === login && new Date(m.timestamp).getTime() === new Date(editingMessage.timestamp).getTime()) ? { ...m, content: newMessage.trim(), isEdited: true } : m));
       setEditingMessage(null);
     } else {
-      // Yangi xabar
-      const msgData = {
-        receiver: selectedUser.login,
-        content: newMessage.trim()
-      };
-
-      socket.emit('privateMessage', msgData);
-
-      const myMsg: Message = {
-        sender: login!,
-        content: newMessage.trim(),
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, myMsg]);
+      socket.emit('privateMessage', { receiver: selectedUser.login, content: newMessage.trim() });
+      setMessages(prev => [...prev, { sender: login!, content: newMessage.trim(), timestamp: new Date() }]);
     }
-    
     setNewMessage('');
   };
 
-  const filteredUsers = users.filter(u => 
-    (u.name || u.login).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const deleteHistory = async () => {
+    if (!selectedUser || !window.confirm(t('confirmDeleteChatHistory'))) return;
+    try {
+      const res = await api('/api/chat/delete-history', { method: 'POST', body: JSON.stringify({ withUser: selectedUser.login }) });
+      if (res.ok) { setMessages([]); setShowMenu(false); }
+    } catch (err) { console.error(t('errorDeletingHistory'), err); }
+  };
+
+  const toggleSecret = async () => {
+    try {
+      const res = await api('/api/chat/toggle-secret', { method: 'POST' });
+      if (res.ok) { setIsSecret((await res.json()).isSecret); setShowMenu(false); }
+    } catch (err) { console.error(t('secretToggleError'), err); }
+  };
+
+  const filteredUsers = users
+    .filter(u => u.login !== login)
+    .filter(u => (u.name || u.login || '').toLowerCase().includes(searchQuery.toLowerCase()) || u.uniqueChatId === searchQuery);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const existing = users.find(u => u.uniqueChatId === searchQuery || u.login === searchQuery);
+    if (existing) { setSelectedUser(existing); return; }
+    try {
+      const res = await api(`/api/users/search?query=${searchQuery}&searcherLogin=${login}`);
+      if (res.ok) {
+        const foundUsers = await res.json();
+        if (foundUsers.length > 0) {
+          setUsers(prev => {
+            const newOnes = foundUsers.filter((f: any) => !prev.some(p => p.login === f.login));
+            return [...newOnes, ...prev];
+          });
+          setSelectedUser(foundUsers[0]);
+        } else {
+          toast.error(t('userNotFound'));
+        }
+      }
+    } catch (err) { console.error("Search error:", err); }
+  };
+
+  const sidebarW = isMobile ? (selectedUser ? '0px' : '100%') : (chatSidebarOpen ? '320px' : '80px');
+
+  // ✅ 3-FIX: theme asosida rang o'zgaruvchilari
+  const isDark    = theme === 'dark';
+  const chatWrap  = isDark ? '#091020' : '#f0f4ff';
+  const sidebarBg = isDark ? '#161d2f' : '#ffffff';
+  const borderClr = isDark ? '#1e293b' : '#e2e8f0';
+  const chatAreaB = isDark ? '#091020' : '#f8fafc';
+  const inputBg   = isDark ? '#1e293b' : '#f1f5f9';
+  const inputHdr  = isDark ? '#161d2f' : '#ffffff';
+  const textMain  = isDark ? '#ffffff' : '#1a1f2e';
+  const textSub   = isDark ? '#64748b' : '#94a3b8';
+  const msgOther  = isDark ? '#1e293b' : '#e2e8f0';
 
   return (
-    <MainLayout theme={theme} userImage={userImage} title="Xabarlar">
+    // ✅ 4-FIX: theme="dark" o'rniga theme={theme}
+    <MainLayout theme={theme} userImage={userImage} title={t('messages')}>
       <div style={{
-        display: 'flex',
-        height: 'calc(100vh - 100px)',
-        background: theme === 'dark' ? '#0f1420' : '#f8fafc',
-        borderRadius: '24px',
-        overflow: 'hidden',
-        border: `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-        position: 'relative'
+        display:      'flex',
+        height:       'calc(100vh - 110px)',
+        background:   chatWrap,
+        borderRadius: '20px',
+        overflow:     'hidden',
+        border:       `1px solid ${borderClr}`,
+        margin:       isMobile ? '0' : '0 10px',
       }}>
-        {/* Sidebar - Foydalanuvchilar ro'yxati */}
+
+        {/* ===== SIDEBAR ===== */}
         <div style={{
-          width: chatSidebarOpen ? '350px' : '0px',
-          borderRight: chatSidebarOpen ? `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}` : 'none',
-          display: 'flex',
+          width:         sidebarW,
+          minWidth:      sidebarW,
+          maxWidth:      sidebarW,
+          borderRight:   `1px solid ${borderClr}`,
+          display:       'flex',
           flexDirection: 'column',
-          background: theme === 'dark' ? '#161d2f' : '#fff',
-          transition: 'all 0.3s ease',
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 10
+          background:    sidebarBg,
+          transition:    'width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1)',
+          flexShrink:    0,
+          zIndex:        10,
+          overflow:      'hidden',
         }}>
-          <div style={{ padding: '24px', minWidth: '350px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 700, color: theme === 'dark' ? '#fff' : '#1e293b', margin: 0 }}>Xabarlar</h2>
-              <button 
-                onClick={() => setChatSidebarOpen(!chatSidebarOpen)}
-                style={{
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: theme === 'dark' ? '#fff' : '#1e293b',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                }}
-              >
-                {chatSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-              </button>
+
+          <div style={{ flexShrink: 0, padding: '16px 12px 12px 16px' }}>
+            <div style={{
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: chatSidebarOpen || isMobile ? 'space-between' : 'center',
+              marginBottom:   chatSidebarOpen || isMobile ? '12px' : '0',
+            }}>
+              {(chatSidebarOpen || isMobile) && (
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: textMain, whiteSpace: 'nowrap' }}>{t('messages')}</div>
+                  <div style={{ fontSize: '11px', color: '#6366f1', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                    {t('myId')} {users.find(u => u.login === login)?.uniqueChatId || '...'}
+                  </div>
+                </div>
+              )}
+              {!isMobile && (
+                <button
+                  onClick={() => setChatSidebarOpen(!chatSidebarOpen)}
+                  style={{ background: 'none', border: 'none', color: textSub, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                >
+                  {chatSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+                </button>
+              )}
             </div>
-            <div style={{ position: 'relative' }}>
-              <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} size={18} />
-              <input
-                type="text"
-                placeholder="Qidirish..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 12px 12px 40px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: theme === 'dark' ? '#1e293b' : '#f1f5f9',
-                  color: theme === 'dark' ? '#fff' : '#1e293b',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
+
+            {(chatSidebarOpen || isMobile) && (
+              <form onSubmit={handleSearch} style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: textSub }} size={16} />
+                <input
+                  type="text"
+                  placeholder={t('searchById')}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 38px', borderRadius: '10px', border: 'none', background: inputBg, color: textMain, fontSize: '14px', outline: 'none' }}
+                />
+              </form>
+            )}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', minWidth: '350px' }}>
+          {/* User list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px 10px' }}>
             {filteredUsers.map(user => (
               <div
                 key={user.login}
@@ -346,400 +289,211 @@ export default function Chat() {
                   setUsers(prev => prev.map(u => u.login === user.login ? { ...u, unreadCount: 0 } : u));
                 }}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px',
-                  borderRadius: '16px',
-                  cursor: 'pointer',
-                  background: selectedUser?.login === user.login 
-                    ? (theme === 'dark' ? '#1e293b' : '#f1f5f9') 
-                    : 'transparent',
-                  transition: 'all 0.2s',
-                  marginBottom: '4px'
+                  display:        'flex',
+                  alignItems:     'center',
+                  gap:            '12px',
+                  padding:        '12px',
+                  borderRadius:   '12px',
+                  cursor:         'pointer',
+                  background:     selectedUser?.login === user.login ? inputBg : 'transparent',
+                  transition:     'background 0.2s',
+                  marginBottom:   '2px',
+                  justifyContent: (chatSidebarOpen || isMobile) ? 'flex-start' : 'center',
                 }}
               >
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  background: user.role === 'admin' ? '#6366f1' : '#10b981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '18px',
-                  flexShrink: 0
-                }}>
-                  {user.role === 'admin' ? 'S' : (user.name?.[0] || user.login[0]).toUpperCase()}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" style={{ width: '44px', height: '44px', borderRadius: '12px', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: user.role === 'admin' ? 'linear-gradient(135deg,#6366f1,#a855f7)' : 'linear-gradient(135deg,#10b981,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '16px' }}>
+                      {user.role === 'admin' ? t('adminAvatarPlaceholder') : (user.firstName?.[0] || user.name?.[0] || user.login[0]).toUpperCase()}
+                    </div>
+                  )}
+                  {onlineUsers.includes(user.login) && (
+                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', border: `2px solid ${sidebarBg}` }} />
+                  )}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                      <span style={{ fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user.role === 'admin' ? 'Support Chat' : (user.name || user.login)}
+                {(chatSidebarOpen || isMobile) && (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, color: textMain, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user.role === 'admin' ? t('supportShoxPosPro') : (user.firstName ? `${user.firstName} ${user.lastName || ''}` : (user.name || user.login))}
                       </span>
-                      {onlineUsers.includes(user.login) && (
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+                      {!!user.unreadCount && (
+                        <span style={{ background: '#6366f1', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', fontWeight: 700, flexShrink: 0, marginLeft: '4px' }}>
+                          {user.unreadCount}
+                        </span>
                       )}
                     </div>
-                    {user.unreadCount ? (
-                      <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', fontWeight: 700, flexShrink: 0 }}>
-                        {user.unreadCount}
-                      </span>
-                    ) : null}
+                    <div style={{ fontSize: '11px', color: isDark ? '#475569' : '#94a3b8', marginBottom: '2px' }}>ID: {user.uniqueChatId}</div>
+                    <div style={{ fontSize: '12px', color: textSub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {user.lastMessage || t('noMessage')}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {user.lastMessage || (user.role === 'admin' ? 'Admin bilan bog\'lanish' : 'Xabar yo\'q')}
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: theme === 'dark' ? '#0f1420' : '#f8fafc', position: 'relative' }}>
+        {/* ===== CHAT AREA ===== */}
+        <div style={{
+          flex:          1,
+          display:       isMobile ? (selectedUser ? 'flex' : 'none') : 'flex',
+          flexDirection: 'column',
+          background:    chatAreaB,
+          minWidth:      0,
+          overflow:      'hidden',
+        }}>
           {selectedUser ? (
             <>
               {/* Chat Header */}
-              <div style={{
-                padding: '16px 24px',
-                borderBottom: `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: theme === 'dark' ? '#161d2f' : '#fff'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {!chatSidebarOpen && (
-                    <button 
-                      onClick={() => setChatSidebarOpen(true)}
-                      style={{
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: theme === 'dark' ? '#fff' : '#1e293b',
-                        padding: '8px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <PanelLeftOpen size={20} />
+              <div style={{ padding: '12px 20px', borderBottom: `1px solid ${borderClr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: inputHdr, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                  {isMobile && (
+                    <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: textMain, cursor: 'pointer', padding: '5px', flexShrink: 0 }}>
+                      <ChevronLeft size={24} />
                     </button>
                   )}
-                  <div style={{
-                    width: '40px', height: '40px', borderRadius: '12px',
-                    background: selectedUser.role === 'admin' ? '#6366f1' : '#10b981',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700
-                  }}>
-                    {selectedUser.role === 'admin' ? 'S' : (selectedUser.name?.[0] || selectedUser.login[0]).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1e293b' }}>
-                      {selectedUser.role === 'admin' ? 'Support Chat' : (selectedUser.name || selectedUser.login)}
+                  {selectedUser.avatarUrl ? (
+                    <img src={selectedUser.avatarUrl} alt="" style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: selectedUser.role === 'admin' ? '#6366f1' : '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, flexShrink: 0 }}>
+                      {selectedUser.role === 'admin' ? t('adminAvatarPlaceholder') : (selectedUser.firstName?.[0] || selectedUser.name?.[0] || selectedUser.login[0]).toUpperCase()}
                     </div>
-                    <div style={{ fontSize: '12px', color: onlineUsers.includes(selectedUser.login) ? '#10b981' : '#64748b' }}>
-                      {onlineUsers.includes(selectedUser.login) ? 'Onlayn' : 'Offlayn'}
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: textMain, fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {selectedUser.role === 'admin' ? t('supportShoxPosPro') : (selectedUser.firstName ? `${selectedUser.firstName} ${selectedUser.lastName || ''}` : (selectedUser.name || selectedUser.login))}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6366f1' }}>ID: {selectedUser.uniqueChatId}</div>
+                    <div style={{ fontSize: '12px', color: onlineUsers.includes(selectedUser.login) ? '#10b981' : textSub }}>
+                      {onlineUsers.includes(selectedUser.login) ? t('online') : t('offline')}
                     </div>
                   </div>
                 </div>
-
-                <div style={{ position: 'relative' }} ref={menuRef}>
-                  <button 
-                    onClick={() => setShowMenu(!showMenu)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#64748b',
-                      padding: '8px',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                  >
+                <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
+                  <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'none', border: 'none', color: textSub, cursor: 'pointer', padding: '4px' }}>
                     <MoreVertical size={20} />
                   </button>
-
                   {showMenu && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: 0,
-                      marginTop: '8px',
-                      width: '200px',
-                      background: theme === 'dark' ? '#1e293b' : '#fff',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                      border: `1px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`,
-                      zIndex: 100,
-                      overflow: 'hidden'
-                    }}>
-                      <button
-                        onClick={toggleSecret}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          textAlign: 'left',
-                          background: 'none',
-                          border: 'none',
-                          color: theme === 'dark' ? '#fff' : '#1e293b',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
-                        onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                      >
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: isSecret ? '#ef4444' : '#10b981' }} />
-                        {isSecret ? "Profilni ochish" : "Secret Profile"}
+                    <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', width: '180px', background: inputBg, borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: `1px solid ${borderClr}`, zIndex: 100, overflow: 'hidden' }}>
+                      <button onClick={toggleSecret} style={{ width: '100%', padding: '12px 16px', textAlign: 'left', background: 'none', border: 'none', color: textMain, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isSecret ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                        {isSecret ? t('openProfile') : t('secretProfile')}
                       </button>
-                      <button
-                        onClick={deleteHistory}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          textAlign: 'left',
-                          background: 'none',
-                          border: 'none',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                        onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                      >
-                        <X size={16} />
-                        Chatni o'chirish
+                      <button onClick={deleteHistory} style={{ width: '100%', padding: '12px 16px', textAlign: 'left', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <X size={14} /> Tarixni o'chirish
                       </button>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Messages Container */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {loading ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', color: '#64748b' }}>Yuklanmoqda...</div>
-                ) : (
-                  <>
-                    {messages.map((msg, idx) => {
-                      const isMe = msg.sender === login;
-                      return (
-                        <div key={idx} style={{
-                          display: 'flex',
-                          justifyContent: isMe ? 'flex-end' : 'flex-start',
-                          marginBottom: '4px'
-                        }}>
-                          <div 
-                            onDoubleClick={() => {
-                              if (isMe) {
-                                setEditingMessage(msg);
-                                setNewMessage(msg.content);
-                              }
-                            }}
-                            style={{
-                              maxWidth: '70%',
-                              padding: '12px 16px',
-                              borderRadius: isMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                              background: isMe ? '#6366f1' : (theme === 'dark' ? '#1e293b' : '#fff'),
-                              color: isMe ? '#fff' : (theme === 'dark' ? '#fff' : '#1e293b'),
-                              boxShadow: isMe ? '0 4px 12px rgba(99, 102, 241, 0.3)' : '0 4px 12px rgba(0,0,0,0.05)',
-                              position: 'relative',
-                              cursor: isMe ? 'pointer' : 'default'
-                            }}
-                          >
-                            <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.content}</div>
-                            <div style={{ 
-                              fontSize: '10px', 
-                              marginTop: '4px', 
-                              display: 'flex',
-                              justifyContent: 'flex-end',
-                              alignItems: 'center',
-                              gap: '4px',
-                              opacity: 0.7 
-                            }}>
-                              {msg.isEdited && <span style={{ fontStyle: 'italic', fontSize: '9px' }}>tahrirlandi</span>}
-                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {/* Messages */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {messages.map((msg, idx) => {
+                  const isMe       = msg.sender === login;
+                  const senderUser = isMe ? null : users.find(u => u.login === msg.sender);
+                  return (
+                    <div key={idx} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: '8px', alignItems: 'flex-end' }}>
+                      {!isMe && (
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: inputBg }}>
+                          {senderUser?.avatarUrl ? (
+                            <img src={senderUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 700, background: senderUser?.role === 'admin' ? '#6366f1' : '#10b981' }}>
+                              {(senderUser?.firstName?.[0] || senderUser?.login?.[0] || '?').toUpperCase()}
                             </div>
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </>
-                )}
+                      )}
+                      <div
+                        onDoubleClick={() => { if (isMe) { setEditingMessage(msg); setNewMessage(msg.content); } }}
+                        style={{ maxWidth: '75%', padding: '8px 12px', borderRadius: isMe ? '15px 15px 2px 15px' : '15px 15px 15px 2px', background: isMe ? '#6366f1' : msgOther, color: isMe ? '#fff' : textMain, boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
+                      >
+                        <div style={{ fontSize: '14.5px', lineHeight: '1.4', wordBreak: 'break-word' }}>{msg.content}</div>
+                        <div style={{ fontSize: '10px', marginTop: '4px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', opacity: 0.6 }}>
+                          {msg.isEdited && <i>{t('edited')}</i>}
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input */}
-              <div style={{ background: theme === 'dark' ? '#161d2f' : '#fff', position: 'relative' }}>
-                {/* Emoji Picker */}
-                {showEmojiPicker && (
-                  <div 
-                    ref={emojiPickerRef}
-                    style={{
-                      position: 'absolute',
-                      bottom: '80px',
-                      right: '24px',
-                      width: '300px',
-                      height: '350px',
-                      background: theme === 'dark' ? '#1e293b' : '#fff',
-                      border: `1px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`,
-                      borderRadius: '16px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                      padding: '16px',
-                      zIndex: 1000,
-                      overflowY: 'auto',
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(7, 1fr)',
-                      gap: '8px'
-                    }}
-                  >
-                    {EMOJIS.map(emoji => (
-                      <button
-                        key={emoji}
-                        onClick={() => addEmoji(emoji)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          fontSize: '20px',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          borderRadius: '8px',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(102, 126, 234, 0.1)'}
-                        onMouseOut={(e) => e.currentTarget.style.background = 'none'}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
+              {/* Input area */}
+              <div style={{ padding: '15px 20px', background: inputHdr, borderTop: `1px solid ${borderClr}`, flexShrink: 0 }}>
                 {editingMessage && (
-                  <div style={{
-                    padding: '8px 24px',
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    borderTop: `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '12px'
-                  }}>
-                    <span style={{ color: '#6366f1' }}>Xabarni tahrirlash...</span>
-                    <button 
-                      onClick={() => { setEditingMessage(null); setNewMessage(''); }}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
-                    >
-                      Bekor qilish
-                    </button>
+                  <div style={{ padding: '5px 10px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#6366f1' }}>{t('editing')}</span>
+                    <button onClick={() => { setEditingMessage(null); setNewMessage(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>{t('cancel')}</button>
                   </div>
                 )}
-                <form onSubmit={handleSendMessage} style={{
-                  padding: '20px 24px',
-                  background: theme === 'dark' ? '#161d2f' : '#fff',
-                  borderTop: editingMessage ? 'none' : `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <Paperclip size={20} style={{ color: '#64748b', cursor: 'pointer' }} />
-                  <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Paperclip size={20} style={{ color: textSub, cursor: 'pointer', flexShrink: 0 }} />
+                  <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
                     <input
                       type="text"
-                      placeholder={editingMessage ? "Xabarni o'zgartiring..." : "Xabar yozing..."}
+                      placeholder={t('writeAMessage')}
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={e => setNewMessage(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                       style={{
-                        width: '100%',
-                        padding: '12px 45px 12px 16px',
-                        borderRadius: '14px',
-                        border: editingMessage ? '1px solid #6366f1' : 'none',
-                        background: theme === 'dark' ? '#1e293b' : '#f1f5f9',
-                        color: theme === 'dark' ? '#fff' : '#1e293b',
-                        outline: 'none',
-                        fontSize: '14px',
-                        boxSizing: 'border-box'
+                        width:        '100%',
+                        boxSizing:    'border-box',
+                        padding:      '11px 44px 11px 15px',
+                        borderRadius: '12px',
+                        border:       editingMessage ? '1px solid #6366f1' : 'none',
+                        background:   inputBg,
+                        color:        textMain,
+                        outline:      'none',
+                        fontSize:     '14px',
                       }}
                     />
-                    <Smile 
-                      size={20} 
+                    <Smile
+                      size={20}
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', cursor: 'pointer' }} 
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: textSub, cursor: 'pointer' }}
                     />
+                    {showEmojiPicker && (
+                      <div ref={emojiPickerRef} style={{ position: 'absolute', bottom: '55px', right: 0, width: '280px', height: '300px', background: inputBg, border: `1px solid ${borderClr}`, borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', padding: '10px', zIndex: 1000, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '5px' }}>
+                        {EMOJIS.map(e => (
+                          <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '4px' }}>{e}</button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <button
-                    type="submit"
-                    style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: '#6366f1',
-                      color: '#fff',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s',
-                      flexShrink: 0
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    onClick={handleSendMessage}
+                    style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                   >
-                    <Send size={20} />
+                    <Send size={18} />
                   </button>
-                </form>
+                </div>
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '16px' }}>
-              {!chatSidebarOpen && (
-                <button 
-                  onClick={() => setChatSidebarOpen(true)}
-                  style={{
-                    position: 'absolute',
-                    top: '16px',
-                    left: '16px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: theme === 'dark' ? '#fff' : '#1e293b',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                  }}
-                >
-                  <PanelLeftOpen size={20} />
-                </button>
-              )}
-              <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: theme === 'dark' ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MessageSquare size={40} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: textSub, gap: '15px' }}>
+              <div style={{ width: '70px', height: '70px', borderRadius: '20px', background: inputBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MessageSquare size={35} color={textSub} />
               </div>
               <div style={{ textAlign: 'center' }}>
-                <h3 style={{ color: theme === 'dark' ? '#fff' : '#1e293b', margin: '0 0 8px 0' }}>Chatni boshlang</h3>
-                <p style={{ fontSize: '14px', margin: 0 }}>Foydalanuvchilardan birini tanlang</p>
+                <h3 style={{ color: textMain, margin: '0 0 5px 0' }}>{t('startAConversation')}</h3>
+                <p style={{ fontSize: '14px', margin: 0 }}>{t('selectUserToWriteMessage')}</p>
               </div>
             </div>
           )}
         </div>
       </div>
+      <style>{`
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${borderClr}; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+      `}</style>
     </MainLayout>
   );
 }

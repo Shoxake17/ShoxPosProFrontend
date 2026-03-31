@@ -35,9 +35,7 @@ const getLevel = (qty: number): StockLevel => {
 };
 
 const SEEN_KEY          = "notif_seen_v2";
-// ✅ Ovoz uchun: bir marta "birinchi yuklash" bo'lganini saqlaymiz
 const INITIALIZED_KEY   = "notif_initialized";
-// ✅ Tashqi dunyo bilan sinxronlash uchun: oxirgi ma'lum barcodelar
 const KNOWN_KEY         = "notif_known_barcodes";
 
 const loadSeen = (): Set<string> => {
@@ -101,7 +99,8 @@ const NotifCard: React.FC<{
   unit: string;
   isNew: boolean;
   index: number;
-}> = ({ item, level, dark, unit, isNew, index }) => {
+  safeT: (key: string) => string;
+}> = ({ item, level, dark, unit, isNew, index, safeT }) => {
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -116,24 +115,24 @@ const NotifCard: React.FC<{
       iconBg: "linear-gradient(135deg, #ef4444, #dc2626)",
       icon: <XCircle size={20} color="#fff" />,
       accent: "#ef4444",
-      label: "Tugadi!",
-      sublabel: "Tezroq xarid qiling",
+      label:    safeT("outLabel"),
+      sublabel: safeT("outSublabel"),
     },
     warn: {
       border: "rgba(249,115,22,0.35)",
       iconBg: "linear-gradient(135deg, #f97316, #ea580c)",
       icon: <AlertTriangle size={20} color="#fff" />,
       accent: "#f97316",
-      label: "Kritik!",
-      sublabel: "Zaxira juda kam",
+      label:    safeT("warnLabel"),
+      sublabel: safeT("warnSublabel"),
     },
     caution: {
       border: "rgba(245,158,11,0.3)",
       iconBg: "linear-gradient(135deg, #f59e0b, #d97706)",
       icon: <Package size={20} color="#fff" />,
       accent: "#f59e0b",
-      label: "Kam qoldi",
-      sublabel: "E'tibor bering",
+      label:    safeT("cautionLabel"),
+      sublabel: safeT("cautionSublabel"),
     },
   }[level];
 
@@ -239,7 +238,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
   const [animate, setAnimate]         = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
 
-  // ✅ panelRef faqat panel div ga — Bell wrapper alohida
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
@@ -251,14 +249,16 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
 
   const loginRef = useRef<string | null>(getCurrentLogin());
 
-  // ✅ OVOZ MUAMMOSI YECHIMI:
-  // Birinchi yuklashda barcha mavjud barcodelarni "tanish" deb belgilaymiz
-  // Keyingi yuklanishlarda faqat YANGI qo'shilganlarga ovoz chiqaramiz
   const knownRef = useRef<Set<string>>(
     new Set(JSON.parse(localStorage.getItem(KNOWN_KEY) || "[]"))
   );
-  // Ilk mount bo'lganmi? (shu session ichida)
   const isFirstLoadRef = useRef<boolean>(true);
+
+  // ─── safeT helper ────────────────────────────────────────────────
+  const safeT = useCallback((key: string) => {
+    try { return getTranslation(language as any, key as any); }
+    catch { return t(key); }
+  }, [language, t]);
 
   // ─── Settings listener ──────────────────────────────────────────
   useEffect(() => {
@@ -344,17 +344,13 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
     const currentKeys = lowStockItems.map(p => `${p.barcode}:${getLevel(p.quantity)}`);
 
     if (isFirstLoadRef.current) {
-      // ✅ BIRINCHI YUKLASH: ovoz YO'Q, faqat localStorage ni to'ldiramiz
-      // Sahifalar orasida o'tganda bu blok ishlaydi — ovoz chiqmaydi
       isFirstLoadRef.current = false;
-
       const updated = new Set([...knownRef.current, ...currentKeys]);
       knownRef.current = updated;
       localStorage.setItem(KNOWN_KEY, JSON.stringify([...updated]));
       return;
     }
 
-    // ✅ KEYINGI YUKLANISHLAR: faqat yangi barcode kelsa ovoz chiqar
     const hasNew = currentKeys.some(key => !knownRef.current.has(key));
 
     if (hasNew) {
@@ -393,33 +389,22 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
 
   const dark = theme === "dark";
 
-  const safeT = (key: string) => {
-    try { return getTranslation(language as any, key as any); }
-    catch { return t(key); }
-  };
-
   if (!notifEnabled) return null;
 
   // ─────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────
   return (
-    // ✅ wrapperRef — tashqi div ga (click outside + panel anchor)
     <div ref={wrapperRef} style={{ position: "relative" }}>
 
-      {/* ══════════════════════════════════════
-          Bell tugmasi + Badge
-          overflow: visible bo'lgan alohida div
-      ══════════════════════════════════════ */}
+      {/* ══ Bell + Badge ══ */}
       <div
         style={{
           position: "relative",
           display: "inline-flex",
-          // ✅ MUHIM: overflow hech qachon clip/hidden bo'lmasin
           overflow: "visible",
         }}
       >
-        {/* Bell button */}
         <button
           onClick={() => {
             if (!open) markAllSeen();
@@ -436,9 +421,7 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
             alignItems: "center",
             justifyContent: "center",
             transition: "background 0.2s ease",
-            // ✅ overflow visible bo'lishi SHART — badge tashqariga chiqadi
             overflow: "visible",
-            // ✅ position relative bo'lmasin — badge wrapper ga nisbatan joylashadi
             position: "static",
             animation: animate ? "notif-ring 0.6s ease" : "none",
           }}
@@ -449,7 +432,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
           />
         </button>
 
-        {/* ✅ Badge — wrapper div ga nisbatan absolute, button tashqarisida */}
         {unreadCount > 0 && (
           <span
             style={{
@@ -471,7 +453,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
               color: "#fff",
               padding: "0 4px",
               lineHeight: "1",
-              // ✅ z-index yuqori bo'lishi kerak
               zIndex: 50,
               pointerEvents: "none",
               boxShadow: outItems.length > 0
@@ -486,9 +467,7 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
       </div>
       {/* ══ end Bell + Badge ══ */}
 
-      {/* ══════════════════════════════════════
-          Notification Panel
-      ══════════════════════════════════════ */}
+      {/* ══ Notification Panel ══ */}
       {open && (
         <div
           style={{
@@ -533,7 +512,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* Bell icon */}
               <div style={{
                 width: 36, height: 36, borderRadius: 12,
                 background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(249,115,22,0.1))",
@@ -544,23 +522,22 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                 <Bell size={16} color="#f59e0b" />
               </div>
 
-              {/* Title */}
               <div>
                 <div style={{
                   fontSize: 15, fontWeight: 700,
                   color: dark ? "#f1f5f9" : "#0f172a",
                   lineHeight: 1.2,
                 }}>
-                  Bildirishnomalar
+                  {/* ✅ "Bildirishnomalars" typo tuzatildi */}
+                  {safeT("title")}
                 </div>
                 <div style={{ fontSize: 11, color: dark ? "#64748b" : "#94a3b8", marginTop: 1 }}>
                   {lowStockItems.length > 0
-                    ? `${lowStockItems.length} ta mahsulotga e'tibor bering`
-                    : "Hamma narsa yaxshi"}
+                    ? `${lowStockItems.length} ${safeT("headerSubtitle")}`
+                    : safeT("allGood")}
                 </div>
               </div>
 
-              {/* Count pill */}
               {lowStockItems.length > 0 && (
                 <span style={{
                   background: outItems.length > 0
@@ -579,7 +556,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
               )}
             </div>
 
-            {/* Close button */}
             <button
               onClick={() => setOpen(false)}
               style={{
@@ -621,7 +597,7 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                   border: "1px solid rgba(239,68,68,0.2)",
                   textTransform: "uppercase",
                 }}>
-                  Tugagan · {outItems.length}
+                  {safeT("filterOut")} · {outItems.length}
                 </span>
               )}
               {warnItems.length > 0 && (
@@ -632,7 +608,7 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                   border: "1px solid rgba(249,115,22,0.2)",
                   textTransform: "uppercase",
                 }}>
-                  Kritik · {warnItems.length}
+                  {safeT("filterCritical")} · {warnItems.length}
                 </span>
               )}
               {cautItems.length > 0 && (
@@ -643,7 +619,7 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                   border: "1px solid rgba(245,158,11,0.2)",
                   textTransform: "uppercase",
                 }}>
-                  Kam qoldi · {cautItems.length}
+                  {safeT("filterLow")} · {cautItems.length}
                 </span>
               )}
             </div>
@@ -674,10 +650,10 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                     fontSize: 13, fontWeight: 600,
                     color: dark ? "#4b5563" : "#9ca3af", marginBottom: 4,
                   }}>
-                    Hammasi joyida!
+                    {safeT("allGoodTitle")}
                   </div>
                   <div style={{ fontSize: 11, color: dark ? "#374151" : "#d1d5db" }}>
-                    Hozircha bildirishnomalar yo'q
+                    {safeT("noNotifications")}
                   </div>
                 </div>
               </div>
@@ -688,45 +664,16 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
                   item={item}
                   level={getLevel(item.quantity)}
                   dark={dark}
-                  unit={safeT("itemUnit") || "dona"}
+                  unit={safeT("itemUnit")}
                   isNew={!seen.has(`${item.barcode}:${getLevel(item.quantity)}`)}
                   index={i}
+                  safeT={safeT}
                 />
               ))
             )}
           </div>
 
-          {/* ── Footer ── */}
-          {allItems.length > 0 && (
-            <div style={{
-              padding: "12px 20px",
-              borderTop: `1px solid ${dark
-                ? "rgba(255,255,255,0.07)"
-                : "rgba(0,0,0,0.06)"}`,
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <ShoppingCart size={13} color={dark ? "#475569" : "#94a3b8"} />
-                <span style={{ fontSize: 12, color: dark ? "#475569" : "#94a3b8" }}>
-                  Jami{" "}
-                  <strong style={{ color: dark ? "#94a3b8" : "#64748b" }}>
-                    {allItems.length}
-                  </strong>{" "}
-                  ta mahsulot
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: "#22c55e",
-                  animation: "notif-pulse-dot 2s infinite",
-                }} />
-                <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>
-                  Jonli
-                </span>
-              </div>
-            </div>
-          )}
+          
         </div>
       )}
       {/* ══ end Panel ══ */}

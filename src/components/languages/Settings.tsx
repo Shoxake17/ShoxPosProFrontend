@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 type Language = 'uz' | 'ru' | 'en';
 
 interface TranslationContextType {
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string>) => string;
   language: Language;
   setLanguage: (lang: Language) => void;
 }
@@ -36,6 +36,8 @@ const translations: Record<Language, Record<string, string>> = {
     light: "Kunduzgi",
     notifications: "Bildirishnomalar",
     notificationsDescription: "Push bildirishnomalarni boshqarish",
+    notificationsEnabled: "Bildirishnomalar yoqildi",
+    notificationsDisabled: "Bildirishnomalar o'chirildi",
     enabled: "Yoqilgan",
     disabled: "O'chirilgan",
     security: "Xavfsizlik",
@@ -77,6 +79,17 @@ const translations: Record<Language, Record<string, string>> = {
     biometricDisabled: "Biometrik o'chirildi",
     confirmDisableBiometric: "Biometrik kirishni o'chirmoqchimisiz?",
     emailDescription: "Email manzilingizni orqali ShoxPosPro kiring.",
+
+    // ── Biometric component (yangi kalitlar) ──────────────────────────────
+    biometricDisableTitle: "Biometrik o'chirish",
+    biometricAuthDisabled: "Biometrik autentifikatsiya o'chirildi",
+    biometricAuthEnabled: "Biometrik autentifikatsiya yoqildi",
+    biometricNotAvailable: "Biometrik bu qurilmada mavjud emas",
+    deviceIdNotFound: "DeviceId topilmadi",
+    biometricCancelled: "Biometrik faollashtirish bekor qilindi",
+    biometricSecurityError: "Xavfsizlik xatosi. HTTPS kerak bo'lishi mumkin",
+    biometricNotSupported: "Biometrik bu qurilmada qo'llab-quvvatlanmaydi",
+    // ─────────────────────────────────────────────────────────────────────
 
     //KirimBazasi
     KirimBazasi: "Kirim Bazasi",
@@ -162,7 +175,7 @@ const translations: Record<Language, Record<string, string>> = {
     authSetupTitle: "Authenticator sozlash",
     authStep1: "1. Google Authenticator ilovasini oching",
     authStep2: "2. QR kodni skanerlang",
-    authEnterCode: "Google Authenticator ilovasida ko‘rsatilgan 6 raqamli kodni kiriting",
+    authEnterCode: "Google Authenticator ilovasida ko'rsatilgan 6 raqamli kodni kiriting",
     authDisableConfirmTitle: "Authenticator o'chirish",
     authDisableConfirmMsg: "Authenticator autentifikatsiyasini o'chirmoqchimisiz?",
     authDisabledSuccess: "Authenticator o'chirildi",
@@ -216,17 +229,20 @@ const translations: Record<Language, Record<string, string>> = {
     noBtn: "Yo'q",
 
     // Profile component blog
-    nameLabel: "Ism",
-    namePlaceholder: "Ismingizni kiriting",
-    emailPlaceholder: "example@mail.com",
-    phoneLabel: "Telefon raqam",
-    phonePlaceholder: "+998 XX XXX XX XX",
+    profileTitle: "Profil ma'lumotlari",
+    profileSubtitle: "Shaxsiy ma'lumotlaringizni boshqaring",
+    firstName: "Ism",
+    lastName: "Familiya",
+    firstNamePlaceholder: "Ismingizni kiriting",
+    lastNamePlaceholder: "Familiyangizni kiriting",
+    phoneLabel: "Telefon raqami",
+    chatIdLabel: "Unikal Chat ID",
     editBtn: "Tahrirlash",
-    nameEmptyError: "Ism bo'sh bo'lmasligi kerak!",
-
-    // Logout component blog
-    logoutSuccess: "Tizimdan muvaffaqiyatli chiqdingiz",
-    logoutModalTitle: "Chiqish",
+    nameRequired: "Ism kiritilishi shart!",
+    updateSuccess: "Profil muvaffaqiyatli yangilandi",
+    updateError: "Yangilashda xatolik yuz berdi",
+    serverError: "Server bilan bog'lanishda xatolik",
+    errorLoadingProfile: "Profilni yuklashda xatolik:",
 
     //context/HandTrackingContext component blog
     stop: "To'xtatish",
@@ -247,7 +263,12 @@ const translations: Record<Language, Record<string, string>> = {
     usd: "AQSH dollari",
     rub: "Rossiya rubli",
 
-    
+    accountBlocked: "❌ Hisobingiz bloklandi",
+    blockedByAdmin: "Administrator tomonidan bloklandi",
+    csrfError: "CSRF token yuklashda xatolik (bu backend rate-limit bilan bog'liq bo'lishi mumkin):",
+    forcedLogout: "⛔ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz",
+    newChatMessage: "Yangi xabar: {sender}",
+    open: "Ochish",
 
   },
   ru: {
@@ -262,6 +283,8 @@ const translations: Record<Language, Record<string, string>> = {
     dark: "Ночной",
     light: "Дневной",
     notifications: "Уведомления",
+    notificationsEnabled: "Уведомления включены",
+    notificationsDisabled: "Уведомления отключены",
     notificationsDescription: "Управление push-уведомлениями",
     enabled: "Включено",
     disabled: "Выключено",
@@ -269,6 +292,7 @@ const translations: Record<Language, Record<string, string>> = {
     changePassword: "Изменить пароль",
     changePasswordDescription: "Обновите пароль вашей учетной записи",
 
+    // Biometric component blog
     twoFactor: "Двухфакторная аутентификация",
     twoFactorDescription: "Дополнительная безопасность",
     devices: "Устройства",
@@ -305,15 +329,40 @@ const translations: Record<Language, Record<string, string>> = {
     biometricDisabled: "Биометрический вход отключен",
     confirmDisableBiometric: "Вы уверены, что хотите отключить биометрический вход?",
     emailDescription: "Войдите в ShoxPosPro с помощью вашего адреса электронной почты.",
-    
+
+    // ── Biometric component (yangi kalitlar) ──────────────────────────────
+    biometricDisableTitle: "Отключить биометрию",
+    biometricAuthDisabled: "Биометрическая аутентификация отключена",
+    biometricAuthEnabled: "Биометрическая аутентификация включена",
+    biometricNotAvailable: "Биометрия недоступна на этом устройстве",
+    deviceIdNotFound: "DeviceId не найден",
+    biometricCancelled: "Активация биометрии отменена",
+    biometricSecurityError: "Ошибка безопасности. Возможно, требуется HTTPS",
+    biometricNotSupported: "Биометрия не поддерживается на этом устройстве",
+    // ─────────────────────────────────────────────────────────────────────
+
+    accountBlocked: "❌ Ваш аккаунт заблокирован",
+    blockedByAdmin: "Заблокирован администратором",
+    currency: "Валюта",
+    currencyChanged: "Валюта изменена",
+    currencyDescription: "Выберите основную валюту",
+    csrfError: "Ошибка при загрузке токена CSRF (возможно, связано с ограничением скорости бэкенда):",
+    forcedLogout: "⛔ Вы были выведены из системы другим устройством",
+    newChatMessage: "Новое сообщение: {sender}",
+    open: "Открыть",
+    rub: "Российский рубль",
+    selectCurrency: "Выберите валюту",
+    currentRate: "Текущий курс",
+    usd: "Доллар США",
+    uzs: "Узбекский сум",
+
     // Hand Control (ShoxAi)
     handControlTitle: "Визуальное управление ShoxAi",
-    handControlDescription: "Управляйте удаленно с помощью ShoxAi",
+    handControlDescription: "Управляйте удалённо с помощью ShoxAi",
     handControlEnabled: "Управление жестами включено! Окно камеры активно.",
     handControlDisabled: "Управление жестами отключено.",
     enabledStatus: "Включено",
     disabledStatus: "Отключено",
-    
 
     // KirimBazasi
     KirimBazasi: "База Входа",
@@ -446,13 +495,20 @@ const translations: Record<Language, Record<string, string>> = {
     noBtn: "Нет",
     
     // Profile component blog
-    nameLabel: "Имя",
-    namePlaceholder: "Введите ваше имя",
-    emailPlaceholder: "example@mail.com",
+    profileTitle: "Профиль пользователя",
+    profileSubtitle: "Управляйте своими личными данными",
+    firstName: "Имя",
+    lastName: "Фамилия",
+    firstNamePlaceholder: "Введите имя",
+    lastNamePlaceholder: "Введите фамилию",
     phoneLabel: "Номер телефона",
-    phonePlaceholder: "+998 XX XXX XX XX",
+    chatIdLabel: "Уникальный Chat ID",
     editBtn: "Редактировать",
-    nameEmptyError: "Имя не может быть пустым!",
+    nameRequired: "Имя обязательно!",
+    updateSuccess: "Профиль успешно обновлен",
+    updateError: "Ошибка при обновлении",
+    serverError: "Ошибка связи с сервером",
+    errorLoadingProfile: "Ошибка при загрузке профиля:",
 
     // Logout component blog
     logoutSuccess: "Вы успешно вышли из системы",
@@ -468,15 +524,6 @@ const translations: Record<Language, Record<string, string>> = {
     sessionExpired: "Сессия истекла. Необходимо войти снова.",
     forceLogout: "Вы были выгнаны из приложения ShoxPosPro",
     languageChanged: "Язык изменён",
-    currency: "Валюта",
-    currencyDescription: "Выберите основную валюту",
-    currencyChanged: "Валюта изменена",
-    selectCurrency: "Выберите валюту",
-    currentRate: "Текущий курс",
-    uzs: "Узбекский сум",
-    usd: "Доллар США",
-    rub: "Российский рубль",
-
 
   },
   en: {
@@ -491,6 +538,8 @@ const translations: Record<Language, Record<string, string>> = {
     dark: "Dark",
     light: "Light",
     notifications: "Notifications",
+    notificationsEnabled: "Notifications enabled",
+    notificationsDisabled: "Notifications disabled",
     notificationsDescription: "Manage push notifications",
     enabled: "Enabled",
     disabled: "Disabled",
@@ -533,8 +582,37 @@ const translations: Record<Language, Record<string, string>> = {
     biometricDisabled: "Biometric login disabled",
     confirmDisableBiometric: "Are you sure you want to disable biometric login?",
     emailDescription: "Log in to ShoxPosPro using your email address.",
-    // KirimBazasi: "Incoming Base",
-     KirimBazasi: "Incoming Base",
+
+    // ── Biometric component (yangi kalitlar) ──────────────────────────────
+    biometricDisableTitle: "Disable Biometrics",
+    biometricAuthDisabled: "Biometric authentication disabled",
+    biometricAuthEnabled: "Biometric authentication enabled",
+    biometricNotAvailable: "Biometrics not available on this device",
+    deviceIdNotFound: "DeviceId not found",
+    biometricCancelled: "Biometric activation cancelled",
+    biometricSecurityError: "Security error. HTTPS may be required",
+    biometricNotSupported: "Biometrics not supported on this device",
+    // ─────────────────────────────────────────────────────────────────────
+
+    accountBlocked: "❌ Your account has been blocked",
+    blockedByAdmin: "Blocked by administrator",
+    currency: "Currency",
+    currencyChanged: "Currency changed",
+    currencyDescription: "Select primary currency",
+    csrfError: "Error loading CSRF token (may be related to backend rate-limit):",
+    forcedLogout: "⛔ You have been logged out by another device",
+    newChatMessage: "New message: {sender}",
+    open: "Open",
+    rub: "Russian ruble",
+    selectCurrency: "Select currency",
+    currentRate: "Current rate",
+    usd: "US Dollar",
+    uzs: "Uzbek sum",
+    general: "General",
+    visioncontrol: "Visual Control",
+
+    // KirimBazasi
+    KirimBazasi: "Incoming Base",
     chiqimNarxKiriting: "Enter exit price (UZS):",
     narxNotogri: "Price is invalid",
     miqdorKiriting: "Enter quantity:",
@@ -588,9 +666,8 @@ const translations: Record<Language, Record<string, string>> = {
     handControlDisabled: "Hand control disabled.",
     enabledStatus: "Enabled",
     disabledStatus: "Disabled",
-    general: "General",
-    visioncontrol: "Visual Control",
-// ChangePassword
+
+    // ChangePassword
     changePasswordTitle: "Change Password",
     currentPasswordLabel: "Current Password",
     newPasswordLabel: "New Password",
@@ -607,6 +684,7 @@ const translations: Record<Language, Record<string, string>> = {
     errUnexpected: "An unexpected error occurred",
     errNoConnection: "No connection to server. Check your internet",
     errTimeout: "Request timed out",
+
     // Authentication component blog
     authTitle: "Authenticator",
     authDescription: "Login via Google Authenticator app",
@@ -617,7 +695,7 @@ const translations: Record<Language, Record<string, string>> = {
     authDisableConfirmTitle: "Disable Authenticator",
     authDisableConfirmMsg: "Are you sure you want to disable authenticator authentication?",
     authDisabledSuccess: "Authenticator disabled",
-    authEnabledSuccess: "Google Authenticator successfully",
+    authEnabledSuccess: "Google Authenticator successfully enabled!",
     authCopyCode: "Code copied!",
     errCodeInvalid: "Invalid code",
     errEnter6Digit: "Please enter a 6-digit code",
@@ -666,13 +744,20 @@ const translations: Record<Language, Record<string, string>> = {
     noBtn: "No",
     
     // Profile component blog
-    nameLabel: "Name",
-    namePlaceholder: "Enter your name",
-    emailPlaceholder: "example@mail.com",
-    phoneLabel: "Phone number",
-    phonePlaceholder: "+998 XX XXX XX XX",
-    editBtn: "Edit",
-    nameEmptyError: "Name cannot be empty!",
+    profileTitle: "Profile Details",
+    profileSubtitle: "Manage your personal information",
+    firstName: "First Name",
+    lastName: "Last Name",
+    firstNamePlaceholder: "Enter your first name",
+    lastNamePlaceholder: "Enter your last name",
+    phoneLabel: "Phone Number",
+    chatIdLabel: "Unique Chat ID",
+    editBtn: "Edit Profile",
+    nameRequired: "First name is required!",
+    updateSuccess: "Profile updated successfully",
+    updateError: "Error updating profile",
+    serverError: "Server connection error",
+    errorLoadingProfile: "Error loading profile:",
 
     // Logout component blog
     logoutSuccess: "Successfully logged out",
@@ -688,14 +773,7 @@ const translations: Record<Language, Record<string, string>> = {
     sessionExpired: "Session expired. Please log in again.",
     forceLogout: "You have been logged out of ShoxPosPro",
     languageChanged: "Language changed",
-    currency: "Currency",
-    currencyDescription: "Select primary currency",
-    currencyChanged: "Currency changed",
-    selectCurrency: "Select currency",
-    currentRate: "Current rate",
-    uzs: "Uzbek Sum",
-    usd: "US Dollar",
-    rub: "Russian Ruble",
+
   }
 };
 
@@ -710,9 +788,19 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     localStorage.setItem('language', language);
   }, [language]);
 
-  const t = React.useCallback((key: string) => {
-    return translations[language][key] || key;
+ const t = React.useCallback((key: string, params?: Record<string, string>) => {
+    let translation = translations[language][key] || key;
+
+    // Agar params yuborilgan bo'lsa, {key} larni almashtirib chiqadi
+    if (params) {
+      Object.entries(params).forEach(([paramKey, paramValue]) => {
+        translation = translation.replace(new RegExp(`{${paramKey}}`, 'g'), paramValue);
+      });
+    }
+
+    return translation;
   }, [language]);
+  
 
   const value = React.useMemo(() => ({
     t,

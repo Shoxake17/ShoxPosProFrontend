@@ -1,22 +1,25 @@
-// src/adminPages/ChatAdmin.tsx
+// src/admin/adminPages/ChatAdmin.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Send, MessageSquare, Search, Paperclip, Smile,
-  PanelLeftClose, PanelLeftOpen,
-} from 'lucide-react';
+import { Send, MessageSquare, Search, Paperclip, Smile, PanelLeftClose, PanelLeftOpen, ChevronLeft } from 'lucide-react';
 import AdminLayout from "../adminComponents/AdminLayout";
 import { getSessionLogin } from "../../utils/clientSession";
 import { api } from "../../utils/api";
 import { getSocket } from "../../utils/socket";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner"; // ✅ toast import qilindi
 
 const EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃'];
 
 interface ChatUser {
   login: string;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
   lastMessage?: string;
   unreadCount?: number;
+  avatarUrl?: string;
+  uniqueChatId?: string;
 }
 
 interface Message {
@@ -28,27 +31,35 @@ interface Message {
 
 export default function ChatAdmin() {
   const login = getSessionLogin();
-  const [users,           setUsers]           = useState<ChatUser[]>([]);
-  const [selectedUser,    setSelectedUser]    = useState<ChatUser | null>(null);
-  const [messages,        setMessages]        = useState<Message[]>([]);
-  const [newMessage,      setNewMessage]      = useState('');
-  const [searchQuery,     setSearchQuery]     = useState('');
-  const [loading,         setLoading]         = useState(false);
-  const [onlineUsers,     setOnlineUsers]     = useState<string[]>([]);
-  const [editingMessage,  setEditingMessage]  = useState<Message | null>(null);
+  const { t } = useTranslation(); // ✅ i18next hook
+  
+  const [users, setUsers] = useState<ChatUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  const messagesEndRef  = useRef<HTMLDivElement>(null);
-  const emojiPickerRef  = useRef<HTMLDivElement>(null);
-  const socket          = getSocket();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const socket = getSocket();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const addEmoji = (emoji: string) => {
     setNewMessage((prev) => prev + emoji);
     setShowEmojiPicker(false);
   };
 
-  // Close emoji picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
@@ -59,34 +70,31 @@ export default function ChatAdmin() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await api('/api/chat/users');
         if (res.ok) {
           const data = await res.json();
-          setUsers(data.filter((u: any) => u.login !== login));
+          setUsers(data);
         }
-      } catch (err) { console.error("Users yuklashda xato:", err); }
+      } catch (err) { 
+        console.error(t("errorLoadingUsers"), err); 
+      }
     };
     fetchUsers();
-  }, [login]);
+  }, [login, t]);
 
-  // Online users
   useEffect(() => {
     if (!socket) return;
     socket.emit('getOnlineUsers');
     socket.on('onlineUsersList', (logins: string[]) => setOnlineUsers(logins));
     socket.on('userStatusChange', ({ login: l, status }: { login: string; status: 'online' | 'offline' }) => {
-      setOnlineUsers((prev) =>
-        status === 'online' ? (prev.includes(l) ? prev : [...prev, l]) : prev.filter((x) => x !== l)
-      );
+      setOnlineUsers((prev) => status === 'online' ? (prev.includes(l) ? prev : [...prev, l]) : prev.filter((x) => x !== l));
     });
     return () => { socket.off('onlineUsersList'); socket.off('userStatusChange'); };
   }, [socket]);
 
-  // Load history
   useEffect(() => {
     if (!selectedUser) return;
     const fetchHistory = async () => {
@@ -94,62 +102,46 @@ export default function ChatAdmin() {
       try {
         const res = await api(`/api/chat/history/${selectedUser.login}`);
         if (res.ok) setMessages(await res.json());
-      } catch (err) { console.error("Tarixni yuklashda xato:", err); }
+      } catch (err) { 
+        console.error(t("errorLoadingHistory"), err); 
+      }
       finally { setLoading(false); }
     };
     fetchHistory();
-  }, [selectedUser]);
+  }, [selectedUser, t]);
 
-  // Socket messages
   useEffect(() => {
     if (!socket) return;
     const handleMessage = (msg: Message) => {
-      if (msg.sender === selectedUser?.login || msg.sender === login) {
-        setMessages((prev) => [...prev, msg]);
-      }
-      setUsers((prev) =>
-        prev.map((u) => {
-          if (u.login === msg.sender)
-            return { ...u, lastMessage: msg.content, unreadCount: u.login === selectedUser?.login ? 0 : (u.unreadCount || 0) + 1 };
-          if (msg.sender === login && u.login === selectedUser?.login)
-            return { ...u, lastMessage: msg.content };
-          return u;
-        })
-      );
+      setMessages((prev) => {
+        const isDuplicate = prev.some(m => m.sender === msg.sender && new Date(m.timestamp).getTime() === new Date(msg.timestamp).getTime());
+        if (isDuplicate) return prev;
+        if (msg.sender === selectedUser?.login || msg.sender === login) return [...prev, msg];
+        return prev;
+      });
+      setUsers((prev) => prev.map((u) => {
+        if (u.login === msg.sender) return { ...u, lastMessage: msg.content, unreadCount: u.login === selectedUser?.login ? 0 : (u.unreadCount || 0) + 1 };
+        if (msg.sender === login && u.login === selectedUser?.login) return { ...u, lastMessage: msg.content };
+        return u;
+      }));
     };
     socket.on('privateMessage', handleMessage);
-
     const handleEdited = ({ sender, timestamp, newContent }: any) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.sender === sender && new Date(m.timestamp).getTime() === new Date(timestamp).getTime()
-            ? { ...m, content: newContent, isEdited: true }
-            : m
-        )
-      );
-      if (selectedUser?.login === sender)
-        setUsers((prev) => prev.map((u) => (u.login === sender ? { ...u, lastMessage: newContent } : u)));
+      setMessages((prev) => prev.map((m) => (m.sender === sender && new Date(m.timestamp).getTime() === new Date(timestamp).getTime()) ? { ...m, content: newContent, isEdited: true } : m));
+      setUsers((prev) => prev.map((u) => (u.login === sender ? { ...u, lastMessage: newContent } : u)));
     };
     socket.on('messageEdited', handleEdited);
     return () => { socket.off('privateMessage', handleMessage); socket.off('messageEdited', handleEdited); };
-  }, [socket, selectedUser, login]);
+  }, [socket, selectedUser?.login, login]);
 
-  // Auto scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleSend = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!newMessage.trim() || !selectedUser || !socket) return;
-
     if (editingMessage) {
       socket.emit('editMessage', { receiver: selectedUser.login, timestamp: editingMessage.timestamp, newContent: newMessage.trim() });
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.sender === login && new Date(m.timestamp).getTime() === new Date(editingMessage.timestamp).getTime()
-            ? { ...m, content: newMessage.trim(), isEdited: true }
-            : m
-        )
-      );
+      setMessages((prev) => prev.map((m) => (m.sender === login && new Date(m.timestamp).getTime() === new Date(editingMessage.timestamp).getTime()) ? { ...m, content: newMessage.trim(), isEdited: true } : m));
       setEditingMessage(null);
     } else {
       socket.emit('privateMessage', { receiver: selectedUser.login, content: newMessage.trim() });
@@ -158,313 +150,195 @@ export default function ChatAdmin() {
     setNewMessage('');
   };
 
-  const filteredUsers = users.filter((u) =>
-    (u.name || u.login).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users
+    .filter(u => u.login !== login)
+    .filter((u) => (u.firstName || u.login || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.uniqueChatId === searchQuery));
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const existing = users.find(u => u.uniqueChatId === searchQuery || u.login === searchQuery);
+    if (existing) { setSelectedUser(existing); return; }
+    try {
+      const res = await api(`/api/users/search?query=${searchQuery}&searcherLogin=${login}`);
+      if (res.ok) {
+        const foundUsers = await res.json();
+        if (foundUsers.length > 0) {
+          setUsers(prev => {
+            const newOnes = foundUsers.filter((f: any) => !prev.some(p => p.login === f.login));
+            return [...newOnes, ...prev];
+          });
+          setSelectedUser(foundUsers[0]);
+        } else { 
+          toast.error(t("userNotFound")); 
+        }
+      }
+    } catch (err) { 
+      console.error("Search error:", err); 
+    }
+  };
 
   return (
-    // ✅ fullHeight={true} — chat sahifasi uchun padding yo'q, to'liq balandlik
-    <AdminLayout title="Support Chat" fullHeight>
-      {({ theme, tc }) => (
+    <AdminLayout title={t("supportChatTitle")} fullHeight>
+      {({ theme }) => (
         <div style={{
-          display:      'flex',
-          flex:         1,
-          height:       '100%',
-          minHeight:    0,
-          background:   theme === 'dark' ? '#0f1420' : '#f8fafc',
-          overflow:     'hidden',
-          position:     'relative',
+          display: 'flex',
+          flex: 1,
+          height: 'calc(100vh - 110px)',
+          background: '#091020',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          border: '1px solid #1e293b',
+          position: 'relative',
+          margin: isMobile ? '0' : '0 10px'
         }}>
-
-          {/* ── Users Sidebar ── */}
+          {/* Sidebar */}
           <div style={{
-            width:       chatSidebarOpen ? '320px' : '0px',
-            borderRight: chatSidebarOpen ? `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}` : 'none',
-            display:     'flex',
+            width: isMobile ? (selectedUser ? '0' : '100%') : (chatSidebarOpen ? '320px' : '80px'),
+            borderRight: '1px solid #1e293b',
+            display: 'flex',
             flexDirection:'column',
-            background:  theme === 'dark' ? '#161d2f' : '#fff',
-            transition:  'width 0.3s ease',
-            overflow:    'hidden',
-            flexShrink:  0,
+            background: '#161d2f',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'hidden',
+            flexShrink: 0,
+            zIndex: 10
           }}>
-            <div style={{ padding: '20px', minWidth: '320px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme === 'dark' ? '#fff' : '#1e293b', margin: 0 }}>
-                  Xabarlar
-                </h2>
-                <button
-                  onClick={() => setChatSidebarOpen(false)}
-                  style={{
-                    border:         'none', cursor: 'pointer',
-                    color:          theme === 'dark' ? '#94a3b8' : '#64748b',
-                    padding:        '6px', borderRadius: '8px', display: 'flex',
-                    alignItems:     'center',
-                    background:     theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                  }}
-                >
-                  <PanelLeftClose size={18} />
-                </button>
+            <div style={{ padding: '20px', minWidth: isMobile ? '100%' : '320px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                {(chatSidebarOpen || isMobile) && (
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: 0 }}>{t("messages")}</h2>
+                    <div style={{ fontSize: '11px', color: '#6366f1', marginTop: '2px' }}>
+                      {t("myId")} {users.find(u => u.login === login)?.uniqueChatId || ''}
+                    </div>
+                  </div>
+                )}
+                {!isMobile && (
+                  <button onClick={() => setChatSidebarOpen(!chatSidebarOpen)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '5px' }}>
+                    {chatSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+                  </button>
+                )}
               </div>
-
-              <div style={{ position: 'relative' }}>
-                <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} size={16} />
-                <input
-                  type="text"
-                  placeholder="Qidirish..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width:       '100%',
-                    padding:     '10px 10px 10px 38px',
-                    borderRadius:'10px',
-                    border:      'none',
-                    background:  theme === 'dark' ? '#1e293b' : '#f1f5f9',
-                    color:       theme === 'dark' ? '#fff' : '#1e293b',
-                    fontSize:    '14px',
-                    outline:     'none',
-                    boxSizing:   'border-box',
-                  }}
-                />
-              </div>
+              {(chatSidebarOpen || isMobile) && (
+                <form onSubmit={handleSearch} style={{ position: 'relative' }}>
+                  <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} size={16} />
+                  <input type="text" placeholder={t("searchById")} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 10px 10px 38px', borderRadius: '10px', border: 'none', background: '#1e293b', color: '#fff', fontSize: '14px', outline: 'none' }} />
+                </form>
+              )}
             </div>
-
-            {/* User list */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px', minWidth: '320px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px 10px' }}>
               {filteredUsers.map((user) => (
-                <div
-                  key={user.login}
-                  onClick={() => {
-                    setSelectedUser(user);
-                    setUsers((prev) => prev.map((u) => u.login === user.login ? { ...u, unreadCount: 0 } : u));
-                  }}
-                  style={{
-                    display:     'flex',
-                    alignItems:  'center',
-                    gap:         '12px',
-                    padding:     '10px',
-                    borderRadius:'14px',
-                    cursor:      'pointer',
-                    background:  selectedUser?.login === user.login
-                      ? (theme === 'dark' ? '#1e293b' : '#f1f5f9')
-                      : 'transparent',
-                    transition:  'background 0.2s',
-                    marginBottom:'2px',
-                  }}
-                >
-                  <div style={{ position: 'relative' }}>
-                    <div style={{
-                      width:          '44px', height: '44px', borderRadius: '12px',
-                      background:     user.role === 'admin'
-                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                        : 'linear-gradient(135deg, #10b981, #34d399)',
-                      display:        'flex', alignItems: 'center', justifyContent: 'center',
-                      color:          '#fff', fontWeight: 700, fontSize: '16px', flexShrink: 0,
-                    }}>
-                      {(user.name?.[0] || user.login[0]).toUpperCase()}
-                    </div>
-                    {onlineUsers.includes(user.login) && (
-                      <div style={{
-                        position:  'absolute', bottom: '-2px', right: '-2px',
-                        width:     '11px', height: '11px', borderRadius: '50%',
-                        background:'#10b981',
-                        border:    `2px solid ${theme === 'dark' ? '#161d2f' : '#fff'}`,
-                      }} />
+                <div key={user.login} onClick={() => { setSelectedUser(user); setUsers((prev) => prev.map((u) => u.login === user.login ? { ...u, unreadCount: 0 } : u)); }} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '12px', cursor: 'pointer', background: selectedUser?.login === user.login ? '#1e293b' : 'transparent', transition: 'background 0.2s', marginBottom: '2px', justifyContent: (chatSidebarOpen || isMobile) ? 'flex-start' : 'center' }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={t("userAvatarAlt")} style={{ width: '44px', height: '44px', borderRadius: '12px', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '16px' }}>{(user.firstName?.[0] || user.login[0]).toUpperCase()}</div>
                     )}
+                    {onlineUsers.includes(user.login) && <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', border: '2px solid #161d2f' }} />}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1e293b', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {user.name || user.login}
-                      </span>
-                      {!!user.unreadCount && (
-                        <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', fontWeight: 700, flexShrink: 0 }}>
-                          {user.unreadCount}
-                        </span>
-                      )}
+                  {(chatSidebarOpen || isMobile) && (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: '#fff', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.firstName ? `${user.firstName} ${user.lastName || ''}` : user.login}</span>
+                        {!!user.unreadCount && <span style={{ background: '#6366f1', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>{user.unreadCount}</span>}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#475569', marginBottom: '2px' }}>ID: {user.uniqueChatId}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.lastMessage || t("noMessage")}</div>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {user.lastMessage || "Xabar yo'q"}
-                    </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Chat Area ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: theme === 'dark' ? '#0f1420' : '#f8fafc', minWidth: 0, position: 'relative' }}>
+          {/* Chat Area */}
+          <div style={{ flex: 1, display: isMobile ? (selectedUser ? 'flex' : 'none') : 'flex', flexDirection: 'column', background: '#091020', position: 'relative', width: '100%' }}>
             {selectedUser ? (
               <>
-                {/* Chat Header */}
-                <div style={{
-                  padding:      '14px 20px',
-                  borderBottom: `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-                  display:      'flex', justifyContent: 'space-between', alignItems: 'center',
-                  background:   theme === 'dark' ? '#161d2f' : '#fff',
-                  flexShrink:   0,
-                }}>
+                {/* Header */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161d2f', zIndex: 5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {!chatSidebarOpen && (
-                      <button onClick={() => setChatSidebarOpen(true)} style={{ border: 'none', cursor: 'pointer', color: theme === 'dark' ? '#94a3b8' : '#64748b', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <PanelLeftOpen size={18} />
-                      </button>
+                    {isMobile && <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '5px' }}><ChevronLeft size={24} /></button>}
+                    {selectedUser.avatarUrl ? (
+                      <img src={selectedUser.avatarUrl} alt={t("selectedUserAvatarAlt")} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>{(selectedUser.firstName?.[0] || selectedUser.login[0]).toUpperCase()}</div>
                     )}
-                    <div style={{ width: '38px', height: '38px', borderRadius: '11px', background: selectedUser.role === 'admin' ? '#6366f1' : '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
-                      {(selectedUser.name?.[0] || selectedUser.login[0]).toUpperCase()}
-                    </div>
                     <div>
-                      <div style={{ fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1e293b', fontSize: '15px' }}>
-                        {selectedUser.name || selectedUser.login}
-                      </div>
-                      <div style={{ fontSize: '12px', color: onlineUsers.includes(selectedUser.login) ? '#10b981' : '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: onlineUsers.includes(selectedUser.login) ? '#10b981' : '#64748b' }} />
-                        {onlineUsers.includes(selectedUser.login) ? 'Onlayn' : 'Offlayn'}
-                      </div>
+                      <div style={{ fontWeight: 600, color: '#fff', fontSize: '15px' }}>{selectedUser.firstName ? `${selectedUser.firstName} ${selectedUser.lastName || ''}` : selectedUser.login}</div>
+                      <div style={{ fontSize: '11px', color: '#6366f1', marginBottom: '2px' }}>ID: {selectedUser.uniqueChatId}</div>
+                      <div style={{ fontSize: '12px', color: onlineUsers.includes(selectedUser.login) ? '#10b981' : '#64748b' }}>{onlineUsers.includes(selectedUser.login) ? t("online") : t("offline")}</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}>
-                  {loading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', color: '#64748b' }}>Yuklanmoqda...</div>
-                  ) : (
-                    <>
-                      {messages.map((msg, idx) => {
-                        const isMe = msg.sender === login;
-                        return (
-                          <div key={idx} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
-                            <div
-                              onDoubleClick={() => { if (isMe) { setEditingMessage(msg); setNewMessage(msg.content); } }}
-                              style={{
-                                maxWidth:     '65%',
-                                padding:      '10px 14px',
-                                borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                                background:   isMe ? '#6366f1' : (theme === 'dark' ? '#1e293b' : '#fff'),
-                                color:        isMe ? '#fff' : (theme === 'dark' ? '#fff' : '#1e293b'),
-                                boxShadow:    isMe ? '0 4px 12px rgba(99,102,241,0.25)' : '0 2px 8px rgba(0,0,0,0.06)',
-                                cursor:       isMe ? 'pointer' : 'default',
-                              }}
-                            >
-                              <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.content}</div>
-                              <div style={{ fontSize: '10px', marginTop: '4px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
-                                {msg.isEdited && <span style={{ fontStyle: 'italic' }}>tahrirlandi</span>}
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px', background: '#091020' }}>
+                  {messages.map((msg, idx) => {
+                    const isMe = msg.sender === login;
+                    const senderUser = isMe ? null : users.find(u => u.login === msg.sender);
+
+                    return (
+                      <div key={idx} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: '8px', alignItems: 'flex-end' }}>
+                        {!isMe && (
+                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#1e293b' }}>
+                            {senderUser?.avatarUrl ? (
+                              <img src={senderUser.avatarUrl} alt={t("senderUserAvatarAlt")} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 700, background: '#10b981' }}>
+                                {(senderUser?.firstName?.[0] || senderUser?.login?.[0] || '?').toUpperCase()}
                               </div>
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </>
-                  )}
+                        )}
+                        <div onDoubleClick={() => { if (isMe) { setEditingMessage(msg); setNewMessage(msg.content); } }} style={{ maxWidth: '75%', padding: '8px 12px', borderRadius: isMe ? '15px 15px 2px 15px' : '15px 15px 15px 2px', background: isMe ? '#6366f1' : '#1e293b', color: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', position: 'relative' }}>
+                          <div style={{ fontSize: '14.5px', lineHeight: '1.4' }}>{msg.content}</div>
+                          <div style={{ fontSize: '10px', marginTop: '4px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', opacity: 0.6 }}>
+                            {msg.isEdited && <i>{t("edited")}</i>}
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input area */}
-                <div style={{ background: theme === 'dark' ? '#161d2f' : '#fff', flexShrink: 0, position: 'relative' }}>
-                  {/* Emoji Picker */}
-                  {showEmojiPicker && (
-                    <div ref={emojiPickerRef} style={{
-                      position:            'absolute', bottom: '72px', right: '20px',
-                      width:               '280px', height:  '320px',
-                      background:          theme === 'dark' ? '#1e293b' : '#fff',
-                      border:              `1px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`,
-                      borderRadius:        '14px',
-                      boxShadow:           '0 10px 25px rgba(0,0,0,0.2)',
-                      padding:             '12px',
-                      zIndex:              1000,
-                      overflowY:           'auto',
-                      display:             'grid',
-                      gridTemplateColumns: 'repeat(7, 1fr)',
-                      gap:                 '6px',
-                    }}>
-                      {EMOJIS.map((emoji) => (
-                        <button key={emoji} onClick={() => addEmoji(emoji)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '4px', borderRadius: '6px', transition: 'background 0.15s' }}
-                          onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(99,102,241,0.1)')}
-                          onMouseOut={(e)  => (e.currentTarget.style.background = 'none')}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Edit indicator */}
+                {/* Input */}
+                <div style={{ padding: '15px 20px', background: '#161d2f', borderTop: '1px solid #1e293b' }}>
                   {editingMessage && (
-                    <div style={{ padding: '8px 20px', background: 'rgba(99,102,241,0.08)', borderTop: `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#6366f1', fontSize: '12px' }}>Xabarni tahrirlash...</span>
-                      <button onClick={() => { setEditingMessage(null); setNewMessage(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>
-                        Bekor qilish
-                      </button>
+                    <div style={{ padding: '5px 10px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#6366f1' }}>{t("editing")}</span>
+                      <button onClick={() => { setEditingMessage(null); setNewMessage(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', cursor: 'pointer' }}>{t("cancel")}</button>
                     </div>
                   )}
-
-                  {/* Form */}
-                  <form onSubmit={handleSend} style={{
-                    padding:     '16px 20px',
-                    borderTop:   editingMessage ? 'none' : `1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}`,
-                    display:     'flex', alignItems: 'center', gap: '10px',
-                  }}>
-                    <Paperclip size={18} style={{ color: '#64748b', cursor: 'pointer', flexShrink: 0 }} />
+                  <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Paperclip size={20} style={{ color: '#64748b', cursor: 'pointer' }} />
                     <div style={{ flex: 1, position: 'relative' }}>
-                      <input
-                        type="text"
-                        placeholder={editingMessage ? "Xabarni o'zgartiring..." : "Xabar yozing..."}
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        style={{
-                          width:       '100%',
-                          padding:     '11px 42px 11px 14px',
-                          borderRadius:'12px',
-                          border:      editingMessage ? '1px solid #6366f1' : 'none',
-                          background:  theme === 'dark' ? '#1e293b' : '#f1f5f9',
-                          color:       theme === 'dark' ? '#fff' : '#1e293b',
-                          outline:     'none',
-                          fontSize:    '14px',
-                          boxSizing:   'border-box',
-                        }}
-                      />
-                      <Smile size={18} onClick={() => setShowEmojiPicker((v) => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', cursor: 'pointer' }} />
+                      <input type="text" placeholder={t("writeAMessage")} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} style={{ width: '100%', padding: '11px 40px 11px 15px', borderRadius: '12px', border: editingMessage ? '1px solid #6366f1' : 'none', background: '#1e293b', color: '#fff', outline: 'none', fontSize: '14px' }} />
+                      <Smile size={20} onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', cursor: 'pointer' }} />
+                      {showEmojiPicker && (
+                        <div ref={emojiPickerRef} style={{ position: 'absolute', bottom: '60px', right: 0, width: '280px', height: '300px', background: '#1e293b', border: '1px solid #2d3748', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', padding: '10px', zIndex: 1000, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px' }}>
+                          {EMOJIS.map(e => <button key={e} type="button" onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '4px' }}>{e}</button>)}
+                        </div>
+                      )}
                     </div>
-                    <button type="submit" style={{
-                      width: '40px', height: '40px', borderRadius: '11px',
-                      background: '#6366f1', color: '#fff', border: 'none',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, transition: 'transform 0.15s',
-                    }}
-                      onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
-                      onMouseOut={(e)  => (e.currentTarget.style.transform = 'scale(1)')}
-                    >
-                      <Send size={18} />
-                    </button>
+                    <button type="submit" style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={20} /></button>
                   </form>
                 </div>
               </>
             ) : (
-              /* Empty state */
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '16px' }}>
-                {!chatSidebarOpen && (
-                  <button onClick={() => setChatSidebarOpen(true)} style={{ position: 'absolute', top: '16px', left: '16px', border: 'none', cursor: 'pointer', color: theme === 'dark' ? '#94a3b8' : '#64748b', padding: '8px', borderRadius: '8px', display: 'flex', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <PanelLeftOpen size={20} />
-                  </button>
-                )}
-                <div style={{ width: '72px', height: '72px', borderRadius: '20px', background: theme === 'dark' ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MessageSquare size={36} color="#6366f1" />
-                </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '15px' }}>
+                <div style={{ width: '70px', height: '70px', borderRadius: '20px', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MessageSquare size={35} /></div>
                 <div style={{ textAlign: 'center' }}>
-                  <h3 style={{ color: theme === 'dark' ? '#fff' : '#1e293b', margin: '0 0 8px 0', fontSize: '22px', fontWeight: 800 }}>Support Chat</h3>
-                  <p style={{ fontSize: '15px', margin: 0, color: '#64748b' }}>Muloqotni boshlash uchun foydalanuvchini tanlang</p>
+                  <h3 style={{ color: '#fff', margin: '0 0 5px 0' }}>{t("supportChatTitle")}</h3>
+                  <p style={{ fontSize: '14px', margin: 0 }}>{t("selectUserToStart")}</p>
                 </div>
               </div>
             )}
           </div>
-
-          <style>{`
-            ::-webkit-scrollbar { width: 5px; }
-            ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: ${theme === 'dark' ? '#1e293b' : '#e2e8f0'}; border-radius: 10px; }
-            ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
-          `}</style>
         </div>
       )}
     </AdminLayout>

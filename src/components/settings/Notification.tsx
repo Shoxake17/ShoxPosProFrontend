@@ -41,9 +41,9 @@ export default function Notification({
     localStorage.setItem('notificationsEnabled', JSON.stringify(newValue));
 
     if (newValue) {
-      alertSuccess(theme, t('notificationsEnabled') || "Bildirishnomalar yoqildi");
+      alertSuccess(theme, t('notificationsEnabled'));
     } else {
-      alertError(theme, t('notificationsDisabled') || "Bildirishnomalar o'chirildi");
+      alertError(theme, t('notificationsDisabled'));
     }
   };
 

@@ -45,7 +45,6 @@ const Biometric: React.FC<BiometricProps> = ({
     const fetchBiometricStatus = async () => {
       const deviceId = getDeviceId();
       if (!deviceId) {
-        // ✅ TUZATISH: console.warn o'chirildi — production da ma'lumot chiqarmaydi
         if (import.meta.env.DEV) {
           console.warn('[Biometric] Device ID topilmadi.');
         }
@@ -53,8 +52,6 @@ const Biometric: React.FC<BiometricProps> = ({
       }
 
       try {
-        // ✅ TUZATISH: /api/biometric-status — login/Biometric.tsx bilan bir xil endpoint
-        // Avval /api/users/:login?deviceId= ishlatilardi — holat mos kelmasdi
         const res = await api(`/api/biometric-status?deviceId=${deviceId}`);
         if (res.ok) {
           const data = await res.json();
@@ -81,7 +78,7 @@ const Biometric: React.FC<BiometricProps> = ({
     if (biometricEnabled) {
       // ── Biometrikni o'chirish ──────────────────────────────────────────────
       showConfirm(
-        tRef.current('Biometrik o\'chirish'),
+        tRef.current('biometricDisableTitle'),
         tRef.current('confirmDisableBiometric'),
         async () => {
           try {
@@ -93,15 +90,14 @@ const Biometric: React.FC<BiometricProps> = ({
             });
 
             if (res.ok) {
-              // ✅ TUZATISH: biometric_ localStorage kaliti O'CHIRILDI
-              // Eski ma'lumot qolgan bo'lsa, uni tozalash (migration)
+              // ✅ biometric_ localStorage kaliti O'CHIRILDI
               if (deviceId) {
                 localStorage.removeItem(`biometric_${deviceId}`);
               }
 
               setBiometricEnabled(false);
               toast.error(
-                tRef.current('Biometrik autentifikatsiya o\'chirildi') || "Biometrik autentifikatsiya o'chirildi",
+                tRef.current('biometricAuthDisabled'),
                 {
                   position: "top-right",
                   autoClose: 4000,
@@ -114,18 +110,17 @@ const Biometric: React.FC<BiometricProps> = ({
               );
             } else {
               const data = await res.json();
-              toast.error(data.message || tRef.current('Xato yuz berdi'), {
+              toast.error(data.message || tRef.current('xatoYuzBerdi'), {
                 position: "top-right",
                 autoClose: 5000,
                 theme: themeRef.current === 'dark' ? 'dark' : 'light',
               });
             }
           } catch (err) {
-            // ✅ TUZATISH: faqat dev da log
             if (import.meta.env.DEV) {
               console.error('[Biometric] Disable xatosi:', err);
             }
-            toast.error(tRef.current('Server xatosi'), {
+            toast.error(tRef.current('serverError'), {
               position: "top-right",
               autoClose: 5000,
               theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -137,7 +132,7 @@ const Biometric: React.FC<BiometricProps> = ({
       // ── Biometrikni yoqish — WebAuthn ─────────────────────────────────────
       try {
         if (!window.PublicKeyCredential) {
-          toast.error(tRef.current('Biometrik bu qurilmada mavjud emas'), {
+          toast.error(tRef.current('biometricNotAvailable'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -147,7 +142,7 @@ const Biometric: React.FC<BiometricProps> = ({
 
         const deviceId = getDeviceId();
         if (!deviceId) {
-          toast.error(tRef.current('DeviceId topilmadi'), {
+          toast.error(tRef.current('deviceIdNotFound'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -161,7 +156,6 @@ const Biometric: React.FC<BiometricProps> = ({
         const userId = new Uint8Array(16);
         crypto.getRandomValues(userId);
 
-        // ✅ TUZATISH: console.log o'chirildi — login nomi konsolda ko'rinmaydi
         if (import.meta.env.DEV) {
           console.log('[Biometric] Registration boshlandi');
         }
@@ -195,10 +189,7 @@ const Biometric: React.FC<BiometricProps> = ({
           String.fromCharCode(...new Uint8Array(credential.rawId))
         );
 
-        // ✅ TUZATISH: localStorage.setItem(`biometric_${deviceId}`, ...) O'CHIRILDI
-        // credentialId FAQAT serverga yuboriladi — brauzerda saqlanmaydi
-        // Sabab: localStorage XSS hujumiga ochiq, WebAuthn ma'lumoti server DB'da bo'lishi shart
-
+        // ✅ credentialId FAQAT serverga yuboriladi — brauzerda saqlanmaydi
         const res = await api('/api/enable-biometric', {
           method: 'POST',
           body: JSON.stringify({
@@ -214,7 +205,7 @@ const Biometric: React.FC<BiometricProps> = ({
         if (res.ok && data.success) {
           setBiometricEnabled(true);
           toast.success(
-            tRef.current('Biometrik autentifikatsiya yoqildi') || "Biometrik autentifikatsiya yoqildi",
+            tRef.current('biometricAuthEnabled'),
             {
               position: "top-right",
               autoClose: 4000,
@@ -225,16 +216,14 @@ const Biometric: React.FC<BiometricProps> = ({
               theme: themeRef.current === 'dark' ? 'dark' : 'light'
             }
           );
-          // ✅ TUZATISH: console.log o'chirildi
           if (import.meta.env.DEV) {
             console.log('[Biometric] Backend ga muvaffaqiyatli saqlandi');
           }
         } else {
-          // ✅ TUZATISH: console.error o'chirildi
           if (import.meta.env.DEV) {
             console.error('[Biometric] Backend xatosi:', data);
           }
-          toast.error(data.message || tRef.current('Xato yuz berdi'), {
+          toast.error(data.message || tRef.current('xatoYuzBerdi'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -243,18 +232,16 @@ const Biometric: React.FC<BiometricProps> = ({
           localStorage.removeItem(`biometric_${deviceId}`);
         }
       } catch (err: any) {
-        // ✅ TUZATISH: faqat dev da log
         if (import.meta.env.DEV) {
           console.error('[Biometric] Faollashtirish xatosi:', err);
         }
 
-        let errorMsg = tRef.current('Xato yuz berdi');
-        if      (err.name === 'NotAllowedError')    errorMsg = tRef.current('Biometrik faollashtirish bekor qilindi');
-        else if (err.name === 'SecurityError')       errorMsg = tRef.current('Xavfsizlik xatosi. HTTPS kerak bo\'lishi mumkin');
-        else if (err.name === 'NotSupportedError')   errorMsg = tRef.current('Biometrik bu qurilmada qo\'llab-quvvatlanmaydi');
-        else                                          errorMsg = tRef.current('Xato yuz berdi');
+        let errorKey = 'xatoYuzBerdi';
+        if      (err.name === 'NotAllowedError')  errorKey = 'biometricCancelled';
+        else if (err.name === 'SecurityError')     errorKey = 'biometricSecurityError';
+        else if (err.name === 'NotSupportedError') errorKey = 'biometricNotSupported';
 
-        toast.error(errorMsg, {
+        toast.error(tRef.current(errorKey), {
           position: "top-right",
           autoClose: 5000,
           theme: themeRef.current === 'dark' ? 'dark' : 'light',

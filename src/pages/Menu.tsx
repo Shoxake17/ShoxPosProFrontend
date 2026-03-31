@@ -7,7 +7,9 @@ import { useResponsive } from "../hooks/useResponsive";
 import DataBase from "../components/menu/DataBase";
 import UserProductsCount from "../components/menu/LoginDataBase";
 import Chat from "../components/menu/Chat";
+import AdminProfile from "../admin/adminComponents/adminSettings/AdminProfile";
 import Tolov from "../components/menu/Tolov";
+import { getSessionLogin } from "../utils/clientSession";
 import Hisobot from "../components/menu/Hisobot";
 import Sotuvlar from "../components/menu/Sotuvlar";
 import Qr from "../components/menu/Qr";
@@ -20,6 +22,8 @@ export default function Menu() {
   const [theme] = useState<"dark" | "light">(
     (localStorage.getItem("theme") as "dark" | "light") || "dark"
   );
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const currentUserLogin = getSessionLogin();
 
 
   return (
@@ -36,6 +40,15 @@ export default function Menu() {
         <div data-clickable><Hisobot theme={theme} /></div>
         <div data-clickable><Chat theme={theme} /></div>
       </div>
+
+      {isProfileModalOpen && (
+        <AdminProfile
+          theme={theme}
+          tc={(d, l) => theme === 'dark' ? d : l}
+          currentUserLogin={currentUserLogin || ''}
+          onClose={() => setIsProfileModalOpen(false)}
+        />
+      )}
     </MainLayout>
   );
 }

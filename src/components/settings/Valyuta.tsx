@@ -46,6 +46,7 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
         }}
       >
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+
           {/* Icon */}
           <div style={{
             width: '40px',
@@ -61,20 +62,18 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
             <Coins size={20} />
           </div>
 
-          {/* Matn */}
+          {/* Matn — Languages bilan aynan bir xil */}
           <div style={{ flex: 1 }}>
             <h3 style={{
               fontSize: '19px',
               fontWeight: 600,
               color: theme === 'dark' ? '#fff' : '#1a1f2e',
-              margin: 0,
             }}>
               {t('currency')}
             </h3>
             <p style={{
               fontSize: '13px',
               color: theme === 'dark' ? '#8b92a7' : '#64748b',
-              margin: 0,
               marginBottom: '8px',
             }}>
               {t('currencyDescription')}

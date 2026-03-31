@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, ChevronRight } from 'lucide-react';
-import axiosInstance, { getMemoryCsrfToken, setMemoryCsrfToken } from '../api/axiosInstance'; // ✅ getMemoryCsrfToken
+import { Lock, User, ChevronRight, LucideIcon } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { clearAuthClientState } from '../utils/clientSession';
 import MainLayout from "../components/MainLayout";
 import Profile from "../components/settings/Profile";
-import { TranslationProvider as Provider, useTranslation } from '../components/languages/Settings';
-export const TranslationProvider = Provider;
+import { useTranslation } from '../components/languages/Settings';
+
 import Notification from "../components/settings/Notification";
-import ChangePasswordModal from "../components/settings/ChangePassword";
+import ChangePassword from "../components/settings/ChangePassword";
 import Biometric from "../components/settings/Biometric";
 import Session from "../components/settings/Session";
 import DataExport from "../components/settings/DataExport";
@@ -22,19 +21,36 @@ import HandControl from "../components/settings/HandControl";
 import Languages from "../components/settings/Languages";
 import Theme from "../components/settings/Theme";
 import Currency from "../components/settings/Valyuta";
+
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
 import {
   alertSessionExpired,
   alertForceLogout,
-  alertLanguageChanged,
   alertSuccess,
 } from '../components/alert/SettingsAlert';
 
+// ─── Interfaces ────────────────────────────────────────────────────────────
+interface SettingItem {
+  id: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+  value?: string | number;
+}
+
+interface SettingGroup {
+  title: string;
+  items: SettingItem[];
+}
+
 // ─── ConfirmationModal ─────────────────────────────────────────────────────
-function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message }: {
+function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message, t }: {
   isOpen: boolean; onClose: () => void; onConfirm: () => void;
-  theme: 'dark' | 'light'; title: string; message: string;
+  theme: 'dark' | 'light'; title: string; message: string; 
+  t: (key: string) => string;
 }) {
   if (!isOpen) return null;
   return (
@@ -53,13 +69,13 @@ function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message }
             onClick={onClose}
             style={{ flex: 1, padding: '14px', background: theme === 'dark' ? '#1a1f2e' : '#f1f5f9', color: theme === 'dark' ? '#e2e8f0' : '#1e293b', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
           >
-            Yo'q
+            {t('noBtn')}
           </button>
           <button
             onClick={() => { onConfirm(); onClose(); }}
             style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
           >
-            Ha
+            {t('yesBtn')}
           </button>
         </div>
       </div>
@@ -67,9 +83,6 @@ function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message }
   );
 }
 
-
-
-// ✅ currentLogin — sessionStorage dan xavfsiz olish
 const getCurrentLogin = (): string | null => {
   try {
     const fromSession = sessionStorage.getItem('currentUser');
@@ -77,9 +90,7 @@ const getCurrentLogin = (): string | null => {
       const parsed = JSON.parse(fromSession);
       if (parsed?.login) return parsed.login;
     }
-  } catch {
-    // ✅ parse xatosi — crash qilmasin
-  }
+  } catch { /* ignore */ }
   return null;
 };
 
@@ -93,62 +104,32 @@ function POSSettingsPageContent() {
   const [notifications, setNotifications] = useState(true);
   const [hoveredSetting, setHoveredSetting] = useState<string | null>(null);
 
-  const [isProfileOpen, setIsProfileOpen]             = useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword]         = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState("");
-
-  // ✅ csrfToken state — O'CHIRILDI (getMemoryCsrfToken() ishlatiladi)
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [isConfirmOpen, setIsConfirmOpen]     = useState(false);
   const [confirmTitle, setConfirmTitle]       = useState("");
   const [confirmMessage, setConfirmMessage]   = useState("");
   const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
 
-  const prevLanguageRef = useRef(language);
-
-  // ✅ Ref orqali — dependency loopdan qochish
   const navigateRef = useRef(navigate);
   const themeRef    = useRef(theme);
   const tRef        = useRef(t);
+
   useEffect(() => { navigateRef.current = navigate; }, [navigate]);
   useEffect(() => { themeRef.current = theme; },     [theme]);
   useEffect(() => { tRef.current = t; },             [t]);
 
-  // ✅ currentLogin — sessionStorage dan, localStorage YO'Q
   const currentLogin = getCurrentLogin();
 
-  // ✅ handleSessionExpired — ref orqali, bo'sh dependency
   const handleSessionExpired = useCallback(() => {
     alertSessionExpired(themeRef.current, tRef.current);
     setTimeout(() => navigateRef.current('/login', { replace: true }), 2000);
   }, []);
 
-  // ✅ showSuccess — ref orqali, bo'sh dependency
   const showSuccess = useCallback((msg: string) => {
     alertSuccess(themeRef.current, msg);
   }, []);
 
-  // ✅ Til o'zgarganda alert
-  useEffect(() => {
-    if (prevLanguageRef.current !== language) {
-      const langDisplay: Record<string, string> = {
-        uz: "O'zbek", ru: "Русский", en: "English",
-      };
-      alertLanguageChanged(
-        themeRef.current,
-        tRef.current,
-        langDisplay[language] || language.toUpperCase()
-      );
-    }
-    prevLanguageRef.current = language;
-  }, [language]);
-
-  // ✅ Force logout — bir marta, faqat kerakli storage tozalanadi
   useEffect(() => {
     const socket = getSocket();
     const handleForceLogout = () => {
@@ -160,7 +141,6 @@ function POSSettingsPageContent() {
     return () => { socket.off('force-logout', handleForceLogout); };
   }, []);
 
-  // ✅ Theme & image — bir marta
   useEffect(() => {
     const savedImage = localStorage.getItem('userImage');
     if (savedImage) setUserImage(savedImage);
@@ -188,28 +168,17 @@ function POSSettingsPageContent() {
     setIsConfirmOpen(true);
   };
 
-  const settingsGroups = [
-    { title: t('general'),   items: [] as any[] },
-    { title: t('visioncontrol'), items: [] as any[] },
-    {
-      title: t('security'),
-      items: [
+  const settingsGroups: SettingGroup[] = [
+    { title: t('general'), items: [] },
+    { title: t('visioncontrol'), items: [] },
+    { title: t('security'), items: [] }, 
+    { title: t('data'), items: [] },
+    { title: t('account'), items: [
         {
-          id: 'pw-card', icon: Lock,
-          title: t('changePassword'),
-          description: t('changePasswordDescription'),
-          onClick: () => setIsChangePasswordOpen(true),
-        },
-      ],
-    },
-    { title: t('data') || "Ma'lumotlar", items: [] as any[] },
-    {
-      title: t('account'),
-      items: [
-        {
-          id: 'profile-card', icon: User,
+          id: 'profile-card', 
+          icon: User,
           title: t('profile'),
-          description: t('profileDescription') || "Shaxsiy ma'lumotlarni ko'rish va tahrirlash",
+          description: t('profileDescription'),
           onClick: () => setIsProfileOpen(true),
         },
       ],
@@ -218,25 +187,6 @@ function POSSettingsPageContent() {
 
   return (
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('settings')}>
-
-     
-      <ChangePasswordModal
-        isOpen={isChangePasswordOpen}
-        onClose={() => {
-          setIsChangePasswordOpen(false);
-          setPasswordMessage("");
-          setCurrentPassword("");
-          setNewPassword("");
-          setConfirmPassword("");
-        }}
-        theme={theme}
-        currentPassword={currentPassword}   setCurrentPassword={setCurrentPassword}
-        newPassword={newPassword}           setNewPassword={setNewPassword}
-        confirmPassword={confirmPassword}   setConfirmPassword={setConfirmPassword}
-        passwordLoading={passwordLoading}   setPasswordLoading={setPasswordLoading}
-        passwordMessage={passwordMessage}   setPasswordMessage={setPasswordMessage}
-      />
-
       <Profile
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
@@ -252,6 +202,7 @@ function POSSettingsPageContent() {
         theme={theme}
         title={confirmTitle}
         message={confirmMessage}
+        t={t}
       />
 
       <ToastContainer position="top-right" autoClose={4000} theme={theme === 'dark' ? 'dark' : 'light'} />
@@ -289,7 +240,7 @@ function POSSettingsPageContent() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <h3 style={{ fontSize: '19px', fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1a1f2e', margin: 0, marginBottom: '4px' }}>{item.title}</h3>
-                      <p style={{ fontSize: '13px', color: theme === 'dark' ? '#8b92a7' : '#64748b', margin: 0, marginBottom: item.value ? '8px' : '0' }}>{item.description}</p>
+                      <p style={{ fontSize: '13px', color: theme === 'dark' ? '#8b92a7' : '#64748b', margin: 0, marginBottom: '8px' }}>{item.description}</p>
                       {item.value && (
                         <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '6px', background: theme === 'dark' ? '#0f1420' : '#f1f5f9', fontSize: '12px', color: '#667eea', fontWeight: 500 }}>
                           {item.value}
@@ -304,9 +255,9 @@ function POSSettingsPageContent() {
 
             {gIdx === 0 && (
               <>
-                <Languages    theme={theme} t={t} language={language} setLanguage={setLanguage} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />
-                <Currency     theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />
-                <Theme        theme={theme} t={t} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />
+                <Languages theme={theme} t={t} language={language} setLanguage={setLanguage} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />
+                <Currency theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />
+                <Theme theme={theme} t={t} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />
                 <Notification theme={theme} t={t} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />
               </>
             )}
@@ -315,22 +266,23 @@ function POSSettingsPageContent() {
             )}
             {gIdx === 2 && (
               <>
+                <ChangePassword theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="pw-card" />
                 <GoogleAuth theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="gauth-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
-                <Biometric  theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="bio-card"   currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
-                <Session    theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="session-card" />
+                <Biometric theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="bio-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
+                <Session theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="session-card" />
               </>
             )}
             {gIdx === 3 && (
               <>
                 <DataExport theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="export-card" />
-                <Backup     theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="backup-card" />
-                <ClearData  theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="clear-card" showMessage={showSuccess} />
+                <Backup theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="backup-card" />
+                <ClearData theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="clear-card" showMessage={showSuccess} />
               </>
             )}
             {gIdx === 4 && (
               <>
-                <Email  theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="email-card" />
-                <Logout theme={theme}     hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />
+                <Email theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="email-card" />
+                <Logout theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />
               </>
             )}
           </div>
@@ -341,5 +293,7 @@ function POSSettingsPageContent() {
 }
 
 export default function POSSettingsPage() {
-  return <POSSettingsPageContent />;
+  return (
+      <POSSettingsPageContent />
+  );
 }

@@ -1,5 +1,4 @@
 // Yangi fayl: components/languages/Scanner.tsx
-import { PrinterCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 type Language = 'uz' | 'ru' | 'en';
@@ -66,6 +65,9 @@ const translations: Record<Language, Record<string, string>> = {
     connectionFailed: "Ulanib bo'lmadi",
     errorPrefix: "Xato",
     noPrinterSelected: "Printer tanlanmadi. Iltimos, USB printeringizni ulang va qaytadan bosing.",
+
+    // ── ✅ Yangi qo'shildi ──────────────────────────────────
+    outOfStock: "Mahsulot qolmagan",
   },
   ru: {
     searching: "Поиск...",
@@ -128,6 +130,9 @@ const translations: Record<Language, Record<string, string>> = {
     connectionFailed: "Не удалось подключиться",
     errorPrefix: "Ошибка",
     noPrinterSelected: "Принтер не выбран. Подключите USB-принтер и нажмите снова.",
+
+    // ── ✅ Yangi qo'shildi ──────────────────────────────────
+    outOfStock: "Товар закончился",
   },
   en: {
     searching: "Searching...",
@@ -190,6 +195,9 @@ const translations: Record<Language, Record<string, string>> = {
     connectionFailed: "Could not connect",
     errorPrefix: "Error",
     noPrinterSelected: "No printer selected. Please connect your USB printer and try again.",
+
+    // ── ✅ Yangi qo'shildi ──────────────────────────────────
+    outOfStock: "Product out of stock",
   }
 };
 
@@ -230,7 +238,6 @@ export function useTranslation() {
   return { t, language };
 }
 
-// TranslationProvider - agar kerak bo'lsa, lekin oldingi misollarda bo'lmagan, shuning uchun saqlab qo'yamiz
 export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return <>{children}</>; // Agar kontekst kerak bo'lmasa, shunchaki o'rab turadi
+  return <>{children}</>;
 };

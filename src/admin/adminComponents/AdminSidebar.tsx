@@ -1,4 +1,4 @@
-// src/adminComponents/AdminSidebar.tsx
+// src/admin/adminComponents/AdminSidebar.tsx
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { clearAuthClientState } from "../../utils/clientSession";
@@ -31,13 +31,13 @@ interface AdminSidebarProps {
 }
 
 // ─────────────────────────────────────────────
-// Constants
+// Menu items — tarjima yo'q, to'g'ridan-to'g'ri matn
 // ─────────────────────────────────────────────
 const menuItems: MenuItem[] = [
-  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard",               path: "/admin-panel"    },
-  { id: "add-user",  icon: UserPlus,        label: "Foydalanuvchi qo'shish",  path: "/admin-add-user" },
-  { id: "chat",      icon: MessageSquare,   label: "Support Chat",            path: "/admin-chat"     },
-  { id: "settings",  icon: Settings,        label: "Sozlamalar",              path: "/admin-settings" },
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard",    path: "/admin-panel"    },
+  { id: "add-user",  icon: UserPlus,        label: "Add User",     path: "/admin-add-user" },
+  { id: "chat",      icon: MessageSquare,   label: "Chat",         path: "/admin-chat"     },
+  { id: "settings",  icon: Settings,        label: "Settings",     path: "/admin-settings" },
 ];
 
 // ─────────────────────────────────────────────
@@ -64,20 +64,20 @@ const MobileToggleButton: React.FC<{ theme: "dark" | "light"; onOpen: () => void
   <button
     onClick={onOpen}
     style={{
-      position:        "fixed",
-      left:            "20px",
-      top:             "20px",
-      background:      gtc(theme, "#1a1f2e", "#f1f5f9"),
-      border:          "none",
-      borderRadius:    "8px",
-      padding:         "8px",
-      cursor:          "pointer",
-      display:         "flex",
-      alignItems:      "center",
-      justifyContent:  "center",
-      color:           gtc(theme, "#8b92a7", "#64748b"),
-      zIndex:          50,
-      transition:      "all 0.2s ease",
+      position:       "fixed",
+      left:           "20px",
+      top:            "20px",
+      background:     gtc(theme, "#1a1f2e", "#f1f5f9"),
+      border:         "none",
+      borderRadius:   "8px",
+      padding:        "8px",
+      cursor:         "pointer",
+      display:        "flex",
+      alignItems:     "center",
+      justifyContent: "center",
+      color:          gtc(theme, "#8b92a7", "#64748b"),
+      zIndex:         50,
+      transition:     "all 0.2s ease",
     }}
   >
     <PanelRightClose size={20} />
@@ -165,7 +165,9 @@ const MenuItemButton: React.FC<{
           borderRadius:   "16px",
           cursor:         "pointer",
           color:          isActive ? "#fff" : gtc(theme, "#94a3b8", "#64748b"),
-          background:     isActive ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" : "transparent",
+          background:     isActive
+            ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+            : "transparent",
           transition:     "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           fontSize:       "15px",
           fontWeight:     600,
@@ -206,7 +208,7 @@ const LogoutButton: React.FC<{
   <div style={{ padding: "0 20px" }}>
     <button
       onClick={onLogout}
-      title={!isExpanded ? "Chiqish" : ""}
+      title={!isExpanded ? "Logout" : ""}
       style={{
         display:        "flex",
         alignItems:     "center",
@@ -225,18 +227,18 @@ const LogoutButton: React.FC<{
         textAlign:      "left",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background   = "rgba(239,68,68,0.1)";
-        e.currentTarget.style.borderColor  = "#ef4444";
+        e.currentTarget.style.background  = "rgba(239,68,68,0.1)";
+        e.currentTarget.style.borderColor = "#ef4444";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background   = "transparent";
-        e.currentTarget.style.borderColor  = gtc(theme, "rgba(239,68,68,0.2)", "rgba(239,68,68,0.1)");
+        e.currentTarget.style.background  = "transparent";
+        e.currentTarget.style.borderColor = gtc(theme, "rgba(239,68,68,0.2)", "rgba(239,68,68,0.1)");
       }}
     >
       <LogOut size={22} style={{ minWidth: "22px" }} />
       {isExpanded && (
         <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          Chiqish
+          Logout
         </span>
       )}
     </button>
@@ -246,16 +248,22 @@ const LogoutButton: React.FC<{
 // ─────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────
-export default function AdminSidebar({ theme = "dark", isOpen, setIsOpen, currentUserLogin }: AdminSidebarProps) {
-  const navigate   = useNavigate();
-  const location   = useLocation();
-  const isMobile   = useIsMobile();
+export default function AdminSidebar({
+  theme = "dark",
+  isOpen,
+  setIsOpen,
+  currentUserLogin,
+}: AdminSidebarProps) {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const isMobile  = useIsMobile();
   const isExpanded = isOpen || isMobile;
 
-  const currentPage = menuItems.find((item) => location.pathname === item.path)?.id || "dashboard";
+  const currentPage =
+    menuItems.find((item) => location.pathname === item.path)?.id || "dashboard";
 
   const handleLogout = () => {
-    if (confirm("Tizimdan chiqishni xohlaysizmi?")) {
+    if (confirm("Are you sure you want to logout?")) {
       clearAuthClientState({ clearAiChats: true });
       navigate("/login");
     }
@@ -292,7 +300,12 @@ export default function AdminSidebar({ theme = "dark", isOpen, setIsOpen, curren
           flexDirection: "column",
         }}
       >
-        <SidebarHeader theme={theme} isOpen={isOpen} isMobile={isMobile} onToggle={() => setIsOpen(!isOpen)} />
+        <SidebarHeader
+          theme={theme}
+          isOpen={isOpen}
+          isMobile={isMobile}
+          onToggle={() => setIsOpen(!isOpen)}
+        />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <ul style={{ listStyle: "none", padding: "0 16px", margin: 0 }}>
@@ -317,7 +330,11 @@ export default function AdminSidebar({ theme = "dark", isOpen, setIsOpen, curren
           }}
         />
 
-        <LogoutButton theme={theme} isExpanded={isExpanded} onLogout={handleLogout} />
+        <LogoutButton
+          theme={theme}
+          isExpanded={isExpanded}
+          onLogout={handleLogout}
+        />
       </aside>
 
       <style>{`

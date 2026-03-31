@@ -21,20 +21,6 @@ function getCurrentDeviceId(): string {
   return sessionStorage.getItem('deviceId') || localStorage.getItem('deviceId') || '';
 }
 
-function attachHandlers(s: Socket, login: string, deviceId: string): void {
-  s.on('connect', () => {
-    const _login    = login    || getCurrentLogin();
-    const _deviceId = deviceId || getCurrentDeviceId();
-
-    if (_login && _deviceId) {
-      s.emit('registerUser', { login: _login, deviceId: _deviceId });
-    }
-  });
-
-  s.on('disconnect', () => {});
-  s.on('connect_error', () => {});
-}
-
 function getSocket(): Socket {
   if (!socket) {
     const login    = getCurrentLogin();
@@ -46,48 +32,55 @@ function getSocket(): Socket {
       withCredentials:     true,
       transports:          ['websocket', 'polling'],
       reconnection:        true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity, // Productionda har doim ulanishga harakat qilish kerak
       reconnectionDelay:   2000,
       auth: { login, deviceId }, 
     });
 
-    attachHandlers(socket, login, deviceId);
+    socket.on('connect', () => {
+      const _login    = getCurrentLogin();
+      const _deviceId = getCurrentDeviceId();
+      console.log('Socket ulandi:', socket?.id, 'Login:', _login);
+      if (_login && _deviceId) {
+        socket?.emit('registerUser', { login: _login, deviceId: _deviceId });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Socket uzildi:', reason);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket ulanish xatosi:', error);
+    });
   }
 
   return socket;
 }
 
+/**
+ * Foydalanuvchi tizimga kirganda yoki sessiya yangilanganda authni yangilash
+ */
 export function reconnectSocket(login: string, deviceId: string): void {
-  // 1. Eski socketni tozalash
-  if (socket) {
-    socket.removeAllListeners();
-    socket.disconnect();
-    socket = null;
+  const s = getSocket();
+  
+  // Auth ma'lumotlarini yangilash
+  s.auth = { login, deviceId };
+  
+  // Agar socket allaqachon ulangan bo'lsa, uni uzib qayta ulaymiz (yangi auth bilan)
+  if (s.connected) {
+    s.disconnect();
   }
-
-
-
-  socket = io(SOCKET_URL, {
-    path:                '/socket.io/',
-    autoConnect:         true,
-    withCredentials:     true,
-    transports:          ['websocket', 'polling'],
-    reconnection:        true,
-    reconnectionAttempts: 5,
-    reconnectionDelay:   2000,
-    auth: { login, deviceId }, 
-  });
-
-  attachHandlers(socket, login, deviceId);
+  s.connect();
 }
 
 export function disconnectSocket(): void {
   if (socket) {
-    socket.removeAllListeners();
     if (socket.connected) {
       socket.disconnect();
     }
-    socket = null;
+    // Socket instanceni o'chirib tashlamaymiz, faqat uzamiz. 
+    // Bu mavjud listenerlar o'lmasligini ta'minlaydi.
   }
 }
 

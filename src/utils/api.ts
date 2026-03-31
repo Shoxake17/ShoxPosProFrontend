@@ -13,9 +13,13 @@ export const api = async (
   const csrfToken = getMemoryCsrfToken();
   
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
+
+  // FormData yuborilayotgan bo'lsa Content-Type ni brauzer o'zi belgilashi kerak
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   // Faqat o'zgartiruvchi so'rovlar uchun CSRF qo'shamiz
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

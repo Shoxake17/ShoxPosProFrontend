@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode, useEffect, useState, useRef } from "react";
 import { useHandTracking, HandTrackingState, CursorPos } from "../hooks/useHandTracking";
 import HandCursor from "../components/HandCursor";
-import VirtualKeyboard from "../components/VirtualKeyboard";
+// import VirtualKeyboard from "../components/VirtualKeyboard";
 // ✅ 1. Eski getTranslation importini o'rniga o'zimizning asosiy useTranslation'ni olamiz
 import { useTranslation } from "../components/languages/Settings"; 
 
@@ -124,7 +124,7 @@ export function HandTrackingProvider({ children }: { children: ReactNode }) {
       {isVisualControlEnabled && (
         <>
           <HandCursor pos={state.cursor} isFist={state.isFist} />
-          <VirtualKeyboard theme={isDark ? "dark" : "light"} />
+          {/* <VirtualKeyboard theme={isDark ? "dark" : "light"} /> */}
           
           <div 
             ref={panelRef}
