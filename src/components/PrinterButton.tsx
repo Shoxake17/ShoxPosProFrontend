@@ -1,7 +1,4 @@
-// ============================================
 // ShoxPosPro Frontend: PrinterButton.tsx
-// ============================================
-
 import React, { useState, useRef } from 'react';
 import { Printer, PrinterCheck, PrinterX, ChevronRight } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -17,10 +14,13 @@ interface PrinterButtonProps {
   socket?: any;
 }
 
+/**
+ * 12 raqamli noyob Chek ID generatsiyasi
+ */
 function generateReceiptId(): string {
   const timestamp = Date.now().toString().slice(-8);
-  const random    = Math.floor(Math.random() * 9000 + 1000).toString();
-  return timestamp + random; // 12 raqam
+  const random = Math.floor(Math.random() * 9000 + 1000).toString();
+  return timestamp + random;
 }
 
 function formatPrice(price: number): string {
@@ -29,10 +29,13 @@ function formatPrice(price: number): string {
     .replace(/,/g, ' ');
 }
 
-// ── Canvas QR → ESC/POS bitmap ──────────────
+/**
+ * ── Canvas QR → ESC/POS bitmap ──────────────
+ * Printerning grafik rejimida tushunadigan formatiga o'tkazish
+ */
 async function qrToBitmap(text: string, printWidth = 300): Promise<Uint8Array> {
   const canvas = document.createElement('canvas');
-  canvas.width  = printWidth;
+  canvas.width = printWidth;
   canvas.height = printWidth;
   const ctx = canvas.getContext('2d')!;
 
@@ -47,11 +50,12 @@ async function qrToBitmap(text: string, printWidth = 300): Promise<Uint8Array> {
   });
 
   const imageData = ctx.getImageData(0, 0, printWidth, printWidth);
-  const pixels    = imageData.data;
+  const pixels = imageData.data;
   const byteWidth = Math.ceil(printWidth / 8);
   const commands: number[] = [];
 
   for (let y = 0; y < printWidth; y++) {
+    // ESC/POS bit image command
     commands.push(0x1D, 0x76, 0x30, 0x00);
     commands.push(byteWidth & 0xFF, (byteWidth >> 8) & 0xFF);
     commands.push(1 & 0xFF, 0);
@@ -69,26 +73,20 @@ async function qrToBitmap(text: string, printWidth = 300): Promise<Uint8Array> {
       commands.push(byte);
     }
   }
-
   return new Uint8Array(commands);
 }
 
-async function registerCashback(
-  receiptId: string,
-  totalAmount: number,
-  storeName = 'ShoxPosPro'
-): Promise<void> {
+/**
+ * Backenddan CSRF token olish
+ */
+async function getCsrfToken(): Promise<string> {
   try {
-    const res = await fetch('http://localhost:3000/api/cashback/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ receiptId, totalAmount, storeName }),
-    });
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    if (!res.ok) return '';
     const data = await res.json();
-    if (!data.success) console.warn('Cashback register xatosi:', data.message);
-    else console.log('✅ Cashback ro\'yxatga olindi:', receiptId);
-  } catch (err) {
-    console.warn('Cashback register ulanish xatosi:', err);
+    return data.csrfToken || '';
+  } catch {
+    return '';
   }
 }
 
@@ -96,25 +94,63 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
   sales, totalPrice, theme, t, finalizeSale, setResultText, setResultStatus,
 }) => {
   const [isPrinting, setIsPrinting] = useState(false);
-  const [status, setStatus]         = useState<'idle' | 'success' | 'error'>('idle');
-  const cachedDevice                = useRef<any>(null);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const cachedDevice = useRef<any>(null);
+
+  /**
+   * ── Cashback ro'yxatga olish — Backend Proxy orqali ──
+   */
+  const registerCashback = async (receiptId: string, totalAmount: number) => {
+    try {
+      const csrfToken = await getCsrfToken();
+      const res = await fetch('/api/cashback/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({ receiptId, totalAmount, storeName: 'ShoxPosPro' }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // Backenddan kelgan to'liq timestamp va signature'ni qaytaramiz
+        return { 
+          signature: data.signature, 
+          timestamp: data.timestamp 
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('⚠️ Cashback API xatosi:', err);
+      return null;
+    }
+  };
 
   const handlePrint = async () => {
     if (sales.length === 0 || isPrinting) return;
     setIsPrinting(true);
     setStatus('idle');
-    setResultText(t('printerConnecting'));   // "Printerga ulanmoqda..."
+    setResultText(t('printerConnecting'));
     setResultStatus('info');
 
-    const receiptId  = generateReceiptId();
-    const now        = new Date();
-    const sana       = now.toLocaleString('uz-UZ');
-
-    const isoDate   = now.toISOString().slice(0, 19);
-    const qrPayload = `ID:${receiptId}|${isoDate}`;
+    const receiptId = generateReceiptId();
 
     try {
-      // ── 1. USB printer ─────────────────────
+      // ── 1. Avval Backendda ro'yxatga olamiz (Signature olish uchun) ──
+      // Bu qadam HMAC imzo yaratish uchun shart
+      const authInfo = await registerCashback(receiptId, totalPrice);
+      
+      if (!authInfo) {
+        throw new Error("Keshbek tizimi bilan bog'lanishda xatolik yuz berdi");
+      }
+
+      // ✅ MUHIM: QR Payload formati (Backend tekshiruviga 100% mos)
+      // authInfo.timestamp qisqartirilmagan holda ishlatiladi
+      const qrPayload = `ID:${receiptId}|TS:${authInfo.timestamp}|SIG:${authInfo.signature}`;
+
+      // ── 2. USB printerga ulanish (WebUSB API) ──
       let device = cachedDevice.current;
       if (!device || !device.opened) {
         const paired = await (navigator as any).usb.getDevices();
@@ -125,28 +161,22 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         cachedDevice.current = device;
       }
 
-      setResultText(t('receiptPreparing'));  // "Chek tayyorlanmoqda..."
+      setResultText(t('receiptPreparing'));
 
-      // ── 2. ESC/POS ─────────────────────────
+      // ── 3. ESC/POS buyruqlarini shakllantirish ──
       const encoder = new TextEncoder();
-      const esc  = '\x1B';
-      const line = '--------------------------------\n';
+      const esc = '\x1B', line = '--------------------------------\n';
       const parts: Uint8Array[] = [];
-      const t2b  = (s: string) => encoder.encode(s);
+      const t2b = (s: string) => encoder.encode(s);
+      
+      // Chekda chiroyli ko'rinishi uchun lokal sana
+      const sanaLokal = new Date(authInfo.timestamp).toLocaleString('uz-UZ');
 
-      parts.push(t2b(`${esc}@`));
+      parts.push(t2b(`${esc}@`)); // Reset printer
+      parts.push(t2b(`${esc}a\x01${esc}!\x30SHOXPOSPRO\n${esc}!\x00`)); // Center align + Double height
+      parts.push(t2b(`Sana:    ${sanaLokal}\nChek ID: ${receiptId}\n${line}`));
 
-      // Sarlavha
-      parts.push(t2b(`${esc}a\x01${esc}!\x30SHOXPOSPRO\n${esc}!\x00`));
-
-      // Sana + ID
-      parts.push(t2b(
-        `Sana:    ${sana}\n` +
-        `Chek ID: ${receiptId}\n` +
-        line
-      ));
-
-      // Mahsulotlar
+      // Mahsulotlar ro'yxati
       for (const item of sales) {
         parts.push(t2b(
           `${item.name.substring(0, 30)}\n` +
@@ -154,65 +184,39 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         ));
       }
 
-      // Jami
-      const cashback = Math.round(totalPrice * 0.01);
-      parts.push(t2b(
-        `${line}` +
-        `${esc}a\x02${esc}E\x01JAMI: ${formatPrice(totalPrice)} so'm\n${esc}E\x00`
-      ));
+      const cashbackAmount = Math.round(totalPrice * 0.01);
+      parts.push(t2b(`${line}${esc}a\x02${esc}E\x01JAMI: ${formatPrice(totalPrice)} so'm\n${esc}E\x00`));
+      parts.push(t2b(`\n${esc}a\x01${line}  1% CASHBACK: ${formatPrice(cashbackAmount)} so'm\n  ShoxPay ilovasida scan qiling:\n\n`));
 
-      // ── 3. QR bo'limi ──────────────────────
-      parts.push(t2b(
-        `\n${esc}a\x01` +
-        `${line}` +
-        `  1% CASHBACK: ${formatPrice(cashback)} so'm\n` +
-        `  ShoxPay ilovasida scan qiling:\n\n`
-      ));
-
+      // QR kodni generatsiya qilish va chekka qo'shish
       const qrBitmap = await qrToBitmap(qrPayload, 280);
       parts.push(qrBitmap);
 
-      parts.push(t2b(
-        `\n\n  Chiqarildi: ${sana}\n` +
-        `  Muddat: 24 soat\n` +
-        `${line}`
-      ));
+      parts.push(t2b(`\n\n  Chiqarildi: ${sanaLokal}\n  Muddat: 24 soat\n${line}\n${esc}a\x01Xaridingiz uchun rahmat!\n\n\n\n`));
+      parts.push(new Uint8Array([0x1D, 0x56, 0x41, 0x00])); // Paper cut
 
-      parts.push(t2b(`\n${esc}a\x01Xaridingiz uchun rahmat!\n\n\n\n`));
-      parts.push(new Uint8Array([0x1D, 0x56, 0x41, 0x00]));
-
-      // ── 4. Merge va print ──────────────────
+      // Barcha qismlarni bitta massivga yig'ish
       const totalLen = parts.reduce((s, p) => s + p.length, 0);
-      const merged   = new Uint8Array(totalLen);
+      const merged = new Uint8Array(totalLen);
       let offset = 0;
       for (const p of parts) { merged.set(p, offset); offset += p.length; }
 
+      // Printerga yuborish
       await device.transferOut(1, merged);
 
-      // ── 5. Cashback + Sotuv ────────────────
-      registerCashback(receiptId, totalPrice);
+      // ── 4. Sotuvni ma'lumotlar bazasida yakunlash ──
       await finalizeSale();
 
-      setResultText(t('receiptPrinted'));    // "Chek chop etildi ✓"
+      setResultText(t('receiptPrinted'));
       setResultStatus('success');
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2800);
 
     } catch (err: any) {
       console.error('Printer xatosi:', err);
-
-      // Foydalanuvchi printer tanlamay oynani yopganda
-      const isNotSelected =
-        err?.message?.includes('No device selected') ||
-        err?.name === 'NotFoundError';
-
-      const errorMsg = isNotSelected
-        ? t('noPrinterSelected')
-        : `${t('errorPrefix')}: ${err.message || t('connectionFailed')}`;
-
-      setResultText(errorMsg);
-      setResultStatus('error');
       setStatus('error');
+      setResultStatus('error');
+      setResultText(`${t('errorPrefix')}: ${err.message}`);
       setTimeout(() => setStatus('idle'), 3200);
     } finally {
       setIsPrinting(false);
@@ -222,59 +226,38 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
   return (
     <>
       <style>{`
-        .printer-container {
-          position: relative; width: 40px; height: 40px;
-          border-radius: 10px; background: rgba(102,126,234,0.1);
-          color: #667eea; display: flex; align-items: center;
-          justify-content: center; overflow: hidden;
-        }
-        .receipt-paper {
-          position: absolute; bottom: -100%; left: 50%;
-          transform: translateX(-50%); width: 26px; height: 120px;
-          background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-          animation: paper-feed 3.2s cubic-bezier(0.25,0.1,0.25,1) forwards; z-index: 1;
-        }
-        @keyframes paper-feed {
-          0%   { bottom: -100%; opacity: 0.7; }
-          30%  { bottom: -15%;  opacity: 1;   }
-          100% { bottom: 0%;    opacity: 1;   }
-        }
+        .printer-container { position: relative; width: 40px; height: 40px; border-radius: 10px; background: rgba(102,126,234,0.1); color: #667eea; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .receipt-paper { position: absolute; bottom: -100%; left: 50%; transform: translateX(-50%); width: 26px; height: 120px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); animation: paper-feed 3.2s cubic-bezier(0.25,0.1,0.25,1) forwards; z-index: 1; }
+        @keyframes paper-feed { 0% { bottom: -100%; opacity: 0.7; } 30% { bottom: -15%; opacity: 1; } 100% { bottom: 0%; opacity: 1; } }
       `}</style>
-
-      <div
-        onClick={handlePrint}
-        style={{
-          background:    theme === 'dark' ? '#091020' : '#fff',
-          borderRadius:  16, padding: 20,
-          cursor:        isPrinting ? 'wait' : 'pointer',
-          border:        '1px solid #2a3144',
-          transition:    'all 0.3s ease',
-          opacity:       sales.length === 0 ? 0.5 : 1,
-          pointerEvents: sales.length === 0 ? 'none' : 'auto',
+      
+      <div 
+        onClick={handlePrint} 
+        style={{ 
+          background: theme === 'dark' ? '#091020' : '#fff', 
+          borderRadius: 16, 
+          padding: 20, 
+          cursor: isPrinting ? 'wait' : 'pointer', 
+          border: '1px solid #2a3144', 
+          transition: 'all 0.3s ease', 
+          opacity: sales.length === 0 ? 0.5 : 1, 
+          pointerEvents: sales.length === 0 ? 'none' : 'auto' 
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div className="printer-container">
               {status === 'idle' && !isPrinting && <Printer size={20} />}
-              {isPrinting           && <div className="receipt-paper" />}
+              {isPrinting && <div className="receipt-paper" />}
               {status === 'success' && <PrinterCheck size={22} color="#22c55e" />}
-              {status === 'error'   && <PrinterX     size={22} color="#ef4444" />}
+              {status === 'error' && <PrinterX size={22} color="#ef4444" />}
             </div>
             <div>
               <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
-                {isPrinting
-                  ? t('printing')           // "Chop etilmoqda..."
-                  : status === 'success'
-                    ? t('ready')            // "Tayyor"
-                    : t('printReceiptTitle') // "Chek Chop Etish"
-                }
+                {isPrinting ? t('printing') : status === 'success' ? t('ready') : t('printReceiptTitle')}
               </h4>
               <p style={{ fontSize: 13, color: '#8b92a7', margin: '4px 0 0 0' }}>
-                {isPrinting
-                  ? t('pleaseWait')         // "Iltimos kuting"
-                  : t('qrCashbackReceipt')  // "QR cashback bilan chek"
-                }
+                {isPrinting ? t('pleaseWait') : t('qrCashbackReceipt')}
               </p>
             </div>
           </div>
