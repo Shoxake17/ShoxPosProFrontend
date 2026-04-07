@@ -281,7 +281,7 @@ function POSSettingsPageContent() {
             )}
             {gIdx === 4 && (
               <>
-                <Email theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="email-card" />
+                {/* <Email theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="email-card" /> */}
                 <Logout theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />
               </>
             )}

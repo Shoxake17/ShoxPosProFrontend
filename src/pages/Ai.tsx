@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Send, Trash2, User, ChevronDown, Check,
-  Zap, AlertCircle, RefreshCw, Database,
+  BotMessageSquare, Zap, AlertCircle, RefreshCw, Database,
   Bot, Layers, BrainCircuit, FlaskConical
 } from 'lucide-react';
 import MainLayout from "../components/MainLayout";
@@ -18,7 +18,7 @@ const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?
     case 'llama-3.1-8b':     return <Zap {...s} />;
     case 'ds-v3-or':         return <Layers {...s} />;
     case 'ds-r1-or':         return <FlaskConical {...s} />;
-    case 'gemini-2.5-flash': return <Zap {...s} />;
+    case 'shox-ai-lite':     return <BotMessageSquare {...s} />;
     case 'llama-3.3-together': return <BrainCircuit {...s} />;
     case 'qwen-2.5-together':  return <Layers {...s} />;
     default:                 return <Bot {...s} />;
@@ -31,7 +31,7 @@ const ALL_MODELS = [
   { id: 'llama-3.1-8b',     name: 'LLaMA 3.1 · 8B',  provider: 'ShaddiyAi', endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'ShaddiyAi' },
   { id: 'ds-v3-or',         name: 'DeepSeek V3',     provider: 'OpenRouter', endpoint: '/api/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'OpenRouter' },
   { id: 'ds-r1-or',         name: 'DeepSeek R1',     provider: 'OpenRouter', endpoint: '/api/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-r1', color: '#3b82f6', badge: 'Fikrlovchi', group: 'OpenRouter' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google', endpoint: '/api/ask-gemini', groqModel: null, orModel: null, color: '#4285f4', badge: 'Yangi', group: 'Google' },
+  { id: 'shox-ai-lite',     name: 'ShoxAI Lite',     provider: 'ShoxPosPro', endpoint: '/api/shoxai-lite', groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' },
   { id: 'llama-3.3-together', name: 'Llama 3.3 (Together)', provider: 'Together.ai', endpoint: '/api/ask-together', togetherModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', orModel: null, color: '#00a3ff', badge: 'Tezkor', group: 'Together.ai' },
   { id: 'qwen-2.5-together', name: 'Qwen 2.5 72B', provider: 'Together.ai', endpoint: '/api/ask-together', togetherModel: 'Qwen/Qwen2.5-72B-Instruct-Turbo', orModel: null, color: '#8b5cf6', badge: 'Aqlli', group: 'Together.ai' },
 ] as const;
@@ -67,7 +67,7 @@ function renderMd(text: string): string {
 }
 
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai': [], 'llama-3.3-70b': [], 'llama-3.1-8b': [], 'ds-v3-or': [], 'ds-r1-or': [], 'gemini-2.5-flash': [],
+  'shox-ai': [], 'llama-3.3-70b': [], 'llama-3.1-8b': [], 'ds-v3-or': [], 'ds-r1-or': [], 'shox-ai-lite': [],
   'llama-3.3-together': [], 'qwen-2.5-together': []
 };
 
@@ -146,7 +146,7 @@ export default function Ai() {
         const newChats: ChatStore = { ...EMPTY_CHATS };
         history.forEach(msg => {
           const mId = msg.modelId as any;
-          const targetId = mId === 'gemini-pro' ? 'gemini-2.5-flash' : mId;
+          const targetId = (mId === 'gemini-pro' || mId === 'gemini-2.5-flash') ? 'shox-ai-lite' : mId;
           if (newChats[targetId as ModelId]) {
             newChats[targetId as ModelId].push(msg);
           } else {
@@ -299,7 +299,7 @@ QARZLAR: ${debtsData.length} ta`;
             {dropOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 280, background: card, border: `1px solid ${bdr}`, borderRadius: 20, padding: 8, zIndex: 1001, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
              
-                {['Shox AI', 'ShaddiyAi', 'OpenRouter', 'Google', ].map(group => ( //together.ai ni vaqtincha ajratib qo'ydim, 
+                {['Shox AI', 'ShaddiyAi', 'OpenRouter',  ].map(group => ( //together.ai ni vaqtincha ajratib qo'ydim, 
                   <div key={group}>
                     <div style={{ fontSize: 10, fontWeight: 800, color: sub, padding: '8px 14px 4px' }}>{group}</div>
                     {ALL_MODELS.filter(m => m.group === group).map(m => (
@@ -319,9 +319,7 @@ QARZLAR: ${debtsData.length} ta`;
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={clearChat} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 8 }}><Trash2 size={20}/></button>
-            <button onClick={() => setUseStore(!useStore)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 14, border: 'none', cursor: 'pointer', background: useStore ? '#10b981' : bdr, color: '#fff', fontWeight: 600 }}>
-              <Database size={14} /> {useStore ? t('storeDataOn') : t('normalAi')}
-            </button>
+            
           </div>
         </div>
 
@@ -353,7 +351,36 @@ QARZLAR: ${debtsData.length} ta`;
               </div>
             </div>
           ))}
-          {loading && <div style={{ color: activeModel.color, fontSize: 12 }}>{t('typing')}...</div>}
+          {loading && (
+  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '12px 18px', borderRadius: 18, borderBottomLeftRadius: 6,
+      background: card, border: `1px solid ${bdr}`,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    }}>
+      
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: activeModel.color,
+            display: 'inline-block',
+            animation: 'typingBounce 1.2s ease-in-out infinite',
+            animationDelay: `${i * 0.2}s`,
+            opacity: 0.85,
+          }} />
+        ))}
+      </div>
+      <style>{`
+        @keyframes typingBounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-6px); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  </div>
+)}
           <div ref={bottomRef} />
         </div>
 

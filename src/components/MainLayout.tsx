@@ -221,7 +221,7 @@ export default function MainLayout({
             <BatteryIndicator isCharging={isCharging} level={batteryLevel} isMobile={isMobile} theme={theme} />
             <NetworkIndicator isOnline={isOnline} isMobile={isMobile} />
             <Notification theme={theme} />
-            <ProfileAvatar userImage={userImage} isMobile={isMobile} theme={theme} />
+            {/* <ProfileAvatar userImage={userImage} isMobile={isMobile} theme={theme} /> */}
           </div>
         </header>
 
