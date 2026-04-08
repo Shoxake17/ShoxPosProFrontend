@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import axiosInstance from '../api/axiosInstance';
 import MainLayout from '../components/MainLayout';
 import { Search, Trash2, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../components/languages/MaxsulotBazasi';
 import { useCurrency } from '../context/CurrencyContext';
-import { getCategories, getCategoryEmoji, translateCategory } from '../components/Category';
+import { getCategories, getCategoryEmoji, translateCategory, getUserShopCategoriesAsync, syncUserCategoriesToIDB } from '../components/Category';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -14,6 +15,7 @@ import {
   saveToIDB,
   syncPendingToMongoDB,
   fetchFromMongoDB,
+  forceSyncFromMongoDB,
 } from '../hooks/useProductSync';
 
 interface Product {
@@ -41,16 +43,55 @@ export default function MaxsulotBazasi() {
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+  const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('currentUser') || '{}'));
+  const [userCategories, setUserCategories] = useState<string[]>([]);
   const login = user?.login || "";
 
-  const categoryOptions = getCategories(language);
+  // 🛡️ Sessiyani va IndexedDB kategoriyalarini yangilash
+  useEffect(() => {
+    const refreshData = async () => {
+      // 1. IndexedDB dan ol
+      const idbCats = await getUserShopCategoriesAsync(login);
+      if (idbCats.length > 0) {
+        setUserCategories(idbCats);
+      }
+
+      // 2. Agar sessiyada yo'q bo'lsa yoki IDB bo'sh bo'lsa, API dan ol
+      if (!user.shopCategories || idbCats.length === 0) {
+        try {
+          const res = await axiosInstance.get("/me");
+          if (res.data.success) {
+            const freshUser = res.data.user;
+            sessionStorage.setItem("currentUser", JSON.stringify(freshUser));
+            setUser(freshUser);
+            setUserCategories(freshUser.shopCategories || []);
+            // IndexedDB ga saqlash
+            syncUserCategoriesToIDB(freshUser.login, freshUser.shopCategories);
+          }
+        } catch (err) {
+          console.error("User refresh error:", err);
+        }
+      }
+    };
+    refreshData();
+  }, [login]);
+
+  const categoryOptions = getCategories(language, userCategories);
 
   // ─── Mahsulotlarni yuklash ────────────────────────────────────────────
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await loadProductsOfflineFirst(login);
+      let data = await loadProductsOfflineFirst(login);
+
+      // 🛡️ A01: Cashier faqat o'ziga ruxsat berilgan kategoriyalarni ko'ra oladi
+      if (user.role === 'cashier') {
+        const allowedCats = userCategories;
+        if (allowedCats.length > 0) {
+          data = data.filter(p => allowedCats.includes(p.category));
+        }
+      }
+
       setAllProducts(data);
       setProducts(data);
     } catch (err) {
@@ -58,18 +99,18 @@ export default function MaxsulotBazasi() {
     } finally {
       setLoading(false);
     }
-  }, [login]);
+  }, [login, user.role, userCategories]);
 
   useEffect(() => {
     if (!user || !user.login) { navigate('/'); return; }
     loadProducts();
-  }, [login]);
+  }, [login, loadProducts]);
 
   // ─── Online/Offline listener ──────────────────────────────────────────
   useEffect(() => {
     const handleOnline = async () => {
       setSyncing(true);
-      const count = await syncPendingToMongoDB();
+      const count = await syncPendingToMongoDB(login);
       if (count > 0) {
         toast.success(`${count} ta mahsulot yuklandi`, {
           position: 'top-right', autoClose: 4000,
@@ -91,7 +132,7 @@ export default function MaxsulotBazasi() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [loadProducts]);
+  }, [loadProducts, login]);
 
   // ─── Filter ───────────────────────────────────────────────────────────
   const applyFilter = (text: string, category: string, source: Product[]) => {
@@ -172,9 +213,8 @@ export default function MaxsulotBazasi() {
       return;
     }
     setSyncing(true);
-    const count = await syncPendingToMongoDB();
-    const mongoProducts = await fetchFromMongoDB(login);
-    for (const p of mongoProducts) await saveToIDB({ ...p, login });
+    const count = await syncPendingToMongoDB(login);
+    await forceSyncFromMongoDB(login);
     await loadProducts();
     setSyncing(false);
     toast.success(count > 0 ? `${count} ta sync bo'ldi` : "Barcha mahsulot saqlandi", {

@@ -1,6 +1,6 @@
 // src/components/Login/Authenticator.tsx
 import { useState } from 'react';
-import { getDeviceInfo } from '../../utils/deviceUtils';
+import { getDeviceInfo, getDeviceId } from '../../utils/deviceUtils';
 import axiosInstance, { getMemoryCsrfToken } from '../../api/axiosInstance';
 import { api } from '../../utils/api';
 
@@ -75,10 +75,8 @@ export const useAuthenticator = () => {
     _csrfTokenArg?: string,
   ): Promise<AuthenticatorResponse> => {
     try {
-      // deviceId — sessionStorage ustunligi bor (Login.tsx da shu tartibda yozilgan)
-      const deviceId =
-        sessionStorage.getItem("deviceId") ??
-        localStorage.getItem("deviceId");
+      // FingerprintJS orqali deviceId olish (asinxron)
+      const deviceId = await getDeviceId();
 
       if (!deviceId) {
         return { success: false, message: "Qurilma identifikatori topilmadi" };

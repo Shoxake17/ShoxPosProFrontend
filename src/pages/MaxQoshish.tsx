@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/MainLayout';
+import axiosInstance from '../api/axiosInstance';
 
 import { useTranslation } from '@/components/languages/MaxsulotQoshish';
-import { getCategories } from '@/components/Category';
+import { getCategories, getUserShopCategoriesAsync, syncUserCategoriesToIDB } from '@/components/Category';
 import {
   addProductOfflineFirst,
   fetchFromMongoDB,
   getAllFromIDB,
-  setupOnlineListener,
   syncPendingToMongoDB,
-} from '../hooks/useProductSync'; // yo'lni loyihangizga qarab o'zgartiring
+} from '../hooks/useProductSync';
 
 export default function MaxsulotQoshish() {
   const navigate = useNavigate();
@@ -29,36 +29,69 @@ export default function MaxsulotQoshish() {
   const [category, setCategory] = useState('');
   const [quantity, setQuantity] = useState('0');
 
-  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+  const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('currentUser') || '{}'));
+  const [userCategories, setUserCategories] = useState<string[]>([]);
   const login = user?.login || "";
 
-  const categories = getCategories(language);
+  // 🛡️ Sessiyani va IndexedDB kategoriyalarini yangilash
+  useEffect(() => {
+    const refreshData = async () => {
+      // 1. IndexedDB dan ol
+      const idbCats = await getUserShopCategoriesAsync(login);
+      if (idbCats.length > 0) {
+        setUserCategories(idbCats);
+      }
 
-  // ─── Online/Offline holat va avtomatik sync ──────────────────────────────
+      // 2. Agar sessiyada yo'q bo'lsa yoki IDB bo'sh bo'lsa, API dan ol
+      if (!user.shopCategories || idbCats.length === 0) {
+        try {
+          const res = await axiosInstance.get("/me");
+          if (res.data.success) {
+            const freshUser = res.data.user;
+            sessionStorage.setItem("currentUser", JSON.stringify(freshUser));
+            setUser(freshUser);
+            setUserCategories(freshUser.shopCategories || []);
+            // IndexedDB ga saqlash
+            syncUserCategoriesToIDB(freshUser.login, freshUser.shopCategories);
+          }
+        } catch (err) {
+          console.error("User refresh error:", err);
+        }
+      }
+    };
+    refreshData();
+  }, [login]);
+
+  // ─── Foydalanuvchi kategoriyalari ────────────────────────────────────────
+  const categories = getCategories(language, userCategories);
+
+  // Birinchi mavjud kategoriyani default tanlash
+  useEffect(() => {
+    const first = categories.find(c => c.value !== '');
+    if (first && !category) setCategory(first.value);
+  }, [categories, category]);
+
+  // ─── Online/Offline ───────────────────────────────────────────────────────
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
-      const count = await syncPendingToMongoDB();
+      const count = await syncPendingToMongoDB(login);
       if (count > 0) {
         setMessage({ type: 'info', text: `✅ ${count} ta mahsulot MongoDB ga sync bo'ldi` });
         setTimeout(() => setMessage(null), 3000);
       }
     };
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    // Component yuklanganda ham pending sync qilamiz
-    if (navigator.onLine) syncPendingToMongoDB();
-
+    if (navigator.onLine) syncPendingToMongoDB(login);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [login]);
 
-  // ─── Auth tekshirish ──────────────────────────────────────────────────────
+  // ─── Auth ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user || !user.login) navigate('/');
   }, [navigate]);
@@ -87,27 +120,17 @@ export default function MaxsulotQoshish() {
     }
   };
 
-  // ─── Barcode mavjudligini tekshirish ─────────────────────────────────────
+  // ─── Barcode tekshirish ───────────────────────────────────────────────────
   const checkBarcodeExists = async (bc: string): Promise<string | null> => {
-    // 1. IndexedDB dan tekshir
     const idbProducts = await getAllFromIDB(login);
-    const existIDB = idbProducts.find(
-      (p: any) => p.barcode.toLowerCase() === bc.toLowerCase()
-    );
-    if (existIDB) {
-      return `⚠️ Bu barcode IndexedDB da allaqachon mavjud: ${existIDB.barcode} — ${existIDB.name || '-'}`;
-    }
+    const existIDB = idbProducts.find((p: any) => p.barcode.toLowerCase() === bc.toLowerCase());
+    if (existIDB) return `⚠️ Bu barcode IndexedDB da allaqachon mavjud: ${existIDB.barcode} — ${existIDB.name || '-'}`;
 
-    // 2. Online bo'lsa MongoDB dan ham tekshir
     if (navigator.onLine) {
       try {
         const userProducts = await fetchFromMongoDB(login);
-        const existMongo = userProducts.find(
-          (p: any) => p.barcode.toLowerCase() === bc.toLowerCase()
-        );
-        if (existMongo) {
-          return `⚠️ Bu barcode MongoDB da allaqachon mavjud: ${existMongo.barcode} — ${existMongo.name || '-'}`;
-        }
+        const existMongo = userProducts.find((p: any) => p.barcode.toLowerCase() === bc.toLowerCase());
+        if (existMongo) return `⚠️ Bu barcode MongoDB da allaqachon mavjud: ${existMongo.barcode} — ${existMongo.name || '-'}`;
 
         const globalRes = await fetch(`/api/products/search?q=${encodeURIComponent(bc)}`);
         if (globalRes.ok) {
@@ -116,15 +139,12 @@ export default function MaxsulotQoshish() {
             return `⚠️ Bu barcode umumiy bazada mavjud: ${globalData[0].barcode} — ${globalData[0].name || '-'}`;
           }
         }
-      } catch {
-        // Online tekshiruv muvaffaqiyatsiz — davom etamiz
-      }
+      } catch { /* davom etamiz */ }
     }
-
     return null;
   };
 
-  // ─── Forma yuborish ───────────────────────────────────────────────────────
+  // ─── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -133,33 +153,27 @@ export default function MaxsulotQoshish() {
       return;
     }
 
+    // ✅ Kategoriya ruxsat tekshiruvi
+    if (userCategories.length > 0 && !userCategories.includes(category)) {
+      setMessage({
+        type: 'error',
+        text: "⚠️ Siz ushbu kategoriyaga mahsulot qo'sha olmaysiz. Faqat do'koningizga biriktirilgan kategoriyalar ruxsat etilgan.",
+      });
+      return;
+    }
+
     const bp = Number(basePrice);
     const sp = Number(price);
-
-    if (isNaN(bp) || isNaN(sp)) {
-      setMessage({ type: 'error', text: "Narxlar son bo'lishi kerak" });
-      return;
-    }
-    if (bp < 0 || sp < 0) {
-      setMessage({ type: 'error', text: "Narxlar musbat son bo'lishi kerak" });
-      return;
-    }
-    if (bp > sp) {
-      setMessage({ type: 'error', text: "⚠️ Ulgurji narx sotuv narxidan yuqori bo'lishi mumkin emas!" });
-      return;
-    }
+    if (isNaN(bp) || isNaN(sp)) { setMessage({ type: 'error', text: "Narxlar son bo'lishi kerak" }); return; }
+    if (bp < 0 || sp < 0) { setMessage({ type: 'error', text: "Narxlar musbat son bo'lishi kerak" }); return; }
+    if (bp > sp) { setMessage({ type: 'error', text: "⚠️ Ulgurji narx sotuv narxidan yuqori bo'lishi mumkin emas!" }); return; }
 
     setLoading(true);
     setMessage(null);
 
     try {
-      // Barcode tekshirish
       const barcodeError = await checkBarcodeExists(barcode.trim());
-      if (barcodeError) {
-        setMessage({ type: 'error', text: barcodeError });
-        setLoading(false);
-        return;
-      }
+      if (barcodeError) { setMessage({ type: 'error', text: barcodeError }); setLoading(false); return; }
 
       const productData = {
         name: name.trim(),
@@ -172,17 +186,8 @@ export default function MaxsulotQoshish() {
         addedAt: new Date().toISOString(),
       };
 
-      // Offline-first saqlash (IndexedDB + MongoDB agar online)
       await addProductOfflineFirst(productData);
-
-      const syncNote = !navigator.onLine
-        ? ''
-        : '';
-
-      setMessage({
-        type: 'success',
-        text: `✅ ${t('successMessage') || "Mahsulot muvaffaqiyatli qo'shildi"}${syncNote}`,
-      });
+      setMessage({ type: 'success', text: `✅ ${t('successMessage') || "Mahsulot muvaffaqiyatli qo'shildi"}` });
       setTimeout(() => navigate('/products'), 2000);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Xatolik yuz berdi' });
@@ -191,7 +196,6 @@ export default function MaxsulotQoshish() {
     }
   };
 
-  // ─── Message rang ─────────────────────────────────────────────────────────
   const msgColors = {
     success: { bg: theme === 'dark' ? '#10b98125' : '#10b98115', color: '#10b981', border: '#10b98144' },
     error:   { bg: theme === 'dark' ? '#ef444425' : '#ef444415', color: '#ef4444', border: '#ef444444' },
@@ -201,9 +205,6 @@ export default function MaxsulotQoshish() {
   return (
     <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('newProduct')}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-
-       
-
         <div style={{
           background: theme === 'dark' ? '#0f172a' : '#ffffff',
           borderRadius: '24px', padding: '32px',
@@ -241,11 +242,16 @@ export default function MaxsulotQoshish() {
             </div>
 
             <div style={{ marginBottom: '30px' }}>
-              <label style={labelStyle(theme)}>{t('category')} <span style={{ color: '#ef4444' }}>{t('required')}</span></label>
+              <label style={labelStyle(theme)}>
+                {t('category')} <span style={{ color: '#ef4444' }}>{t('required')}</span>
+              </label>
               <select value={category} onChange={e => setCategory(e.target.value)}
                 style={{ ...inputStyle(theme), cursor: 'pointer' }} required>
-                {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {categories.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
               </select>
+              
             </div>
 
             {message && (
@@ -261,8 +267,7 @@ export default function MaxsulotQoshish() {
             )}
 
             <button
-              type="submit"
-              disabled={loading}
+              type="submit" disabled={loading}
               style={{
                 width: '100%', padding: '16px', borderRadius: '14px', border: 'none',
                 background: loading ? '#64748b' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -271,8 +276,8 @@ export default function MaxsulotQoshish() {
                 boxShadow: loading ? 'none' : '0 4px 20px rgba(102,126,234,0.35)',
                 transition: 'all 0.3s ease',
               }}
-              onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-              onMouseLeave={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(0)'; } }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { if (!loading) e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               {loading ? t('saving') : t('saveProduct')}
             </button>

@@ -1,5 +1,7 @@
 // src/utils/deviceUtils.ts
 
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
+
 /**
  * Qurilma brendi va modelini User-Agent dan aniqlash
  */
@@ -151,4 +153,47 @@ export const getFullDeviceInfo = async () => {
 export const getRpId = () => {
   const hostname = window.location.hostname;
   return (hostname === 'localhost' || hostname === '127.0.0.1') ? 'localhost' : hostname;
+};
+
+/**
+ * Zaxira (fallback) qurilma identifikatori.
+ * FingerprintJS ishlamasa, userAgent va ekran ma'lumotlaridan hosil qilinadi.
+ */
+function getFallbackDeviceId(): string {
+  const ua = navigator.userAgent;
+  const screen = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+  const language = navigator.language;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  // Oddiy xeshlash (SHA-256 emas, shunchaki noyoblik uchun)
+  const str = `${ua}|${screen}|${language}|${timezone}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `fb-${Math.abs(hash).toString(16)}`;
+}
+
+let cachedDeviceId: string | null = null;
+
+/**
+ * FingerprintJS orqali noyob qurilma identifikatorini olish.
+ * localStorage va sessionStorage dan foydalanmaydi.
+ */
+export const getDeviceId = async (): Promise<string | null> => {
+  if (cachedDeviceId) return cachedDeviceId;
+  try {
+    // FingerprintJS v3+ load() funksiyasini ishlatadi
+    const fpPromise = FingerprintJS.load();
+    const fp = await fpPromise;
+    const result = await fp.get();
+    cachedDeviceId = result.visitorId;
+    return cachedDeviceId;
+  } catch (err) {
+    console.warn("FingerprintJS xatosi, fallback ishlatilmoqda:", err);
+    cachedDeviceId = getFallbackDeviceId();
+    return cachedDeviceId;
+  }
 };

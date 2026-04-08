@@ -6,42 +6,23 @@ import {
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Sotilgan';
 import { useCurrency } from '../context/CurrencyContext';
+import axiosInstance from '../api/axiosInstance';
+import { getReportsFromIDB } from '../hooks/useProductSync';
 
-// ─── IndexedDB — modül darajasida bir marta ochiladi ─────────────────────
-let reportsDB: IDBDatabase | null = null;
-
-const openReportsDB = (): Promise<IDBDatabase> => {
-  if (reportsDB) return Promise.resolve(reportsDB);
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("ShoxPosReports", 2);
-    req.onupgradeneeded = (e: any) => {
-      const db: IDBDatabase = e.target.result;
-      if (!db.objectStoreNames.contains("reports")) {
-        db.createObjectStore("reports", { keyPath: "id", autoIncrement: true });
-      }
-    };
-    req.onsuccess = (e: any) => {
-      reportsDB = e.target.result;
-      resolve(reportsDB!);
-    };
-    req.onerror = () => reject(req.error);
-  });
-};
-
-const loadReportsFromIDB = async (): Promise<any[]> => {
-  const db = await openReportsDB();
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction("reports", "readonly");
-    const req = tx.objectStore("reports").openCursor();
-    const arr: any[] = [];
-    req.onsuccess = (e: any) => {
-      const cursor = e.target.result;
-      if (cursor) { arr.push(cursor.value); cursor.continue(); }
-      else resolve(arr);
-    };
-    req.onerror = () => reject(req.error);
-  });
-};
+// 🔹 Backenddan (MongoDB bucket) yuklash
+async function loadReportsFromAPI(): Promise<any[]> {
+  try {
+    const raw = sessionStorage.getItem('currentUser');
+    const user = raw ? JSON.parse(raw) : null;
+    const login = user?.login;
+    if (!login) return [];
+    const res = await axiosInstance.get(`/sold-buckets/${login}`);
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    console.error('Sotilganlarni yuklashda xato:', e);
+    return [];
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 function ReportsContent() {
@@ -59,15 +40,23 @@ function ReportsContent() {
 
   const isMounted = useRef(true);
 
-  // ─── Ma'lumot yuklash — faqat kerak bo'lganda ─────────────────────────
+  // ─── Ma'lumot yuklash — API + IDB ─────────────────────────────────────
   const loadData = useCallback(async () => {
     if (!isMounted.current) return;
     setLoading(true);
     try {
-      const data = await loadReportsFromIDB();
-      if (isMounted.current) setReports(data);
+      // 1. API dan yuklash
+      const apiData = await loadReportsFromAPI();
+      
+      // 2. IDB dan yuklash (hali sync bo'lmaganlar)
+      const idbData = await getReportsFromIDB();
+      
+      // 3. Birlashtirish (idbData eng yangi bo'lishi mumkin)
+      const combined = [...idbData, ...apiData];
+      
+      if (isMounted.current) setReports(combined);
     } catch (err) {
-      console.error('IndexedDB xatosi:', err);
+      console.error('Yuklash xatosi:', err);
     } finally {
       if (isMounted.current) setLoading(false);
     }

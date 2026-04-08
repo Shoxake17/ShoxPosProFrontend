@@ -37,7 +37,17 @@ import { hydrateSessionUserFromCookie, getSessionLogin, clearAuthClientState } f
 
 import axiosInstance, { setMemoryCsrfToken } from "./api/axiosInstance";
 
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    updateSW(true);
+  },
+  onRegisteredSW(_, r) {
+    if (r) {
+      setInterval(() => r.update(), 30 * 60 * 1000);
+    }
+  }
+});
 
 import { MessageSquare } from "lucide-react";
 import { showBrowserNotification, notificationStorage } from "./admin/adminUtils/notificationUtils";

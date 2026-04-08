@@ -2,15 +2,11 @@
 
 
 import { useState, useEffect } from 'react';
-import { getDeviceInfo, getRpId } from '../../utils/deviceUtils';
+import { getDeviceInfo, getRpId, getDeviceId } from '../../utils/deviceUtils';
 import { getSocket } from '../../utils/socket';
 import { invalidateAuthCache } from "../ProtectedRoute";
 import { api } from '../../utils/api';
 import axiosInstance from '../../api/axiosInstance';
-
-// ✅ deviceId: sessionStorage → localStorage (migration)
-const getDeviceId = (): string | null =>
-  sessionStorage.getItem('deviceId') ?? localStorage.getItem('deviceId');
 
 export const useBiometric = () => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -43,7 +39,7 @@ export const useBiometric = () => {
 
   // ─── Serverdan biometrik holat tekshirish ────────────────────────────────
   const checkBiometricEnabled = async () => {
-    const deviceId = getDeviceId();
+    const deviceId = await getDeviceId();
     if (!deviceId) {
       setBiometricEnabled(false);
       return;
@@ -65,10 +61,7 @@ export const useBiometric = () => {
   };
 
   const clearBiometricCredential = () => {
-    const deviceId = getDeviceId();
-    if (deviceId) {
-      localStorage.removeItem(`biometric_${deviceId}`);
-    }
+    // Fingerprinting ishlatilganda localStorage kalitlarini saqlamaymiz
     setBiometricEnabled(false);
   };
 
@@ -86,9 +79,9 @@ export const useBiometric = () => {
     setLoading(true);
 
     try {
-      const deviceId = getDeviceId();
+      const deviceId = await getDeviceId();
       if (!deviceId) {
-        setMessage('error:DeviceId topilmadi');
+        setMessage("error:Qurilma identifikatori topilmadi");
         setLoading(false);
         return;
       }

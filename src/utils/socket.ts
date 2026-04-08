@@ -1,5 +1,6 @@
 // utils/socket.ts
 import { io, Socket } from 'socket.io-client';
+import { getDeviceId } from './deviceUtils';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || '';
 
@@ -17,29 +18,30 @@ function getCurrentLogin(): string {
   return '';
 }
 
-function getCurrentDeviceId(): string {
-  return sessionStorage.getItem('deviceId') || localStorage.getItem('deviceId') || '';
+async function getCurrentDeviceId(): Promise<string> {
+  return (await getDeviceId()) || '';
 }
 
 function getSocket(): Socket {
   if (!socket) {
     const login    = getCurrentLogin();
-    const deviceId = getCurrentDeviceId();
-
+    // Socket initialization is sync, but deviceId might be async.
+    // Initial connection will use whatever is available.
+    
     socket = io(SOCKET_URL, {
       path:                '/socket.io/',
       autoConnect:         true,
       withCredentials:     true,
       transports:          ['websocket', 'polling'],
       reconnection:        true,
-      reconnectionAttempts: Infinity, // Productionda har doim ulanishga harakat qilish kerak
+      reconnectionAttempts: Infinity, 
       reconnectionDelay:   2000,
-      auth: { login, deviceId }, 
+      auth: { login }, 
     });
 
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
       const _login    = getCurrentLogin();
-      const _deviceId = getCurrentDeviceId();
+      const _deviceId = await getCurrentDeviceId();
       console.log('Socket ulandi:', socket?.id, 'Login:', _login);
       if (_login && _deviceId) {
         socket?.emit('registerUser', { login: _login, deviceId: _deviceId });

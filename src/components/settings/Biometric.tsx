@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Fingerprint, ChevronRight } from "lucide-react";
 import { api } from '../../utils/api';
-import { getDeviceInfo, getRpId } from '../../utils/deviceUtils';
+import { getDeviceInfo, getRpId, getDeviceId } from '../../utils/deviceUtils';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -18,10 +18,7 @@ interface BiometricProps {
   handleSessionExpired: () => void;
 }
 
-// ✅ deviceId ni sessionStorage'dan olish (localStorage fallback — migration uchun)
-const getDeviceId = (): string | null => {
-  return sessionStorage.getItem('deviceId') ?? localStorage.getItem('deviceId');
-};
+// ✅ deviceId ni FingerprintJS orqali olish (deviceUtils dan olinadi)
 
 const Biometric: React.FC<BiometricProps> = ({
   theme, t,
@@ -43,7 +40,7 @@ const Biometric: React.FC<BiometricProps> = ({
   // ✅ Mount da biometrik holat tekshirish
   useEffect(() => {
     const fetchBiometricStatus = async () => {
-      const deviceId = getDeviceId();
+      const deviceId = await getDeviceId();
       if (!deviceId) {
         if (import.meta.env.DEV) {
           console.warn('[Biometric] Device ID topilmadi.');
@@ -82,7 +79,7 @@ const Biometric: React.FC<BiometricProps> = ({
         tRef.current('confirmDisableBiometric'),
         async () => {
           try {
-            const deviceId = getDeviceId();
+            const deviceId = await getDeviceId();
 
             const res = await api('/api/disable-biometric', {
               method: 'POST',
@@ -90,10 +87,11 @@ const Biometric: React.FC<BiometricProps> = ({
             });
 
             if (res.ok) {
-              // ✅ biometric_ localStorage kaliti O'CHIRILDI
-              if (deviceId) {
-                localStorage.removeItem(`biometric_${deviceId}`);
-              }
+          // ✅ biometric_ localStorage kaliti O'CHIRILDI
+          // Fingerprinting ishlatilganda localStorage ga saqlash shart emas
+          // if (deviceId) {
+          //   localStorage.removeItem(`biometric_${deviceId}`);
+          // }
 
               setBiometricEnabled(false);
               toast.error(
@@ -140,7 +138,7 @@ const Biometric: React.FC<BiometricProps> = ({
           return;
         }
 
-        const deviceId = getDeviceId();
+        const deviceId = await getDeviceId();
         if (!deviceId) {
           toast.error(tRef.current('deviceIdNotFound'), {
             position: "top-right",
@@ -229,7 +227,7 @@ const Biometric: React.FC<BiometricProps> = ({
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
           });
           // ✅ Eski biometric_ kalitini tozalash (migration — agar qolgan bo'lsa)
-          localStorage.removeItem(`biometric_${deviceId}`);
+          // localStorage.removeItem(`biometric_${deviceId}`);
         }
       } catch (err: any) {
         if (import.meta.env.DEV) {

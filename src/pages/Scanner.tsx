@@ -6,6 +6,13 @@ import {
   DollarSign, Receipt, ChevronRight
 } from 'lucide-react';
 
+import {
+  openDB,
+  getAllFromIDB,
+  saveToIDB,
+  openReportsDB,
+} from '../hooks/useProductSync';
+
 import { api } from "../utils/api";
 import MainLayout, { tc } from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/Scanner';
@@ -14,44 +21,8 @@ import { getSocket } from '../utils/socket';
 import { getSessionLogin } from '../utils/clientSession';
 import PrinterButton from '../components/PrinterButton';
 
-// ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
-const IDB_NAME    = 'ShoxPosDB';
-const IDB_VERSION = 5;
-const PRODUCTS_STORE = 'products';
-
-const REPORTS_DB_NAME    = 'ShoxPosReports';
-const REPORTS_DB_VERSION = 2;
-const REPORTS_STORE      = 'reports';
-
-// ✅ ShoxPosDB — promise-based, har safar yangi connection
-function openShoxPosDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = (e: any) => {
-      const db: IDBDatabase = e.target.result;
-      if (!db.objectStoreNames.contains(PRODUCTS_STORE))
-        db.createObjectStore(PRODUCTS_STORE, { keyPath: 'barcode' });
-      if (!db.objectStoreNames.contains('pendingSync'))
-        db.createObjectStore('pendingSync', { keyPath: 'barcode' });
-    };
-    req.onsuccess = (e: any) => resolve(e.target.result);
-    req.onerror   = () => reject(req.error);
-  });
-}
-
-// ✅ ShoxPosReports — promise-based (global var o'rniga)
-function openReportsDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(REPORTS_DB_NAME, REPORTS_DB_VERSION);
-    req.onupgradeneeded = (e: any) => {
-      const db: IDBDatabase = e.target.result;
-      if (!db.objectStoreNames.contains(REPORTS_STORE))
-        db.createObjectStore(REPORTS_STORE, { keyPath: 'id', autoIncrement: true });
-    };
-    req.onsuccess = (e: any) => resolve(e.target.result);
-    req.onerror   = () => reject(req.error);
-  });
-}
+// ─── IndexedDB yordamchi funksiyalari (Reports uchun) ─────────────────────
+const REPORTS_STORE = 'reports';
 
 // ✅ Reports ga xavfsiz yozish
 async function addReportSafe(items: any[], soldAt: string): Promise<void> {
@@ -75,36 +46,6 @@ async function addReportSafe(items: any[], soldAt: string): Promise<void> {
   } catch (err) {
     console.error('Reports yozishda xato:', err);
   }
-}
-
-async function getProductsFromIDB(login: string): Promise<any[]> {
-  try {
-    const db = await openShoxPosDB();
-    return new Promise((resolve) => {
-      const tx  = db.transaction(PRODUCTS_STORE, 'readonly');
-      const req = tx.objectStore(PRODUCTS_STORE).getAll();
-      req.onsuccess = () => {
-        db.close();
-        resolve((req.result || []).filter((p: any) => p.login === login));
-      };
-      req.onerror = () => { db.close(); resolve([]); };
-    });
-  } catch { return []; }
-}
-
-async function saveProductToIDB(product: any): Promise<void> {
-  try {
-    const db = await openShoxPosDB();
-    await new Promise<void>((resolve) => {
-      const tx = db.transaction(PRODUCTS_STORE, 'readwrite');
-      tx.objectStore(PRODUCTS_STORE).put({
-        ...product,
-        updatedAt: new Date().toISOString(),
-      });
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror    = () => { db.close(); resolve(); };
-    });
-  } catch { /* silent */ }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -171,7 +112,7 @@ function ScannerContent() {
 
   // ─── IDB cache yuklash ─────────────────────────────────────────────────
   const loadIdbCache = useCallback(async () => {
-    const products = await getProductsFromIDB(loginRef.current);
+    const products = await getAllFromIDB(loginRef.current);
     setIdbProducts(products);
     idbProductsRef.current = products;
   }, []);
@@ -277,7 +218,7 @@ function ScannerContent() {
       const cached       = idbProductsRef.current;
       const localProducts = cached.length > 0
         ? cached
-        : await getProductsFromIDB(login);
+        : await getAllFromIDB(login);
 
       if (cached.length === 0 && localProducts.length > 0) {
         setIdbProducts(localProducts);
@@ -301,7 +242,14 @@ function ScannerContent() {
             const results = await res.json();
             if (Array.isArray(results) && results.length > 0) {
               const found = results[0];
-              await saveProductToIDB({ ...found, login });
+              
+              // Agar umumiy bazadan topilgan bo'lsa, foydalanuvchi IDB siga saqlamaymiz, 
+              // faqat natijani qaytaramiz (sotishda narx so'raladi va keyin saqlanadi)
+              if (found.isGlobal) {
+                return { ...found, source: 'global' };
+              }
+
+              await saveToIDB({ ...found, login });
               setIdbProducts(prev => {
                 const exists  = prev.find(p => p.barcode === found.barcode);
                 if (exists) return prev;
@@ -339,7 +287,8 @@ function ScannerContent() {
 
     let productPrice = Number(product.price || 0);
 
-    if (productPrice === 0) {
+    // Agar narx 0 bo'lsa yoki mahsulot umumiy bazadan (global) bo'lsa — narx so'raymiz
+    if (productPrice === 0 || product.source === 'global') {
       const userPrice = prompt(`${product.name} ${tRef.current('enterPrice')}`);
       if (!userPrice || isNaN(Number(userPrice)) || Number(userPrice) <= 0) {
         setResultText(tRef.current('canceled'));
@@ -367,13 +316,19 @@ function ScannerContent() {
         }
       }
 
-      await saveProductToIDB({ ...product, price: productPrice, login });
+      await saveToIDB({ ...product, price: productPrice, login, quantity: product.source === 'global' ? count : product.quantity });
       setIdbProducts(prev => {
-        const updated = prev.map(p =>
-          String(p.barcode) === String(product.barcode)
-            ? { ...p, price: productPrice }
-            : p
-        );
+        const exists = prev.find(p => String(p.barcode) === String(product.barcode));
+        let updated;
+        if (exists) {
+          updated = prev.map(p =>
+            String(p.barcode) === String(product.barcode)
+              ? { ...p, price: productPrice }
+              : p
+          );
+        } else {
+          updated = [...prev, { ...product, price: productPrice, login, quantity: product.source === 'global' ? count : product.quantity }];
+        }
         idbProductsRef.current = updated;
         return updated;
       });
@@ -522,6 +477,7 @@ function ScannerContent() {
             category: item.category || '',
             total:    Number(item.price) * Number(item.count),
             soldAt:   timestampISO,
+            login:    login, // Offline sync uchun kerak
           });
         }
       });
@@ -534,7 +490,13 @@ function ScannerContent() {
           method: 'POST',
           body: JSON.stringify({ sales: payload }),
         });
-        if (!res.ok) throw new Error(tRef.current('saleSaveError'));
+        if (!res.ok) {
+          // Agar serverda xato bo'lsa (lekin internet bo'lsa) - offline store ga saqlaymiz
+          await addReportSafe(payload, timestampISO);
+        }
+      } else {
+        // Internet yo'q bo'lsa - offline store ga saqlaymiz
+        await addReportSafe(payload, timestampISO);
       }
 
       // ─── IDB yangilash ──────────────────────────────────────────────
@@ -544,14 +506,13 @@ function ScannerContent() {
         if (idx !== -1) {
           const newQty       = Math.max(0, (updatedIdb[idx].quantity || 0) - item.quantity);
           updatedIdb[idx]    = { ...updatedIdb[idx], quantity: newQty };
-          await saveProductToIDB(updatedIdb[idx]);
+          await saveToIDB(updatedIdb[idx]);
         }
       }
       setIdbProducts(updatedIdb);
       idbProductsRef.current = updatedIdb;
 
-      // ─── ✅ Reports — xavfsiz yozish (global var yo'q) ──────────────
-      await addReportSafe(payload, timestampISO);
+      // Sotilganlar ro'yxati endi faqat MongoDB (bucket) da saqlanadi
 
       // ─── Tozalash ───────────────────────────────────────────────────
       sessionStorage.removeItem('sales');

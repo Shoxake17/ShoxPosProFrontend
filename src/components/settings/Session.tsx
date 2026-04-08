@@ -7,10 +7,11 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getSocket } from '../../utils/socket';
 import { clearAuthClientState } from '../../utils/clientSession';
+import { getDeviceId } from '../../utils/deviceUtils';
 
-// ✅ sessionStorage ustunligi — localStorage fallback
-const getCurrentDeviceId = (): string =>
-  sessionStorage.getItem('deviceId') || localStorage.getItem('deviceId') || '';
+// ✅ deviceId ni asinxron olish (deviceUtils dan)
+const getCurrentDeviceId = async (): Promise<string> =>
+  (await getDeviceId()) || '';
 
 const getDeviceIcon = (type: string, os: string) => {
   if (type === 'desktop') return <Laptop size={28} />;
@@ -55,6 +56,7 @@ function DevicesModal({
   const [devices, setDevices]               = useState<any[]>([]);
   const [loading, setLoading]               = useState(true);
   const [kickingDeviceId, setKickingDeviceId] = useState<string | null>(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
   const isMounted = useRef(false);
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -64,10 +66,11 @@ function DevicesModal({
       if (!isMounted.current) return;
 
       const activeDevices  = (res.data.devices || []).filter((d: any) => d.isActive === true);
-      const currentDeviceId = getCurrentDeviceId();
-      const isStillActive  = activeDevices.some((d: any) => d.deviceId === currentDeviceId);
+      const cId = await getCurrentDeviceId();
+      setCurrentDeviceId(cId);
+      const isStillActive  = activeDevices.some((d: any) => d.deviceId === cId);
 
-      if (currentDeviceId && !isStillActive && activeDevices.length > 0) {
+      if (cId && !isStillActive && activeDevices.length > 0) {
         if (pollRef.current) clearInterval(pollRef.current);
         forceLogout(t('sessionKickedError'), theme);
         return;
@@ -178,7 +181,6 @@ function DevicesModal({
   };
 
   if (!isOpen) return null;
-  const currentDeviceId = getCurrentDeviceId();
 
   return (
     <div

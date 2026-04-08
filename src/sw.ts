@@ -1,4 +1,5 @@
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -8,6 +9,13 @@ cleanupOutdatedCaches();
 
 // Service Worker for ShoxPosPro PWA Notifications
 const CACHE_NAME = 'shoxpospro-cache-v1';
+
+// SPA navigatsiya — offline holatda ham index.html ga fallback
+const navigationHandler = createHandlerBoundToURL('/index.html');
+const navRoute = new NavigationRoute(navigationHandler, {
+  denylist: [/^\/api\//, /\/socket\.io\//],
+});
+registerRoute(navRoute);
 
 // Install event - caching basic assets if needed
 self.addEventListener('install', (event) => {

@@ -1,7 +1,8 @@
 // Login.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getFullDeviceInfo }           from '../utils/deviceUtils';
+import { getFullDeviceInfo, getDeviceId as getStoredDeviceId } from '../utils/deviceUtils';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import axiosInstance                   from '../api/axiosInstance';
 import { reconnectSocket, getSocket }  from '../utils/socket';
 import { getLayoutStyles }             from "../components/MainLayout";
@@ -15,6 +16,7 @@ import {
 
 import { useBiometric }      from '../components/Login/Biometric';
 import { useAuthenticator }  from '../components/Login/Authenticator';
+import { syncUserCategoriesToIDB } from '../components/Category';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -53,16 +55,17 @@ export default function Login() {
   }, []);
 
   // ─── DeviceId ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!localStorage.getItem("deviceId")) {
-      const id = crypto.randomUUID?.() ||
-        "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-          const r = (Math.random() * 16) | 0;
-          return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-        });
-      localStorage.setItem("deviceId", id);
-    }
-  }, []);
+  // Fingerprinting orqali aniqlanadi, localStorage ga saqlanmaydi
+  // useEffect(() => {
+  //   if (!localStorage.getItem("deviceId")) {
+  //     const id = crypto.randomUUID?.() ||
+  //       "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+  //         const r = (Math.random() * 16) | 0;
+  //         return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  //       });
+  //     localStorage.setItem("deviceId", id);
+  //   }
+  // }, []);
 
   // ─── CSRF token ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -134,7 +137,13 @@ export default function Login() {
     deviceType: string,
     deviceOS: string
   ) => {
-    if (user) sessionStorage.setItem("currentUser", JSON.stringify(user));
+    if (user) {
+      sessionStorage.setItem("currentUser", JSON.stringify(user));
+      // 🛡️ Kategoriyalarni IndexedDB ga saqlash
+      if (user.shopCategories) {
+        syncUserCategoriesToIDB(user.login, user.shopCategories);
+      }
+    }
 
     invalidateAuthCache();
     initSocketAfterLogin(loginName, deviceId, deviceType, deviceOS);
@@ -161,7 +170,15 @@ export default function Login() {
 
     setLoading(true);
 
-    const currentDeviceId = localStorage.getItem("deviceId") || "unknown";
+    // ─── Fingerprint orqali deviceId olish (deviceUtils dan asinxron) ─────────
+    const currentDeviceId = await getStoredDeviceId();
+
+    if (!currentDeviceId) {
+      setMessage("error:Qurilma identifikatori aniqlanmadi. Brauzer sozlamalarini tekshiring.");
+      setLoading(false);
+      return;
+    }
+
     const info = await getFullDeviceInfo();
     const deviceData = {
       deviceId:    currentDeviceId,
@@ -174,34 +191,34 @@ export default function Login() {
     setNewDeviceInfo(deviceData);
 
     try {
-      const result = await submitLoginWithAuth(login, password, csrfToken);
+      const authResult = await submitLoginWithAuth(login, password, csrfToken);
 
-      if (result.user?.blocked) {
-        setMessage(`error:${result.message || "Hisob bloklangan."}`);
+      if (authResult.user?.blocked) {
+        setMessage(`error:${authResult.message || "Hisob bloklangan."}`);
         return;
       }
 
-      if (result.requiresGoogleAuth) {
+      if (authResult.requiresGoogleAuth) {
         setShowGoogleAuthInput(true);
         setMessage("info:Google Authenticator kodini kiriting");
         return;
       }
 
-      if (result.requires2FA) {
+      if (authResult.requires2FA) {
         setShow2FAInput(true);
         setMessage("info:2FA kodini kiriting");
         return;
       }
 
-      if (result.message === "CONFIRM_DEVICE" || result.requires2FAAfterConfirm) {
-        setPendingDeviceInfo(result.activeDevice || null);
+      if (authResult.message === "CONFIRM_DEVICE" || authResult.requires2FAAfterConfirm) {
+        setPendingDeviceInfo(authResult.activeDevice || null);
         setShowDeviceConfirm(true);
         setMessage("");
         return;
       }
 
-      if (result.success) {
-        if (!validateStaffRole(result.user)) {
+      if (authResult.success) {
+        if (!validateStaffRole(authResult.user)) {
           sessionStorage.removeItem("currentUser");
           return;
         }
@@ -217,9 +234,9 @@ export default function Login() {
           return;
         }
 
-        onLoginSuccess(result.user, login, currentDeviceId, info.deviceType, info.deviceOS);
+        onLoginSuccess(authResult.user, login, currentDeviceId, info.deviceType, info.deviceOS);
       } else {
-        setMessage(`error:${result.message || "Login yoki parol xato"}`);
+        setMessage(`error:${authResult.message || "Login yoki parol xato"}`);
       }
     } catch (err) {
       console.error("❌ Login xatosi:", err);

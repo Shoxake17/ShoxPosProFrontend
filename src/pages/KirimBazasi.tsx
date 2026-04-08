@@ -3,63 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import MainLayout from "../components/MainLayout";
 import { useTranslation, TranslationProvider } from '../components/languages/KirimBazasi';
-import { getCategories, getCategoryEmoji, translateCategory } from '../components/Category';
+import { getCategories, getCategoryEmoji, translateCategory, getUserShopCategoriesAsync, syncUserCategoriesToIDB } from '../components/Category';
 import { Search, TrendingUp, TrendingDown, Package, DollarSign, RefreshCw } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
+import axiosInstance from '../api/axiosInstance';
 import { getSessionLogin } from "../utils/clientSession";
 import { useCurrency } from '../context/CurrencyContext';
+import {
+  openDB,
+  saveToIDB,
+  saveAllToIDB,
+  getAllFromIDB,
+  fetchFromMongoDB
+} from '../hooks/useProductSync';
 
-// ─── IndexedDB yordamchi funksiyalari ─────────────────────────────────────
-const IDB_NAME = 'ShoxPosDB';
-const IDB_VERSION = 5;
-const PRODUCTS_STORE = 'products';
+// ─── IndexedDB yordamchi funksiyalari (shared mantiq) ──────────────────────
 const PENDING_STORE = 'pendingSync';
-
-function openShoxPosDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = (e: any) => {
-      const db: IDBDatabase = e.target.result;
-      if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
-        db.createObjectStore(PRODUCTS_STORE, { keyPath: 'barcode' });
-      }
-      if (!db.objectStoreNames.contains(PENDING_STORE)) {
-        db.createObjectStore(PENDING_STORE, { keyPath: 'barcode' });
-      }
-    };
-    req.onsuccess = (e: any) => resolve(e.target.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function getAllFromIDB(login: string): Promise<any[]> {
-  try {
-    const db = await openShoxPosDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(PRODUCTS_STORE, 'readonly');
-      const req = tx.objectStore(PRODUCTS_STORE).getAll();
-      req.onsuccess = () => resolve((req.result || []).filter((p: any) => p.login === login));
-      req.onerror = () => resolve([]);
-    });
-  } catch { return []; }
-}
-
-async function saveToIDB(product: any): Promise<void> {
-  try {
-    const db = await openShoxPosDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(PRODUCTS_STORE, 'readwrite');
-      tx.objectStore(PRODUCTS_STORE).put({ ...product, updatedAt: new Date().toISOString() });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => resolve();
-    });
-  } catch { /* silent */ }
-}
 
 async function addToPending(data: any, action: 'update-base-price' | 'update-quantity'): Promise<void> {
   try {
-    const db = await openShoxPosDB();
+    const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(PENDING_STORE, 'readwrite');
       tx.objectStore(PENDING_STORE).put({ ...data, action });
@@ -71,7 +35,7 @@ async function addToPending(data: any, action: 'update-base-price' | 'update-qua
 
 async function getPending(): Promise<any[]> {
   try {
-    const db = await openShoxPosDB();
+    const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(PENDING_STORE, 'readonly');
       const req = tx.objectStore(PENDING_STORE).getAll();
@@ -83,7 +47,7 @@ async function getPending(): Promise<any[]> {
 
 async function removeFromPending(barcode: string): Promise<void> {
   try {
-    const db = await openShoxPosDB();
+    const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(PENDING_STORE, 'readwrite');
       tx.objectStore(PENDING_STORE).delete(barcode);
@@ -158,10 +122,39 @@ function KirimBazasiContent() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [idbCount, setIdbCount] = useState(0);
-
-  const categories = getCategories(language);
+  const [userCategories, setUserCategories] = useState<string[]>([]);
 
   const login = getSessionLogin();
+
+  // 🛡️ Kategoriyalarni IndexedDB dan olish va sinxronlash
+  useEffect(() => {
+    const refreshData = async () => {
+      if (!login) return;
+      // 1. IndexedDB dan ol
+      const idbCats = await getUserShopCategoriesAsync(login);
+      if (idbCats.length > 0) {
+        setUserCategories(idbCats);
+      }
+
+      // 2. Agar IDB bo'sh bo'lsa, API dan ol (faqat online bo'lsa)
+      if (idbCats.length === 0 && navigator.onLine) {
+        try {
+          const res = await axiosInstance.get("/me");
+          if (res.data.success) {
+            const freshUser = res.data.user;
+            setUserCategories(freshUser.shopCategories || []);
+            // IndexedDB ga saqlash
+            syncUserCategoriesToIDB(freshUser.login, freshUser.shopCategories);
+          }
+        } catch (err) {
+          console.error("KirimBazasi categories refresh error:", err);
+        }
+      }
+    };
+    refreshData();
+  }, [login]);
+
+  const categories = getCategories(language, userCategories);
   useEffect(() => {
     if (!login) navigate("/login", { replace: true });
   }, [login, navigate]);
@@ -217,17 +210,11 @@ function KirimBazasiContent() {
 
   const syncFromMongoDB = async (existingIdb: any[]) => {
     try {
-      const res = await api(`/api/products/user-products/${login}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!Array.isArray(data)) return;
+      const mongoProducts = await fetchFromMongoDB(login);
+      if (mongoProducts.length === 0) return;
 
-      const normalized = data.map((p: any) => ({ ...p, basePrice: p.basePrice || 0, login }));
-
-      const idbBarcodes = new Set(existingIdb.map((p: any) => p.barcode));
-      for (const p of normalized) {
-        if (!idbBarcodes.has(p.barcode)) await saveToIDB(p);
-      }
+      const normalized = mongoProducts.map((p: any) => ({ ...p, basePrice: p.basePrice || 0, login }));
+      await saveAllToIDB(normalized);
 
       if (existingIdb.length === 0) {
         setProducts(normalized);
@@ -320,6 +307,19 @@ function KirimBazasiContent() {
       toast.info(t('offlineSaqlandi'));                        // ✅ tarjima
     }
   };
+
+  // ─── Online/Offline listener ──────────────────────────────────────────
+  useEffect(() => {
+    const handleOnline = async () => {
+      const count = await syncPendingToMongoDB(login);
+      if (count > 0) {
+        toast.success(t('ozgarishSyncBoldi', { count: String(count) }));
+      }
+      loadProducts();
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [login]);
 
   // ─── Qo'lda sync ─────────────────────────────────────────────────────
   const manualSync = async () => {
