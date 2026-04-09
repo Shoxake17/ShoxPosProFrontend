@@ -12,6 +12,11 @@ interface PrinterButtonProps {
   setResultText: (text: string) => void;
   setResultStatus: (status: 'info' | 'success' | 'error') => void;
   socket?: any;
+  listenF8?: boolean;
+  customContent?: React.ReactNode;
+  printerConnected?: boolean | null;
+  printerModel?: string;
+  checkingPrinter?: boolean;
 }
 
 /**
@@ -30,7 +35,7 @@ function formatPrice(price: number): string {
 }
 
 /**
- * ── Canvas QR → ESC/POS bitmap ──────────────
+ * --- Canvas QR -> ESC/POS bitmap -----------------
  * Printerning grafik rejimida tushunadigan formatiga o'tkazish
  */
 async function qrToBitmap(text: string, printWidth = 300): Promise<Uint8Array> {
@@ -92,13 +97,23 @@ async function getCsrfToken(): Promise<string> {
 
 const PrinterButton: React.FC<PrinterButtonProps> = ({
   sales, totalPrice, theme, t, finalizeSale, setResultText, setResultStatus,
+  customContent, printerConnected, printerModel, checkingPrinter
 }) => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const cachedDevice = useRef<any>(null);
 
+  // Status text for the printer
+  const printerStatusText = checkingPrinter
+    ? 'Tekshirilmoqda...'
+    : printerConnected
+      ? `(OK) ${printerModel || 'Printer ulangan'}`
+      : 'Printer ulanmagan';
+
+  const printerStatusColor = printerConnected ? '#10b981' : '#8b92a7';
+
   /**
-   * ── Cashback ro'yxatga olish — Backend Proxy orqali ──
+   * --- Cashback ro'yxatga olish --- Backend Proxy orqali ---
    */
   const registerCashback = async (receiptId: string, totalAmount: number) => {
     try {
@@ -123,7 +138,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       }
       return null;
     } catch (err) {
-      console.error('⚠️ Cashback API xatosi:', err);
+      console.error('--- Cashback API xatosi:', err);
       return null;
     }
   };
@@ -138,7 +153,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
     const receiptId = generateReceiptId();
 
     try {
-      // ── 1. Avval Backendda ro'yxatga olamiz (Signature olish uchun) ──
+      // --- 1. Avval Backendda ro'yxatga olamiz (Signature olish uchun) ---
       // Bu qadam HMAC imzo yaratish uchun shart
       const authInfo = await registerCashback(receiptId, totalPrice);
       
@@ -146,11 +161,11 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         throw new Error("Keshbek tizimi bilan bog'lanishda xatolik yuz berdi");
       }
 
-      // ✅ MUHIM: QR Payload formati (Backend tekshiruviga 100% mos)
+      // MUHIM: QR Payload formati (Backend tekshiruviga 100% mos)
       // authInfo.timestamp qisqartirilmagan holda ishlatiladi
       const qrPayload = `ID:${receiptId}|TS:${authInfo.timestamp}|SIG:${authInfo.signature}`;
 
-      // ── 2. USB printerga ulanish (WebUSB API) ──
+      // --- 2. USB printerga ulanish (WebUSB API) ---
       let device = cachedDevice.current;
       if (!device || !device.opened) {
         const paired = await (navigator as any).usb.getDevices();
@@ -163,7 +178,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
 
       setResultText(t('receiptPreparing'));
 
-      // ── 3. ESC/POS buyruqlarini shakllantirish ──
+      // --- 3. ESC/POS buyruqlarini shakllantirish ---
       const encoder = new TextEncoder();
       const esc = '\x1B', line = '--------------------------------\n';
       const parts: Uint8Array[] = [];
@@ -204,7 +219,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       // Printerga yuborish
       await device.transferOut(1, merged);
 
-      // ── 4. Sotuvni ma'lumotlar bazasida yakunlash ──
+      // --- 4. Sotuvni ma'lumotlar bazasida yakunlash ---
       await finalizeSale();
 
       setResultText(t('receiptPrinted'));
@@ -244,25 +259,32 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
           pointerEvents: sales.length === 0 ? 'none' : 'auto' 
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div className="printer-container">
-              {status === 'idle' && !isPrinting && <Printer size={20} />}
-              {isPrinting && <div className="receipt-paper" />}
-              {status === 'success' && <PrinterCheck size={22} color="#22c55e" />}
-              {status === 'error' && <PrinterX size={22} color="#ef4444" />}
+        {customContent ? customContent : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <div className="printer-container">
+                {status === 'idle' && !isPrinting && <Printer size={20} />}
+                {isPrinting && <div className="receipt-paper" />}
+                {status === 'success' && <PrinterCheck size={22} color="#22c55e" />}
+                {status === 'error' && <PrinterX size={22} color="#ef4444" />}
+              </div>
+              <div>
+                <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
+                  {isPrinting ? t('printing') : status === 'success' ? t('ready') : t('printReceiptTitle')}
+                </h4>
+                <p style={{ 
+                  fontSize: 13, 
+                  color: printerStatusColor, 
+                  margin: '4px 0 0 0',
+                  fontWeight: printerConnected ? '600' : '400'
+                }}>
+                  {isPrinting ? t('pleaseWait') : printerStatusText}
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
-                {isPrinting ? t('printing') : status === 'success' ? t('ready') : t('printReceiptTitle')}
-              </h4>
-              <p style={{ fontSize: 13, color: '#8b92a7', margin: '4px 0 0 0' }}>
-                {isPrinting ? t('pleaseWait') : t('qrCashbackReceipt')}
-              </p>
-            </div>
+            <ChevronRight size={20} color="#8b92a7" />
           </div>
-          <ChevronRight size={20} color="#8b92a7" />
-        </div>
+        )}
       </div>
     </>
   );

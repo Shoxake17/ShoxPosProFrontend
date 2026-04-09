@@ -153,7 +153,7 @@ export default function MaxsulotBazasi() {
     setProducts(localResult);
     if (navigator.onLine && text.trim() && localResult.length === 0) {
       try {
-        const globalRes = await api(`/api/products/search?q=${encodeURIComponent(text.trim())}`);
+        const globalRes = await api(`/api/products/search?q=${encodeURIComponent(text.trim())}&login=${login}`);
         if (globalRes.ok) {
           let globalData: Product[] = await globalRes.json();
           if (category) globalData = globalData.filter(p => p.category === category);
