@@ -97,7 +97,7 @@ async function getCsrfToken(): Promise<string> {
 
 const PrinterButton: React.FC<PrinterButtonProps> = ({
   sales, totalPrice, theme, t, finalizeSale, setResultText, setResultStatus,
-  customContent, printerConnected, printerModel, checkingPrinter
+  customContent, printerConnected, printerModel, checkingPrinter, listenF8
 }) => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -111,6 +111,15 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       : 'Printer ulanmagan';
 
   const printerStatusColor = printerConnected ? '#10b981' : '#8b92a7';
+
+  // --- Listen for F8 or Mobile Print Event ---
+  React.useEffect(() => {
+    if (listenF8) {
+      const handlePrintEvent = () => handlePrint();
+      window.addEventListener('pos:chek', handlePrintEvent);
+      return () => window.removeEventListener('pos:chek', handlePrintEvent);
+    }
+  }, [listenF8, sales, totalPrice]); // Re-bind if sales/price change
 
   /**
    * --- Cashback ro'yxatga olish --- Backend Proxy orqali ---

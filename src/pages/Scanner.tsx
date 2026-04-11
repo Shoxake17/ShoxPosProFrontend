@@ -3,7 +3,8 @@ import { BrowserMultiFormatReader } from '@zxing/library';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Check, X,
-  DollarSign, CreditCard, Wallet, Printer, ScanLine
+  DollarSign, CreditCard, Wallet, Printer, ScanLine,
+  RefreshCcw
 } from 'lucide-react';
 
 import {
@@ -20,7 +21,6 @@ import { useCurrency } from '../context/CurrencyContext';
 import { getSocket } from '../utils/socket';
 import { getSessionLogin } from '../utils/clientSession';
 import PrinterButton from '../components/PrinterButton';
-import { useResponsive } from '../hooks/useResponsive';
 
 // --- IndexedDB yordamchi funksiyalari (Reports uchun) ---------------------
 const REPORTS_STORE = 'reports';
@@ -46,12 +46,30 @@ async function addReportSafe(items: any[], soldAt: string): Promise<void> {
 }
 // --------------------------------------------------------------------------
 
+// --- useResponsive hook (ichki, to'g'ri resize support bilan) ------------
+function useResponsive() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener('resize', handler);
+    window.addEventListener('orientationchange', handler);
+    return () => {
+      window.removeEventListener('resize', handler);
+      window.removeEventListener('orientationchange', handler);
+    };
+  }, []);
+
+  return { isMobile };
+}
+// --------------------------------------------------------------------------
+
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
   .pos-root * { box-sizing: border-box; margin: 0; padding: 0; }
   .pos-root {
-    font-family:  monospace;
+    font-family: 'Outfit', sans-serif;
     color: #e2e8f0;
     width: 100%;
   }
@@ -96,14 +114,14 @@ const styles = `
   .search-input:focus { border-color: #667eea; background: #131d35; }
   .search-input::placeholder { color: #4a5568; }
 
-  /* JAMMI box — search bilan balandligi teng */
+  /* JAMMI box */
   .jammi-box {
     height: 52px;
     padding: 0 22px;
     background: #111827;
     border: 1px solid #1e293b;
     border-radius: 14px;
-    font-family:  monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 17px;
     font-weight: 700;
     color: #667eea;
@@ -173,7 +191,7 @@ const styles = `
     box-shadow: 0 4px 16px rgba(6,182,212,0.12);
   }
 
-  /* Printer status satri (chek tugmasi ichida) */
+  /* Printer status satri */
   .printer-status-row {
     display: flex;
     align-items: center;
@@ -228,7 +246,7 @@ const styles = `
     padding: 14px 18px;
     font-size: 14px;
     font-weight: 500;
-    font-family: monospace;
+    font-family: 'Outfit', sans-serif;
     min-height: 52px;
   }
   .status-info  { border-color: rgba(102,126,234,0.3); color: #667eea; background: rgba(102,126,234,0.07); }
@@ -262,12 +280,18 @@ const styles = `
     gap: 8px;
   }
 
+  /* Desktop camera preview */
   .cam-preview {
     background: #0d1220;
     border: 1px solid #1e2740;
     border-radius: 14px;
     overflow: hidden;
     position: relative;
+  }
+  .cam-preview video {
+    width: 100%;
+    display: block;
+    border-radius: 14px;
   }
 
   @keyframes pulse-ring {
@@ -286,7 +310,10 @@ const styles = `
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #1e2740; border-radius: 2px; }
 
-  /* --- Mobile Bottom Bar --- */
+  /* =====================================================
+     MOBILE BOTTOM BAR
+     display:none by default — media query opens it
+  ===================================================== */
   .mobile-bottom-bar {
     display: none;
     position: fixed;
@@ -308,173 +335,214 @@ const styles = `
     padding-bottom: 8px;
     margin-bottom: 8px;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
   }
-  .bottom-bar-scroll::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+  .bottom-bar-scroll::-webkit-scrollbar { display: none; }
 
-  .mobile-action-btn {
-    flex: 0 0 auto;
-    min-width: 90px;
-    height: 70px;
+  /* =====================================================
+     MOBILE FULL-SCREEN CAMERA
+     position:fixed — always on top regardless of media query
+     Rendered only when showCamera=true AND isMobile=true
+  ===================================================== */
+  .cam-preview-mobile {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .cam-preview-mobile video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    transform: translate(-50%, -50%);
+    object-fit: cover;
+  }
+  .cam-overlay {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    border: none;
-    border-radius: 14px;
-    color: #fff;
-    cursor: pointer;
-    font-family: monospace ;
-    transition: transform 0.1s;
+    pointer-events: none;
+    z-index: 1510;
   }
-  .mobile-action-btn:active { transform: scale(0.95); }
+  .scan-square {
+    width: 260px;
+    height: 260px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 24px;
+    position: relative;
+    background: transparent;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  }
 
-  /* --- Responsive --- */
+  /* Corner brackets */
+  .square-corner-tl {
+    position: absolute; top: -4px; left: -4px;
+    width: 40px; height: 40px;
+    border-top: 5px solid #f59e0b;
+    border-left: 5px solid #f59e0b;
+    border-top-left-radius: 20px;
+  }
+  .square-corner-tr {
+    position: absolute; top: -4px; right: -4px;
+    width: 40px; height: 40px;
+    border-top: 5px solid #f59e0b;
+    border-right: 5px solid #f59e0b;
+    border-top-right-radius: 20px;
+  }
+  .square-corner-bl {
+    position: absolute; bottom: -4px; left: -4px;
+    width: 40px; height: 40px;
+    border-bottom: 5px solid #f59e0b;
+    border-left: 5px solid #f59e0b;
+    border-bottom-left-radius: 20px;
+  }
+  .square-corner-br {
+    position: absolute; bottom: -4px; right: -4px;
+    width: 40px; height: 40px;
+    border-bottom: 5px solid #f59e0b;
+    border-right: 5px solid #f59e0b;
+    border-bottom-right-radius: 20px;
+  }
+
+  /* Scanning line animation */
+  .scan-line-anim {
+    position: absolute;
+    top: 10px; left: 10px; right: 10px;
+    height: 3px;
+    background: #f59e0b;
+    box-shadow: 0 0 15px #f59e0b;
+    border-radius: 2px;
+    animation: scan-move 2.5s ease-in-out infinite;
+    z-index: 1520;
+  }
+  @keyframes scan-move {
+    0%   { top: 10px;  opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 242px; opacity: 0; }
+  }
+
+  /* Camera control buttons */
+  .cam-close-btn {
+    position: absolute;
+    top: env(safe-area-inset-top, 30px);
+    right: 20px;
+    z-index: 1600;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .cam-close-btn:active { transform: scale(0.9); }
+
+  .cam-switch-btn {
+    position: absolute;
+    bottom: 50px;
+    right: 30px;
+    z-index: 1600;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .cam-switch-btn:active { transform: scale(0.9); }
+
+  /* =====================================================
+     RESPONSIVE BREAKPOINTS
+  ===================================================== */
   @media (max-width: 900px) {
     .pos-search-row {
       grid-template-columns: 1fr;
     }
-    .jammi-box { display: none; } /* Hide JAMMI next to search on mobile */
+    .jammi-box {
+      display: none;
+    }
     .pos-main-grid {
       grid-template-columns: 1fr;
     }
     .pos-right-col {
-      display: none; /* Hide right column on mobile, use bottom bar instead */
+      display: none;
     }
+    /* CRITICAL FIX: No inline style override — CSS controls this */
     .mobile-bottom-bar {
-      display: block;
+      display: block !important;
     }
     .pos-root {
-      padding-bottom: 160px; /* Space for bottom bar */
+      padding-bottom: 180px;
     }
     .cart-card {
-      max-height: calc(100vh - 320px);
+      max-height: calc(100vh - 280px);
       overflow-y: auto;
     }
     .cart-card table {
       display: block;
       overflow-x: auto;
-      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
     }
-    
-    /* Full screen camera on mobile */
-    .cam-preview-mobile {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      background: #000;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .cam-preview-mobile video {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover;
-    }
-    .cam-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-    .scan-square {
-      width: 250px;
-      height: 250px;
-      border: 2px solid #667eea;
-      border-radius: 20px;
-      position: relative;
-      background: transparent;
-      box-shadow: 0 0 0 2000px rgba(0,0,0,0.5); /* Create dark overlay around square */
-    }
-    .scan-square::before, .scan-square::after {
-      content: '';
-      position: absolute;
-      width: 30px;
-      height: 30px;
-      border: 3px solid #667eea;
-    }
-    .scan-square::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: 15px; }
-    .scan-square::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: 15px; }
-    
-    .scan-line-anim {
-      position: absolute;
-      top: 0;
-      left: 10px;
-      right: 10px;
-      height: 2px;
-      background: #667eea;
-      box-shadow: 0 0 10px #667eea;
-      animation: scan-move 2s linear infinite;
-    }
-    @keyframes scan-move {
-      0% { top: 0; }
-      50% { top: 250px; }
-      100% { top: 0; }
-    }
-
-    .cam-close-btn {
-      position: absolute;
-      top: 30px;
-      right: 20px;
-      z-index: 10000;
-      background: rgba(255,255,255,0.2);
-      backdrop-filter: blur(5px);
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .cam-close-btn:active { transform: scale(0.9); }
   }
 
   @media (max-width: 600px) {
-    .pos-search-row { flex-direction: column; }
-    .jammi-box { display: none; }
-    .pos-search-wrap { flex: 1; width: 100%; }
+    .pos-search-wrap { width: 100%; }
     .pos-main-grid { gap: 10px; }
   }
 
   @media (max-width: 480px) {
-    .cart-card table { min-width: 100%; }
+    .cart-card table { min-width: 500px; }
   }
 `;
 
 function ScannerContent() {
   const { isMobile } = useResponsive();
-  const { t }      = useTranslation();
-  const { format } = useCurrency();
-  const navigate   = useNavigate();
+  const { t }        = useTranslation();
+  const { format }   = useCurrency();
+  const navigate     = useNavigate();
 
   const loginRef = useRef<string>(getSessionLogin() || 'unknown');
   const tRef     = useRef(t);
   useEffect(() => { tRef.current = t; }, [t]);
 
-  const [sales,             setSales]             = useState<any[]>(
+  const [sales,            setSales]            = useState<any[]>(
     () => JSON.parse(sessionStorage.getItem('sales') || '[]')
   );
-  const [resultText,        setResultText]        = useState('Tayyor');
-  const [resultStatus,      setResultStatus]      = useState<'info' | 'success' | 'error'>('info');
-  const [totalPrice,        setTotalPrice]        = useState(0);
-  const [cameraDevices,     setCameraDevices]     = useState<MediaDeviceInfo[]>([]);
-  const [selectedCamera,    setSelectedCamera]    = useState<string | null>(null);
-  const [manualBarcode,     setManualBarcode]     = useState('');
-  const [showCamera,        setShowCamera]        = useState(false);
-  const [scannerActive,     setScannerActive]     = useState(false);
-  const [userImage,         setUserImage]         = useState<string | null>(null);
-  const [theme,             setTheme]             = useState<'dark' | 'light'>('dark');
-  const [printerConnected,  setPrinterConnected]  = useState<boolean | null>(null);
-  const [printerModel,      setPrinterModel]      = useState<string>('');
-  const [checkingPrinter,   setCheckingPrinter]   = useState(false);
+  const [resultText,       setResultText]       = useState('Tayyor');
+  const [resultStatus,     setResultStatus]     = useState<'info' | 'success' | 'error'>('info');
+  const [totalPrice,       setTotalPrice]       = useState(0);
+  const [cameraDevices,    setCameraDevices]    = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera,   setSelectedCamera]   = useState<string | null>(null);
+  const [manualBarcode,    setManualBarcode]    = useState('');
+  const [showCamera,       setShowCamera]       = useState(false);
+  const [scannerActive,    setScannerActive]    = useState(false);
+  const [userImage,        setUserImage]        = useState<string | null>(null);
+  const [theme,            setTheme]            = useState<'dark' | 'light'>('dark');
+  const [printerConnected, setPrinterConnected] = useState<boolean | null>(null);
+  const [printerModel,     setPrinterModel]     = useState<string>('');
+  const [checkingPrinter,  setCheckingPrinter]  = useState(false);
 
   const [idbProducts, setIdbProducts] = useState<any[]>([]);
   const idbProductsRef = useRef<any[]>([]);
@@ -508,14 +576,29 @@ function ScannerContent() {
   useEffect(() => {
     openReportsDB().catch(err => console.warn('ReportsDB ochishda xato:', err));
     loadIdbCache();
-    codeReader.current.listVideoInputDevices().then(devices => {
-      setCameraDevices(devices);
-      if (devices.length > 0) setSelectedCamera(devices[0].deviceId);
-    });
+
+    // Kamera qurilmalarini aniqlash — foydalanuvchi ruxsatini so'rash
+    navigator.mediaDevices?.getUserMedia({ video: true })
+      .then(() => {
+        codeReader.current.listVideoInputDevices().then(devices => {
+          setCameraDevices(devices);
+          if (devices.length > 0) {
+            // Orqa kamerani ustuvorlik bilan tanlash (mobile uchun)
+            const backCamera = devices.find(d =>
+              d.label.toLowerCase().includes('back') ||
+              d.label.toLowerCase().includes('orqa') ||
+              d.label.toLowerCase().includes('environment')
+            );
+            setSelectedCamera(backCamera ? backCamera.deviceId : devices[0].deviceId);
+          }
+        });
+      })
+      .catch(err => console.warn('Kamera ruxsati yo\'q:', err));
+
     return () => { codeReader.current.reset(); };
   }, []);
 
-  // --- Camera -----------------------------------------------------------
+  // --- Camera state management -----------------------------------------
   useEffect(() => {
     if (showCamera && selectedCamera) {
       setScannerActive(true);
@@ -530,6 +613,19 @@ function ScannerContent() {
       startScanner(selectedCamera);
     }
   }, [scannerActive, selectedCamera]);
+
+  // Camera yopilganda stream'ni to'xtatish
+  useEffect(() => {
+    if (!showCamera) {
+      codeReader.current.reset();
+      // Video element stream'ni ham to'xtatish
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [showCamera]);
 
   // --- Sales total -----------------------------------------------------
   useEffect(() => {
@@ -584,21 +680,17 @@ function ScannerContent() {
     return () => clearInterval(interval);
   }, [checkPrinterStatus]);
 
-  // --- Keyboard shortcuts: F8 -> chek, F9 -> naqd, F10 -> plastik --------
+  // --- Keyboard shortcuts: F8 -> chek, F9 -> naqd, F10 -> plastik ------
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F8 --- Chek Chop Etish (printer orqali sotuv)
       if (e.key === 'F8') {
         e.preventDefault();
-        // PrinterButton ichidagi logikani trigger qilish uchun custom event
         window.dispatchEvent(new CustomEvent('pos:chek'));
       }
-      // F9 --- Naqd pul orqali sotuv
       if (e.key === 'F9') {
         e.preventDefault();
         finalizeSale('naqd');
       }
-      // F10 --- Plastik karta orqali sotuv
       if (e.key === 'F10') {
         e.preventDefault();
         finalizeSale('plastik');
@@ -606,7 +698,7 @@ function ScannerContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sales]); // sales dependency --- finalizeSale ichida sales ishlatiladi
+  }, [sales]);
 
   // --- Helpers ----------------------------------------------------------
   const normalizeText   = (text: string) => text.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -676,18 +768,30 @@ function ScannerContent() {
         try {
           await api('/api/products/update-or-add-user-product', {
             method: 'POST',
-            body: JSON.stringify({ login, barcode: product.barcode, name: product.name, price: productPrice, quantity: count, basePrice: 0, category: product.category || '' }),
+            body: JSON.stringify({
+              login, barcode: product.barcode, name: product.name,
+              price: productPrice, quantity: count, basePrice: 0,
+              category: product.category || '',
+            }),
           });
         } catch (err) { console.error('DB xato:', err); }
       }
-      await saveToIDB({ ...product, price: productPrice, login, quantity: product.source === 'global' ? count : product.quantity });
+      await saveToIDB({
+        ...product, price: productPrice, login,
+        quantity: product.source === 'global' ? count : product.quantity,
+      });
       setIdbProducts(prev => {
         const exists = prev.find(p => String(p.barcode) === String(product.barcode));
         let updated;
         if (exists) {
-          updated = prev.map(p => String(p.barcode) === String(product.barcode) ? { ...p, price: productPrice } : p);
+          updated = prev.map(p =>
+            String(p.barcode) === String(product.barcode) ? { ...p, price: productPrice } : p
+          );
         } else {
-          updated = [...prev, { ...product, price: productPrice, login, quantity: product.source === 'global' ? count : product.quantity }];
+          updated = [...prev, {
+            ...product, price: productPrice, login,
+            quantity: product.source === 'global' ? count : product.quantity,
+          }];
         }
         idbProductsRef.current = updated;
         return updated;
@@ -745,7 +849,9 @@ function ScannerContent() {
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && manualBarcode.trim()) {
         const query   = manualBarcode.trim();
-        const product = await getProductByBarcodeOrName(isLikelyBarcode(query) ? query : normalizeText(query));
+        const product = await getProductByBarcodeOrName(
+          isLikelyBarcode(query) ? query : normalizeText(query)
+        );
         if (product) await addToSales(product, 1);
         else { setResultText(tRef.current('productNotFound')); setResultStatus('error'); }
         setManualBarcode('');
@@ -754,31 +860,53 @@ function ScannerContent() {
     [manualBarcode, getProductByBarcodeOrName, addToSales]
   );
 
-  const startScanner = (deviceId: string) => {
+  // Kamera almashtirish (orqa/old)
+  const toggleCamera = useCallback(() => {
+    if (cameraDevices.length < 2) return;
+    const currentIndex = cameraDevices.findIndex(d => d.deviceId === selectedCamera);
+    const nextIndex    = (currentIndex + 1) % cameraDevices.length;
+    const nextDeviceId = cameraDevices[nextIndex].deviceId;
+    codeReader.current.reset();
+    setSelectedCamera(nextDeviceId);
+  }, [cameraDevices, selectedCamera]);
+
+  // Scanner ishga tushirish
+  const startScanner = useCallback((deviceId: string) => {
     if (!videoRef.current) return;
     codeReader.current.reset();
-    codeReader.current.decodeFromVideoDevice(deviceId, videoRef.current, async (result) => {
-      if (result && scannerActiveRef.current) {
-        setScannerActive(false);
-        codeReader.current.reset();
-        const scanned = result.getText().trim();
-        setResultText(`Barcode: ${scanned}`);
-        setResultStatus('success');
-        const product = await getProductByBarcodeOrName(scanned);
-        if (product) await addToSales(product, 1);
-        else { setResultText(tRef.current('productNotFound')); setResultStatus('error'); }
-        setShowCamera(false);
-        setTimeout(() => setScannerActive(false), 500);
+    codeReader.current.decodeFromVideoDevice(
+      deviceId,
+      videoRef.current,
+      async (result, err) => {
+        if (result && scannerActiveRef.current) {
+          setScannerActive(false);
+          codeReader.current.reset();
+          const scanned = result.getText().trim();
+          setResultText(`Barcode: ${scanned}`);
+          setResultStatus('info');
+          const product = await getProductByBarcodeOrName(scanned);
+          if (product) {
+            await addToSales(product, 1);
+          } else {
+            setResultText(tRef.current('productNotFound'));
+            setResultStatus('error');
+          }
+          setShowCamera(false);
+        }
       }
-    });
-  };
+    );
+  }, [getProductByBarcodeOrName, addToSales]);
 
   const finalizeSale = useCallback(async (paymentMethod = 'naqd') => {
     const login = loginRef.current;
     if (!login || login === 'unknown') { alert('Login topilmadi'); return; }
     if (sales.length === 0) { alert('Savat bo\'sh'); return; }
-    const hasInsufficientStock = sales.some(item => item.source === 'user' && item.count > (item.maxQuantity || 0));
-    if (hasInsufficientStock) { setResultText(tRef.current('outOfStock')); setResultStatus('error'); return; }
+    const hasInsufficientStock = sales.some(
+      item => item.source === 'user' && item.count > (item.maxQuantity || 0)
+    );
+    if (hasInsufficientStock) {
+      setResultText(tRef.current('outOfStock')); setResultStatus('error'); return;
+    }
 
     const timestampISO = new Date().toISOString();
     try {
@@ -806,7 +934,10 @@ function ScannerContent() {
       const payload = Array.from(groupedSales.values());
 
       if (navigator.onLine) {
-        const res = await api(`/api/sell-product/${login}`, { method: 'POST', body: JSON.stringify({ sales: payload }) });
+        const res = await api(`/api/sell-product/${login}`, {
+          method: 'POST',
+          body: JSON.stringify({ sales: payload }),
+        });
         if (!res.ok) await addReportSafe(payload, timestampISO);
       } else {
         await addReportSafe(payload, timestampISO);
@@ -850,27 +981,48 @@ function ScannerContent() {
     }
   }, []);
 
-  // --- Status icon -----------------------------------------------------
-  const StatusIcon = () => {
-    if (resultStatus === 'success') return <Check size={15} />;
-    if (resultStatus === 'error')   return <X     size={15} />;
-    return <Search size={15} />;
-  };
+  // Camera tugmasi bosilganda — mobilda ruxsat so'rash
+  const handleCameraToggle = useCallback(async () => {
+    if (!showCamera) {
+      // Ruxsat tekshirish
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // Agar qurilmalar hali yuklanmagan bo'lsa, qayta yukla
+        if (cameraDevices.length === 0) {
+          const devices = await codeReader.current.listVideoInputDevices();
+          setCameraDevices(devices);
+          if (devices.length > 0) {
+            const backCamera = devices.find(d =>
+              d.label.toLowerCase().includes('back') ||
+              d.label.toLowerCase().includes('environment')
+            );
+            setSelectedCamera(backCamera ? backCamera.deviceId : devices[0].deviceId);
+          }
+        }
+        setShowCamera(true);
+      } catch (err) {
+        setResultText('Kamera ruxsati rad etildi');
+        setResultStatus('error');
+      }
+    } else {
+      setShowCamera(false);
+    }
+  }, [showCamera, cameraDevices]);
 
-  // --- Printer status class ---------------------------------------------
-  const printerRowClass = checkingPrinter
-    ? 'printer-status-row printer-chk'
-    : printerConnected
-      ? 'printer-status-row printer-ok'
-      : 'printer-status-row printer-no';
-
+  // --- Derived values ---------------------------------------------------
   const printerStatusText = checkingPrinter
     ? 'Tekshirilmoqda...'
     : printerConnected
-      ? ` ${printerModel || 'Printer ulangan '}`
+      ? `${printerModel || 'Printer ulangan'}`
       : 'Printer ulanmagan';
 
-  // ---------------------------------------------------------------------
+  const StatusIcon = () => {
+    if (resultStatus === 'success') return <Check size={15} />;
+    if (resultStatus === 'error')   return <X size={15} />;
+    return <Search size={15} />;
+  };
+
+  // =====================================================================
   return (
     <>
       <style>{styles}</style>
@@ -882,9 +1034,9 @@ function ScannerContent() {
           title={t('salesTerminal')}
         >
           <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-            {/* --- Top row: Search input + JAMMI --------------------------- */}
+
+            {/* --- Search row + JAMMI ----------------------------------- */}
             <div className="pos-search-row">
-              {/* Search */}
               <div className="pos-search-wrap">
                 <Search
                   size={20}
@@ -898,6 +1050,7 @@ function ScannerContent() {
                   ref={searchRef}
                   className="search-input"
                   type="text"
+                  inputMode="text"
                   placeholder="Barkod raqamini yoki nomini kiriting"
                   value={manualBarcode}
                   onChange={e => setManualBarcode(e.target.value)}
@@ -905,8 +1058,6 @@ function ScannerContent() {
                   autoFocus
                 />
               </div>
-
-              {/* JAMMI --- search bilan balandligi teng (height: 52px) */}
               <div className="jammi-box">
                 JAMMI:&nbsp;<span style={{ color: '#a5b4fc' }}>{format(totalPrice)}</span>
               </div>
@@ -921,30 +1072,32 @@ function ScannerContent() {
                 {/* Status bar */}
                 <div className={`status-block ${
                   resultStatus === 'success' ? 'status-ok'
-                  : resultStatus === 'error' ? 'status-error'
+                  : resultStatus === 'error'  ? 'status-error'
                   : 'status-info'
                 }`}>
                   <StatusIcon />
-                  <span style={{ fontSize: 15, fontWeight: 500, fontFamily: "'Outfit', sans-serif" }}>{resultText}</span>
+                  <span style={{ fontSize: 15, fontWeight: 500, fontFamily: "'Outfit', sans-serif" }}>
+                    {resultText}
+                  </span>
                 </div>
 
                 {/* Cart table */}
                 <div className="cart-card">
-                  <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 340px)', minHeight: '300px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+                  <div style={{
+                    overflowX: 'auto', overflowY: 'auto',
+                    maxHeight: 'calc(100vh - 340px)', minHeight: '300px',
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
                       <thead>
                         <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
                           {['MAHSULOT NOMI', 'SHTRIX-KOD', 'SONI', 'NARXI', 'UMUMIY'].map((h, i) => (
                             <th key={h} style={{
                               padding: '16px 20px',
                               textAlign: i === 0 || i === 1 ? 'left' : 'center',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: '#94a3b8',
-                              letterSpacing: '0.5px',
-                              textTransform: 'uppercase',
-                              fontFamily: "'Outfit', sans-serif",
-                              background: '#1e293b'
+                              fontSize: 13, fontWeight: 600, color: '#94a3b8',
+                              letterSpacing: '0.5px', textTransform: 'uppercase',
+                              fontFamily: "'Outfit', sans-serif", background: '#1e293b',
+                              whiteSpace: 'nowrap',
                             }}>
                               {h}
                             </th>
@@ -955,11 +1108,8 @@ function ScannerContent() {
                         {sales.length === 0 ? (
                           <tr>
                             <td colSpan={5} style={{
-                              padding: '80px 20px',
-                              textAlign: 'center',
-                              color: '#4b5563',
-                              fontSize: 15,
-                              fontFamily: "'Outfit', sans-serif",
+                              padding: '80px 20px', textAlign: 'center',
+                              color: '#4b5563', fontSize: 15, fontFamily: "'Outfit', sans-serif",
                             }}>
                               <Search size={40} style={{ margin: '0 auto 16px', display: 'block', opacity: 0.2 }} />
                               Savat bo'sh — mahsulot qidiring yoki barkod o'qiting
@@ -969,8 +1119,9 @@ function ScannerContent() {
                           <tr key={item.barcode} className="cart-row" style={{ transition: 'background 0.15s' }}>
                             <td style={{
                               padding: '14px 20px', borderBottom: '1px solid #1e293b',
-                              fontSize: 15, color: '#e2e8f0', maxWidth: 300,
+                              fontSize: 15, color: '#e2e8f0', maxWidth: 200,
                               fontFamily: "'Outfit', sans-serif", fontWeight: 500,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                               {item.name}
                             </td>
@@ -990,12 +1141,14 @@ function ScannerContent() {
                             <td style={{
                               padding: '14px 20px', borderBottom: '1px solid #1e293b', textAlign: 'center',
                               fontFamily: "'JetBrains Mono', monospace", fontSize: 14, color: '#94a3b8',
+                              whiteSpace: 'nowrap',
                             }}>
                               {format(item.price)}
                             </td>
                             <td style={{
                               padding: '14px 20px', borderBottom: '1px solid #1e293b', textAlign: 'center',
-                              fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, color: '#f8fafc',
+                              fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700,
+                              color: '#f8fafc', whiteSpace: 'nowrap',
                             }}>
                               {format(item.count * item.price)}
                             </td>
@@ -1007,23 +1160,23 @@ function ScannerContent() {
                 </div>
               </div>
 
-              {/* RIGHT: action panel (Desktop) */}
+              {/* RIGHT: action panel (Desktop only) */}
               <div className="pos-right-col">
-                {/* 1. QR Scan */}
+                {/* QR Scan button */}
                 <button
-                  className={`qr-scan-block pos-btn pos-right-full ${showCamera ? 'active' : ''}`}
-                  onClick={() => setShowCamera(v => !v)}
+                  className={`qr-scan-block pos-btn ${showCamera ? 'active' : ''}`}
+                  onClick={handleCameraToggle}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{
-                      width: 42, height: 42, borderRadius: 10,
+                      width: 42, height: 42, borderRadius: 10, flexShrink: 0,
                       background: showCamera ? 'rgba(102,126,234,0.25)' : 'rgba(102,126,234,0.1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.2s', flexShrink: 0,
+                      transition: 'background 0.2s',
                     }}>
                       <ScanLine size={20} color={showCamera ? '#a5b4fc' : '#667eea'} />
                     </div>
-                    <div style={{ textAlign: 'left' }}>
+                    <div>
                       <div style={{
                         fontSize: 15, fontWeight: 700,
                         color: showCamera ? '#a5b4fc' : '#e2e8f0',
@@ -1038,44 +1191,19 @@ function ScannerContent() {
                   </div>
                 </button>
 
-                {/* Camera preview */}
-                {showCamera && (
-                  <div className={isMobile ? "cam-preview-mobile" : "cam-preview pos-right-full"}>
-                    {isMobile && (
-                      <>
-                        <button className="cam-close-btn" onClick={() => setShowCamera(false)}>
-                          <X size={24} />
-                        </button>
-                        <div className="cam-overlay">
-                          <div className="scan-square">
-                            <div className="scan-line-anim" />
-                          </div>
-                          <div style={{ marginTop: 24, color: '#fff', fontSize: 16, fontWeight: 500, fontFamily: "'Outfit', sans-serif", textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                            Barkodni kvadrat ichiga joylashtiring
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    <video
-                      ref={videoRef}
-                      autoPlay muted playsInline
-                      style={{
-                        width: '100%', display: 'block',
-                        transform: 'scaleX(-1)',
-                        borderRadius: isMobile ? 0 : 14,
-                      }}
-                    />
-                    {!isMobile && (
-                      <div style={{
-                        position: 'absolute', inset: 0, pointerEvents: 'none',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <div className="scanning" style={{
-                          width: 80, height: 80,
-                          border: '2px solid rgba(102,126,234,0.7)', borderRadius: 8,
-                        }} />
-                      </div>
-                    )}
+                {/* Desktop camera preview */}
+                {showCamera && !isMobile && (
+                  <div className="cam-preview">
+                    <video ref={videoRef} autoPlay muted playsInline />
+                    <div style={{
+                      position: 'absolute', inset: 0, pointerEvents: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <div className="scanning" style={{
+                        width: 80, height: 80,
+                        border: '2px solid rgba(102,126,234,0.7)', borderRadius: 8,
+                      }} />
+                    </div>
                   </div>
                 )}
 
@@ -1107,14 +1235,14 @@ function ScannerContent() {
                         <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>
                           Chek Chop Etish <span className="kbd">F8</span>
                         </div>
-                        <div style={{ 
-                          fontSize: 11, 
-                          color: printerStatusText.includes('(OK)') ? '#10b981' : '#64748b', 
-                          marginTop: 1, 
+                        <div style={{
+                          fontSize: 11,
+                          color: printerConnected ? '#10b981' : '#64748b',
+                          marginTop: 1,
                           fontFamily: "'Outfit', sans-serif",
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis'
+                          textOverflow: 'ellipsis',
                         }}>
                           {printerStatusText}
                         </div>
@@ -1130,9 +1258,13 @@ function ScannerContent() {
                     <div style={{ width: 42, height: 42, borderRadius: 10, flexShrink: 0, background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Wallet size={20} color="#10b981" />
                     </div>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>Naqd <span className="kbd">F9</span></div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: "'Outfit', sans-serif" }}>Naqd pul orqali sotuv</div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>
+                        Naqd <span className="kbd">F9</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: "'Outfit', sans-serif" }}>
+                        Naqd pul orqali sotuv
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -1142,9 +1274,13 @@ function ScannerContent() {
                     <div style={{ width: 42, height: 42, borderRadius: 10, flexShrink: 0, background: 'rgba(102,126,234,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <CreditCard size={20} color="#667eea" />
                     </div>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>Plastik <span className="kbd">F10</span></div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: "'Outfit', sans-serif" }}>Karta orqali sotuv</div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>
+                        Plastik <span className="kbd">F10</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: "'Outfit', sans-serif" }}>
+                        Karta orqali sotuv
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -1154,7 +1290,7 @@ function ScannerContent() {
                     <div style={{ width: 42, height: 42, borderRadius: 10, flexShrink: 0, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <DollarSign size={20} color="#f59e0b" />
                     </div>
-                    <div style={{ textAlign: 'left' }}>
+                    <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', fontFamily: "'Outfit', sans-serif" }}>Qarz</div>
                       <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, fontFamily: "'Outfit', sans-serif" }}>Qarzga berish</div>
                     </div>
@@ -1163,78 +1299,155 @@ function ScannerContent() {
               </div>
             </div>
 
-            {/* --- Mobile Bottom Bar --- */}
-            <div className="mobile-bottom-bar" style={{ display: window.innerWidth <= 900 ? 'block' : 'none' }}>
-              {/* Jami Summa Row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '0 4px' }}>
-                <div style={{ fontSize: 14, color: '#94a3b8', fontFamily: "'Outfit', sans-serif", fontWeight: 500 }}>Jami summa:</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#a5b4fc', fontFamily: "'JetBrains Mono', monospace" }}>{format(totalPrice)}</div>
+            {/* =========================================================
+                MOBILE BOTTOM BAR
+                ⚠️ inline style YO'Q — faqat CSS media query boshqaradi
+            ========================================================= */}
+            <div className="mobile-bottom-bar">
+              {/* Jami summa */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 12, padding: '0 4px',
+              }}>
+                <div style={{ fontSize: 14, color: '#94a3b8', fontFamily: "'Outfit', sans-serif", fontWeight: 500 }}>
+                  Jami summa:
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#a5b4fc', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {format(totalPrice)}
+                </div>
               </div>
 
-              {/* Scrollable Row: Qarz & Plastik (Yonga chiqsin) */}
-              <div className="bottom-bar-scroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', marginBottom: 12, paddingBottom: 4 }}>
-                <button 
-                  onClick={() => finalizeSale('plastik')} 
-                  style={{ background: 'rgba(79, 70, 229, 0.2)', color: '#818cf8', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: 10, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}
+              {/* Ikkinchi qator: Plastik va Qarz */}
+              <div className="bottom-bar-scroll">
+                <button
+                  onClick={() => finalizeSale('plastik')}
+                  style={{
+                    background: 'rgba(79,70,229,0.2)', color: '#818cf8',
+                    border: '1px solid rgba(129,140,248,0.3)', borderRadius: 10,
+                    padding: '8px 16px', display: 'flex', alignItems: 'center',
+                    gap: 8, cursor: 'pointer', flexShrink: 0, touchAction: 'manipulation',
+                  }}
                 >
                   <CreditCard size={16} />
                   <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Outfit', sans-serif" }}>Plastik</span>
                 </button>
-                <button 
-                  onClick={() => finalizeSale('qarz')} 
-                  style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.3)', borderRadius: 10, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}
+                <button
+                  onClick={() => finalizeSale('qarz')}
+                  style={{
+                    background: 'rgba(245,158,11,0.2)', color: '#fbbf24',
+                    border: '1px solid rgba(251,191,36,0.3)', borderRadius: 10,
+                    padding: '8px 16px', display: 'flex', alignItems: 'center',
+                    gap: 8, cursor: 'pointer', flexShrink: 0, touchAction: 'manipulation',
+                  }}
                 >
                   <DollarSign size={16} />
                   <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Outfit', sans-serif" }}>Qarz</span>
                 </button>
               </div>
 
-              {/* Main Action Row: Qr Scanner, Printer Scanner, Naqd (Asosiylari) */}
+              {/* Asosiy qator: Scanner, Printer, Naqd */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                <button 
-                  onClick={() => setShowCamera(v => !v)} 
-                  style={{ 
-                    background: showCamera ? '#4f46e5' : '#1e293b', 
-                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px', 
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                <button
+                  onClick={handleCameraToggle}
+                  style={{
+                    background: showCamera ? '#4f46e5' : '#1e293b',
+                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    touchAction: 'manipulation',
                   }}
                 >
                   <ScanLine size={24} />
-                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Qr Scanner</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>
+                    Qr Scanner
+                  </span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => window.dispatchEvent(new CustomEvent('pos:chek'))}
-                  style={{ 
-                    background: '#06b6d4', 
-                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px', 
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(6,182,212,0.2)'
+                  style={{
+                    background: '#06b6d4',
+                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(6,182,212,0.2)',
+                    touchAction: 'manipulation',
                   }}
                 >
                   <Printer size={24} />
-                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Printer</span>
-                  <span style={{ fontSize: 9, opacity: 0.9 }}>{printerConnected ? '(OK)' : 'Yo\'q'}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>
+                    Printer
+                  </span>
+                  <span style={{ fontSize: 9, opacity: 0.9 }}>
+                    {printerConnected ? '(OK)' : 'Yo\'q'}
+                  </span>
                 </button>
 
-                <button 
-                  onClick={() => finalizeSale('naqd')} 
-                  style={{ 
-                    background: '#10b981', 
-                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px', 
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(16,185,129,0.2)'
+                <button
+                  onClick={() => finalizeSale('naqd')}
+                  style={{
+                    background: '#10b981',
+                    color: '#fff', border: 'none', borderRadius: 14, padding: '14px 10px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.2)',
+                    touchAction: 'manipulation',
                   }}
                 >
                   <Wallet size={24} />
-                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Naqd</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>
+                    Naqd
+                  </span>
                 </button>
               </div>
             </div>
           </div>
         </MainLayout>
       </div>
+
+      {/* ================================================================
+          MOBILE FULL-SCREEN CAMERA
+          — JSX dan to'g'ridan-to'g'ri render (MainLayout tashqarisida)
+          — position:fixed, z-index:1500 — har doim ko'rinadi
+      ================================================================ */}
+      {showCamera && isMobile && (
+        <div className="cam-preview-mobile">
+          {/* Yopish tugmasi */}
+          <button
+            className="cam-close-btn"
+            onClick={() => setShowCamera(false)}
+          >
+            <X size={24} />
+          </button>
+
+          {/* Kamera almashtirish (agar bir nechta kamera bo'lsa) */}
+          {cameraDevices.length > 1 && (
+            <button className="cam-switch-btn" onClick={toggleCamera}>
+              <RefreshCcw size={28} />
+            </button>
+          )}
+
+          {/* Video stream */}
+          <video ref={videoRef} autoPlay muted playsInline />
+
+          {/* Skaner overlay */}
+          <div className="cam-overlay">
+            <div className="scan-square">
+              <div className="square-corner-tl" />
+              <div className="square-corner-tr" />
+              <div className="square-corner-bl" />
+              <div className="square-corner-br" />
+              <div className="scan-line-anim" />
+            </div>
+            <div style={{
+              marginTop: 32, color: '#fff', fontSize: 15, fontWeight: 500,
+              fontFamily: "'Outfit', sans-serif",
+              textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+              textAlign: 'center', padding: '0 32px',
+            }}>
+              Barkodni kvadrat ichiga joylashtiring
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

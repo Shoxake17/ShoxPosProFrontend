@@ -102,7 +102,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
             right: 0,
             bottom: 0,
             background: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 99,
+            zIndex: 1999,
             animation: 'fadeIn 0.3s ease'
           }}
         />
@@ -118,7 +118,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
           background: theme === "dark" ? "#0f1420" : "#ffffff",
           borderRight: `1px solid ${theme === "dark" ? "#1a1f2e" : "#e2e8f0"}`,
           padding: "30px 0",
-          zIndex: 100,
+          zIndex: 2000,
           transition: "width 0.3s ease",
           overflowX: "hidden",
           transform: isMobile && !isOpen ? 'translateX(-280px)' : 'translateX(0)',
