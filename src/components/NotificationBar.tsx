@@ -233,7 +233,8 @@ const NotifCard: React.FC<{
 // Main Component
 // ─────────────────────────────────────────────
 const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
-  const { t, language } = useTranslation(["notification", "common"]);
+  const { t, i18n } = useTranslation(["notification", "common"]);
+  const language = i18n.language;
   const [open, setOpen]               = useState(false);
   const [animate, setAnimate]         = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);

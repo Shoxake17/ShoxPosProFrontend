@@ -130,9 +130,11 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
           }}
         >
           {/* Joriy iconni oq rangda ko'rsatish */}
-          {React.cloneElement(ALL_ITEMS.find(i => i.id === currentId)?.icon(true) as React.ReactElement, { 
-            stroke: 'white', width: 32, height: 32 
-          })}
+          {React.cloneElement(ALL_ITEMS.find(i => i.id === currentId)?.icon(true) as any, { 
+    stroke: 'white', 
+    width: 32, 
+    height: 32 
+})}
         </button>
         <span style={{
           fontSize: 11, fontWeight: 900, color: '#818cf8',
