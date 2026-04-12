@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { getDeviceInfo, getRpId, getDeviceId } from '../../utils/deviceUtils';
 import { getSocket } from '../../utils/socket';
-import { invalidateAuthCache } from "../ProtectedRoute";
+import { invalidateAuthCache } from "../layout/ProtectedRoute";
 import { api } from '../../utils/api';
 import axiosInstance from '../../api/axiosInstance';
 

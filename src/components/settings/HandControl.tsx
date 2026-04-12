@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HandMetal, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 // ✅ Tarjima hookini import qilamiz
-import { useTranslation } from '../languages/Settings'; 
+import { useTranslation } from 'react-i18next'; 
 
 interface HandControlProps {
   theme: 'dark' | 'light';
@@ -13,7 +13,7 @@ interface HandControlProps {
 
 const HandControl: React.FC<HandControlProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
   // ✅ Tarjima funksiyasini chaqiramiz
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
 
   const [isEnabled, setIsEnabled] = useState(() => {
     return localStorage.getItem('handControlEnabled') === 'true';

@@ -3,7 +3,7 @@ import {
   Bell, Package, AlertTriangle, XCircle, X, ShoppingCart,
 } from "lucide-react";
 import { loadProductsOfflineFirst } from "../hooks/useProductSync";
-import { useTranslation } from "./languages/Settings";
+import { useTranslation } from "react-i18next";
 import { getTranslation } from "./languages/NotificationLanguages";
 import { isNotificationsEnabled } from "./settings/Notification";
 
@@ -233,7 +233,7 @@ const NotifCard: React.FC<{
 // Main Component
 // ─────────────────────────────────────────────
 const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
-  const { t, language } = useTranslation();
+  const { t, language } = useTranslation(["notification", "common"]);
   const [open, setOpen]               = useState(false);
   const [animate, setAnimate]         = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);

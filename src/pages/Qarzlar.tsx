@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from "../utils/api";
-import MainLayout from "../components/MainLayout";
+import MainLayout from "../components/layout/MainLayout";
 import { useResponsive } from "../hooks/useResponsive";
-import { useTranslation, TranslationProvider } from '../components/languages/Qarzlar';
+
+// ✅ Professional i18next importi
+import { useTranslation } from 'react-i18next';
+
 import { useCurrency } from '../context/CurrencyContext';
-import { Plus, X, TrendingUp, Users, DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, X, TrendingUp, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clearAuthClientState } from "../utils/clientSession";
 
 interface Qarz {
@@ -23,7 +26,8 @@ function formatDate(dateStr: string): string {
 }
 
 function QarzlarContent() {
-  const { t } = useTranslation();
+  // ✅ i18next hook (namespace: qarzlar, common)
+  const { t } = useTranslation(['qarzlar', 'common']);
   const { format } = useCurrency();
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
@@ -42,29 +46,23 @@ function QarzlarContent() {
   const [modalType, setModalType] = useState<'input' | 'success' | 'error' | null>(null);
   const [modalMessage, setModalMessage] = useState<string | null>(null);
 
-  // ✅ login — bir marta o'qiladi, ref sifatida saqlanadi
   const loginRef = useRef<string>(
     (() => {
       try {
         const u = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
         return u?.login || "";
-      } catch {
-        return "";
-      }
+      } catch { return ""; }
     })()
   );
   const login = loginRef.current;
 
-  // ✅ navigate ref
   const navigateRef = useRef(navigate);
   useEffect(() => { navigateRef.current = navigate; }, [navigate]);
 
-  // ✅ Auth check — bir marta
   useEffect(() => {
     if (!login) navigateRef.current('/login');
-  }, []); // bo'sh — faqat mount
+  }, [login]);
 
-  // ✅ Theme & image — bir marta
   useEffect(() => {
     const savedTheme = (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
     setTheme(savedTheme);
@@ -73,7 +71,6 @@ function QarzlarContent() {
     if (savedImage) setUserImage(savedImage);
   }, []);
 
-  // ✅ fetchDebts — bo'sh dependency (login ref orqali, navigate ref orqali)
   const fetchDebts = useCallback(async () => {
     if (!loginRef.current) return;
     try {
@@ -90,12 +87,11 @@ function QarzlarContent() {
     } finally {
       setLoading(false);
     }
-  }, []); // ✅ bo'sh — login/navigate ref orqali, hech qachon qayta yaratilmaydi
+  }, []);
 
-  // ✅ Bir marta yuklash
   useEffect(() => {
     fetchDebts();
-  }, []); // ✅ bo'sh — fetchDebts endi o'zgarmaydi
+  }, [fetchDebts]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,7 +126,7 @@ function QarzlarContent() {
     const tolov = Number(paymentAmountInput);
     if (isNaN(tolov) || tolov <= 0) {
       setModalType('error');
-      setModalMessage(t('invalidAmountEntered'));
+      setModalMessage(t('qarzlar:invalidAmountEntered'));
       return;
     }
 
@@ -144,11 +140,11 @@ function QarzlarContent() {
         const result = await res.json();
         if (result.action === "fully_paid") {
           setModalType('success');
-          setModalMessage(t('debtFullyPaid'));
+          setModalMessage(t('qarzlar:debtFullyPaid'));
           setQarzlar(prev => prev.filter(q => q.id !== selectedDebt.id));
         } else {
           setModalType('success');
-          setModalMessage(t('partialPayment', { remainder: result.amount.toLocaleString() }));
+          setModalMessage(t('qarzlar:partialPayment', { remainder: result.amount.toLocaleString() }));
           setQarzlar(prev => prev.map(q =>
             q.id === selectedDebt.id
               ? { ...q, amount: result.amount, lastPayment: result.lastPayment }
@@ -157,11 +153,11 @@ function QarzlarContent() {
         }
       } else {
         setModalType('error');
-        setModalMessage(t('paymentError'));
+        setModalMessage(t('qarzlar:paymentError'));
       }
     } catch {
       setModalType('error');
-      setModalMessage(t('serverConnectionError'));
+      setModalMessage(t('qarzlar:serverConnectionError'));
     }
   };
 
@@ -169,7 +165,7 @@ function QarzlarContent() {
     e.preventDefault();
     if (!name.trim() || !phone.startsWith('+') || !amount || Number(amount) <= 0) {
       setModalType('error');
-      setModalMessage(t('fillAllFieldsCorrectly'));
+      setModalMessage(t('qarzlar:fillAllFieldsCorrectly'));
       setShowPaymentModal(true);
       return;
     }
@@ -188,12 +184,12 @@ function QarzlarContent() {
         setAmount('');
       } else {
         setModalType('error');
-        setModalMessage(t('addDebtError'));
+        setModalMessage(t('qarzlar:addDebtError'));
         setShowPaymentModal(true);
       }
     } catch {
       setModalType('error');
-      setModalMessage(t('serverConnectionError'));
+      setModalMessage(t('qarzlar:serverConnectionError'));
       setShowPaymentModal(true);
     }
   };
@@ -202,56 +198,53 @@ function QarzlarContent() {
 
   if (loading) {
     return (
-      <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("debts")}>
+      <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("qarzlar:debts")}>
         <div style={{ textAlign: 'center', padding: '60px 20px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>
-          <p style={{ fontSize: '18px', fontWeight: 500 }}>{t("loading")}</p>
+          <p style={{ fontSize: '18px', fontWeight: 500 }}>{t("qarzlar:loading")}</p>
         </div>
       </MainLayout>
     );
   }
 
   return (
-    <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("debts")}>
-      {/* Stats */}
+    <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t("qarzlar:debts")}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <StatCard icon={<TrendingUp size={20} color="#ef4444" />} title={t("totalDebt")} value={format(umumiyQarz)} color="#ef4444" theme={theme} />
-        <StatCard icon={<Users size={20} color="#667eea" />} title={t("debtorsCount")} value={qarzlar.length.toString()} color="#667eea" theme={theme} />
+        <StatCard icon={<TrendingUp size={20} color="#ef4444" />} title={t("qarzlar:totalDebt")} value={format(umumiyQarz)} color="#ef4444" theme={theme} />
+        <StatCard icon={<Users size={20} color="#667eea" />} title={t("qarzlar:debtorsCount")} value={qarzlar.length.toString()} color="#667eea" theme={theme} />
       </div>
 
-      {/* Form */}
       <div style={{ background: theme === 'dark' ? '#1a1f2e' : '#fff', borderRadius: '16px', padding: '28px', marginBottom: '32px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("addNewDebt")}</h3>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("qarzlar:addNewDebt")}</h3>
         <form onSubmit={qarzQoshish}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-            <InputGroup label={t("name")} value={name} onChange={setName} placeholder={t("enterDebtorName")} theme={theme} />
-            <InputGroup label={t("phone")} value={phone} onChange={(val) => {
+            <InputGroup label={t("qarzlar:name")} value={name} onChange={setName} placeholder={t("qarzlar:enterDebtorName")} theme={theme} />
+            <InputGroup label={t("qarzlar:phone")} value={phone} onChange={(val: string) => {
               const formatted = val.replace(/[^\d+]/g, '');
               setPhone(formatted.startsWith('+') ? formatted : '+' + formatted);
             }} placeholder="+998..." type="tel" theme={theme} />
-            <InputGroup label={t("debtAmount")} value={amount} onChange={setAmount} placeholder={`0 ${t('currencyUnit')}`} type="number" theme={theme} />
+            <InputGroup label={t("qarzlar:debtAmount")} value={amount} onChange={setAmount} placeholder={`0 ${t('qarzlar:currencyUnit')}`} type="number" theme={theme} />
           </div>
           <button type="submit" className="add-btn">
-            <Plus size={18} /> {t("add")}
+            <Plus size={18} /> {t("qarzlar:add")}
           </button>
         </form>
       </div>
 
-      {/* Table */}
       <div style={{ background: theme === 'dark' ? '#1a1f2e' : '#fff', borderRadius: '16px', padding: '28px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("debtorsList")}</h3>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>{t("qarzlar:debtorsList")}</h3>
         {qarzlar.length === 0 ? (
-          <EmptyState theme={theme} text={t("noDebtsYet")} />
+          <EmptyState theme={theme} text={t("qarzlar:noDebtsYet")} />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
               <thead>
                 <tr style={{ background: theme === 'dark' ? '#0f1420' : '#f8f9ff' }}>
-                  <Th label={t('number')} theme={theme} align="left" isFirst />
-                  <Th label={t("nameHeader")} theme={theme} align="left" />
-                  <Th label={t("phoneHeader")} theme={theme} align="left" />
-                  <Th label={t("amountHeader")} theme={theme} align="right" />
-                  <Th label={t("date")} theme={theme} align="center" />
-                  <Th label={t("action")} theme={theme} align="center" isLast />
+                  <Th label={t('qarzlar:number')} theme={theme} align="left" isFirst />
+                  <Th label={t("qarzlar:nameHeader")} theme={theme} align="left" />
+                  <Th label={t("qarzlar:phoneHeader")} theme={theme} align="left" />
+                  <Th label={t("qarzlar:amountHeader")} theme={theme} align="right" />
+                  <Th label={t("qarzlar:date")} theme={theme} align="center" />
+                  <Th label={t("qarzlar:action")} theme={theme} align="center" isLast />
                 </tr>
               </thead>
               <tbody>
@@ -263,7 +256,7 @@ function QarzlarContent() {
                     <td style={{ padding: '16px', textAlign: 'right', fontSize: '15px', fontWeight: 600, color: '#ef4444' }}>{format(qarz.amount)}</td>
                     <td style={{ padding: '16px', textAlign: 'center', fontSize: '13px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{formatDate(qarz.lastPayment)}</td>
                     <td style={{ padding: '16px', textAlign: 'center', borderRadius: '0 12px 12px 0' }}>
-                      <button onClick={() => openPaymentModal(qarz)} className="pay-btn">{t("pay")}</button>
+                      <button onClick={() => openPaymentModal(qarz)} className="pay-btn">{t("qarzlar:pay")}</button>
                     </td>
                   </tr>
                 ))}
@@ -273,15 +266,14 @@ function QarzlarContent() {
         )}
       </div>
 
-      {/* Modal */}
       {showPaymentModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ background: theme === 'dark' ? '#1a1f2e' : '#ffffff', color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>
             <div className="modal-header">
               <h2>
                 {modalType === 'input'
-                  ? t('paymentPrompt', { name: selectedDebt?.name || '', amount: selectedDebt?.amount.toLocaleString() || '' })
-                  : modalType === 'success' ? t('success') : t('error')}
+                  ? t('qarzlar:paymentPrompt', { name: selectedDebt?.name || '', amount: selectedDebt?.amount.toLocaleString() || '' })
+                  : modalType === 'success' ? t('qarzlar:success') : t('qarzlar:error')}
               </h2>
               <button onClick={closeModal} className="close-btn"><X size={24} /></button>
             </div>
@@ -292,20 +284,20 @@ function QarzlarContent() {
                     type="number"
                     value={paymentAmountInput}
                     onChange={(e) => setPaymentAmountInput(e.target.value)}
-                    placeholder={t('enterAmount')}
+                    placeholder={t('qarzlar:enterAmount')}
                     className="modal-input"
                     style={{ background: theme === 'dark' ? '#0f1420' : '#f8f9ff', color: theme === 'dark' ? '#fff' : '#000', border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}` }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                    <button onClick={closeModal} className="btn-cancel">{t('cancel')}</button>
-                    <button onClick={handlePaymentConfirm} className="btn-confirm">{t('confirm')}</button>
+                    <button onClick={closeModal} className="btn-cancel">{t('qarzlar:cancel')}</button>
+                    <button onClick={handlePaymentConfirm} className="btn-confirm">{t('qarzlar:confirm')}</button>
                   </div>
                 </>
               ) : (
                 <div style={{ textAlign: 'center', padding: '20px' }}>
                   {modalType === 'success' ? <CheckCircle size={64} color="#10b981" /> : <AlertTriangle size={64} color="#ef4444" />}
                   <p style={{ fontSize: '18px', margin: '20px 0' }}>{modalMessage}</p>
-                  <button onClick={closeModal} className="btn-ok">{t('ok')}</button>
+                  <button onClick={closeModal} className="btn-ok">{t('qarzlar:ok')}</button>
                 </div>
               )}
             </div>
@@ -366,9 +358,5 @@ const EmptyState = ({ theme, text }: any) => (
 );
 
 export default function Qarzlar() {
-  return (
-    <TranslationProvider>
-      <QarzlarContent />
-    </TranslationProvider>
-  );
+  return <QarzlarContent />;
 }

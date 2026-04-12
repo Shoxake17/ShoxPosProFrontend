@@ -1,0 +1,22 @@
+{
+  "salesTerminal": "Sotuv terminali",
+  "ready": "Tayyor",
+  "barcodePlaceholder": "Shtrix-kod yoki nom kiriting",
+  "totalPrice": "JAMMI",
+  "productName": "MAHSULOT NOMI",
+  "barcode": "SHTRIX-KOD",
+  "quantity": "SONI",
+  "price": "NARXI",
+  "subtotal": "UMUMIY",
+  "cartEmpty": "Savat bo'sh — mahsulot qidiring",
+  "qrScan": "QR Scan",
+  "naqd": "Naqd",
+  "plastik": "Plastik",
+  "qarz": "Qarz",
+  "saleSuccess": "Sotuv muvaffaqiyatli yakunlandi",
+  "saleError": "Xatolik yuz berdi",
+  "productNotFound": "Mahsulot topilmadi",
+  "outOfStock": "Omborda yetarli mahsulot yo'q",
+  "scanSquareText": "Barkodni kvadrat ichiga joylashtiring",
+  "added": "qo'shildi"
+}

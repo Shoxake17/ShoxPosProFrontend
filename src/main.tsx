@@ -4,15 +4,21 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { Toaster, toast } from "sonner";
 import { registerSW } from 'virtual:pwa-register';
 
+// ✅ i18next konfiguratsiyasini import qilamiz (bu juda muhim!)
+import './i18n'; 
+
 import Login            from "./pages/Login";
-import ProtectedRoute   from "./components/ProtectedRoute";
+import ProtectedRoute   from "./components/layout/ProtectedRoute";
 import NotFound         from "./pages/NotFound";
 
-import { TranslationProvider, useTranslation } from "./components/languages/Settings";
 import { HandTrackingProvider } from "./context/HandTrackingContext";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import { subscribeToPushNotifications } from './utils/pushNotification';
-// Lazy loading components for other pages
+
+// ✅ react-i18next dan hook import qilamiz
+import { useTranslation } from 'react-i18next';
+
+// Lazy loading components
 const Menu           = lazy(() => import("./pages/Menu"));
 const Settings       = lazy(() => import("./pages/Settings"));
 const Chatbot        = lazy(() => import("./pages/Ai"));
@@ -23,18 +29,16 @@ const Scan           = lazy(() => import("./pages/Hisobotlar"));
 const Scanner        = lazy(() => import("./pages/Scanner"));
 const Sotilgan       = lazy(() => import("./pages/Sotilgan"));
 const Qarzlar        = lazy(() => import("./pages/Qarzlar"));
-const KirimBazasi   = lazy(() => import("./pages/KirimBazasi"));
-const AdminPanel    = lazy(() => import("./admin/adminPages/AdminMenu"));
-const AdminSettings = lazy(() => import("./admin/adminPages/AdminSettings"));
-const AdminAddUser  = lazy(() => import("./admin/adminPages/AdminAddUser"));
-const ChatAdmin     = lazy(() => import("./admin/adminPages/ChatAdmin"));
-// const AdminLayout   = lazy(() => import("./adminComponents/AdminLayout"));
+const KirimBazasi    = lazy(() => import("./pages/KirimBazasi"));
+const AdminPanel     = lazy(() => import("./admin/adminPages/AdminMenu"));
+const AdminSettings  = lazy(() => import("./admin/adminPages/AdminSettings"));
+const AdminAddUser   = lazy(() => import("./admin/adminPages/AdminAddUser"));
+const ChatAdmin      = lazy(() => import("./admin/adminPages/ChatAdmin"));
 
 import { getSocket, disconnectSocket }         from "./utils/socket";
 import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
-import { invalidateAuthCache }                 from "./components/ProtectedRoute";
+import { invalidateAuthCache }                 from "./components/layout/ProtectedRoute";
 import { hydrateSessionUserFromCookie, getSessionLogin, clearAuthClientState } from "./utils/clientSession";
-
 import axiosInstance, { setMemoryCsrfToken } from "./api/axiosInstance";
 
 const updateSW = registerSW({
@@ -53,12 +57,14 @@ import { MessageSquare } from "lucide-react";
 import { showBrowserNotification, notificationStorage } from "./admin/adminUtils/notificationUtils";
 
 // ─────────────────────────────────────────────────────────────
-// GlobalSocketListener — app umri davomida bir marta mount bo'ladi
+// GlobalSocketListener
 // ─────────────────────────────────────────────────────────────
 function GlobalSocketListener() {
   const navigate    = useNavigate();
   const navigateRef = useRef(navigate);
-  const { t } = useTranslation();
+  
+  // ✅ Standart useTranslation ishlatamiz
+  const { t } = useTranslation(['common', 'settings']);
 
   useEffect(() => {
     navigateRef.current = navigate;
@@ -67,43 +73,37 @@ function GlobalSocketListener() {
 
   useEffect(() => {
     const socket = getSocket();
-
     const login = getSessionLogin();
+    
     if (login) {
-      subscribeToPushNotifications()
-    }    
-    // 🛡️ Ulanishni tekshirish
+      subscribeToPushNotifications();
+    }     
+    
     if (!socket.connected) socket.connect();
 
-    // ── Yangi xabarlarni tinglash (Global bildirishnoma va ovoz uchun) ──
     const handleNewMessage = (msg: any) => {
       const currentUserLogin = getSessionLogin();
       
-      // Agar xabar boshqa odamdan kelgan bo'lsa
       if (msg.sender !== currentUserLogin) {
-        // 1. Ovoz chiqarish va OS notification
-        // notificationStorage.isEnabled() ichida showBrowserNotification o'zi playNotificationSound() ni chaqiradi
         if (notificationStorage.isEnabled()) {
           showBrowserNotification(
-            t('newChatMessage', { sender: msg.sender }),
+            t('settings:newChatMessage', { sender: msg.sender }),
             msg.content
           );
         } else {
-          // Agar OS notification o'chiq bo'lsa, faqat ovoz chiqsin (agar foydalanuvchi chatda bo'lmasa)
           const isChatPage = window.location.pathname.includes('/chat') || window.location.pathname.includes('/admin-chat');
           if (!isChatPage) {
             import("./admin/adminUtils/notificationUtils").then(m => m.playNotificationSound());
           }
         }
 
-        // 2. Toast bildirishnoma (Ilova ochiq bo'lsa va chatda bo'lmasa ko'rinadi)
         const isChatPage = window.location.pathname.includes('/chat') || window.location.pathname.includes('/admin-chat');
         if (!isChatPage) {
-          toast(t('newChatMessage', { sender: msg.sender }), {
+          toast(t('settings:newChatMessage', { sender: msg.sender }), {
             description: msg.content,
             icon: <MessageSquare size={18} />,
             action: {
-              label: t('open'),
+              label: t('settings:open'),
               onClick: () => navigateRef.current(msg.sender === 'admin' ? '/admin-chat' : '/chat')
             }
           });
@@ -115,7 +115,7 @@ function GlobalSocketListener() {
       clearAuthClientState();
       invalidateAuthCache();
       disconnectSocket();
-      handleLogout(data?.reason || t('forcedLogout'));
+      handleLogout(data?.reason || t('settings:forcedLogout'));
     };
 
     const handleBlocked = (data: { login?: string; reason?: string }) => {
@@ -126,8 +126,8 @@ function GlobalSocketListener() {
       invalidateAuthCache();
       disconnectSocket();
 
-      toast.error(t('accountBlocked'), {
-        description: data?.reason || t('blockedByAdmin'),
+      toast.error(t('settings:accountBlocked'), {
+        description: data?.reason || t('settings:blockedByAdmin'),
         duration: 6000,
       });
 
@@ -146,7 +146,7 @@ function GlobalSocketListener() {
       socket.off('forceLogout',    handleForceLogout);
       socket.off('user:blocked',   handleBlocked);
     };
-  }, []);
+  }, [t]);
 
   return null;
 }
@@ -156,47 +156,45 @@ function GlobalSocketListener() {
 // ─────────────────────────────────────────────────────────────
 function App() {
   return (
-    <TranslationProvider>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        <CurrencyProvider>
-          <HandTrackingProvider>
-            <Toaster position="top-center" richColors />
-            <GlobalSocketListener />
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <CurrencyProvider>
+        <HandTrackingProvider>
+          <Toaster position="top-center" richColors />
+          <GlobalSocketListener />
 
-            <Routes>
-                <Route path="/"       element={<Navigate to="/login" replace />} />
-                <Route path="/login"  element={<Login />} />
+          <Routes>
+              <Route path="/"       element={<Navigate to="/login" replace />} />
+              <Route path="/login"  element={<Login />} />
 
-                {/* 🛒 Cashier Routes */}
-                <Route path="/menu"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Menu /></ProtectedRoute></Suspense>} />
-                <Route path="/settings"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Settings /></ProtectedRoute></Suspense>} />
-                <Route path="/ai"             element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Chatbot /></ProtectedRoute></Suspense>} />
-                <Route path="/chat"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Chat /></ProtectedRoute></Suspense>} />
-                <Route path="/add-product"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxQoshish /></ProtectedRoute></Suspense>} />
-                <Route path="/products"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxsulotBazasi /></ProtectedRoute></Suspense>} />
-                <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
-                <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
-                <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
-                <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
-                <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
+              {/* 🛒 Cashier Routes */}
+              <Route path="/menu"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Menu /></ProtectedRoute></Suspense>} />
+              <Route path="/settings"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Settings /></ProtectedRoute></Suspense>} />
+              <Route path="/ai"             element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Chatbot /></ProtectedRoute></Suspense>} />
+              <Route path="/chat"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Chat /></ProtectedRoute></Suspense>} />
+              <Route path="/add-product"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxQoshish /></ProtectedRoute></Suspense>} />
+              <Route path="/products"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxsulotBazasi /></ProtectedRoute></Suspense>} />
+              <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
+              <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
+              <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
+              <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
+              <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
 
-                {/* 👑 Admin Routes */}
-                <Route path="/admin-panel"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminPanel /></ProtectedRoute></Suspense>} />
-                <Route path="/admin-chat"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><ChatAdmin /></ProtectedRoute></Suspense>} />
-                <Route path="/admin-settings" element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute></Suspense>} />
-                <Route path="/admin-add-user" element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminAddUser /></ProtectedRoute></Suspense>} />
+              {/* 👑 Admin Routes */}
+              <Route path="/admin-panel"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminPanel /></ProtectedRoute></Suspense>} />
+              <Route path="/admin-chat"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><ChatAdmin /></ProtectedRoute></Suspense>} />
+              <Route path="/admin-settings" element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute></Suspense>} />
+              <Route path="/admin-add-user" element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminAddUser /></ProtectedRoute></Suspense>} />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-          </HandTrackingProvider>
-        </CurrencyProvider>
-      </BrowserRouter>
-    </TranslationProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+        </HandTrackingProvider>
+      </CurrencyProvider>
+    </BrowserRouter>
   );
 }
 
@@ -207,10 +205,7 @@ async function bootstrap() {
       setMemoryCsrfToken(res.data.csrfToken);
     }
   } catch (err) {
-    console.warn(
-      "CSRF token yuklashda xatolik (bu backend rate-limit bilan bog'liq bo'lishi mumkin):",
-      err
-    );
+    console.warn("CSRF token xatosi:", err);
   }
   await hydrateSessionUserFromCookie();
   ReactDOM.createRoot(document.getElementById("root")!).render(<App />);

@@ -1,9 +1,8 @@
-// components/menu/DataBase.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText } from "lucide-react";
-import { api } from "../../utils/api"; // yo'lni loyihangizga moslashtiring
-import { useTranslation } from "../../components/languages/Menu"; // yoki to'g'ri yo'l
+import { api } from "../../utils/api";
+import { useTranslation } from "react-i18next";
 
 interface DataBaseProps {
   theme: "dark" | "light";
@@ -11,7 +10,10 @@ interface DataBaseProps {
 
 const DataBase: React.FC<DataBaseProps> = ({ theme }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  
+  // ✅ Namespace'ni ko'rsatamiz: 'menu'
+  // Bu t("pieces") va t("productsDatabase") ni menu.json dan olishni ta'minlaydi
+  const { t } = useTranslation('menu');
 
   const [productCount, setProductCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,6 +42,7 @@ const DataBase: React.FC<DataBaseProps> = ({ theme }) => {
       style={{
         padding: 24,
         borderRadius: 20,
+        // Sizning chiroyli gradientingiz saqlandi
         background: "linear-gradient(135deg, #f97316, #17c196ff)",
         cursor: "pointer",
         color: "#fff",

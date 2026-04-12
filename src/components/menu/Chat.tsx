@@ -1,8 +1,8 @@
-// components/menu/Chat.tsx
 import React from "react";
-import { MessageCircleMore, MessageSquare } from "lucide-react";
+import { MessageCircleMore } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTranslation } from "../../components/languages/Menu"; // yoki to'g'ri yo'l
+// react-i18next dan hookni olamiz
+import { useTranslation } from "react-i18next";
 
 interface ChatProps {
   theme: "dark" | "light";
@@ -10,7 +10,10 @@ interface ChatProps {
 
 const Chat: React.FC<ChatProps> = ({ theme }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  
+  // ✅ Namespace'ni ko'rsatamiz: 'menu'
+  // Bu t("chat") kalitini menu.json faylidan qidirishini ta'minlaydi
+  const { t } = useTranslation('menu');
 
   return (
     <div

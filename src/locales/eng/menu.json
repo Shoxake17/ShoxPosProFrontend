@@ -1,0 +1,21 @@
+{
+  "dashboard": "Dashboard",
+  "productsDatabase": "General Products Database",
+  "pieces": "pcs",
+  "incomeDashboard": "My Products Database",
+  "income": "Incoming",
+  "passwordRequired": "Password required",
+  "weeklySales": "Weekly Sales",
+  "qrScanner": "QR Scanner",
+  "sales": "Sales",
+  "report": "Report",
+  "payment": "Payment",
+  "chat": "Chat",
+  "monday": "Monday",
+  "tuesday": "Tuesday",
+  "wednesday": "Wednesday",
+  "thursday": "Thursday",
+  "friday": "Friday",
+  "saturday": "Saturday",
+  "sunday": "Sunday"
+}

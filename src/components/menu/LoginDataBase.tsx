@@ -1,9 +1,8 @@
-// components/menu/UserProductsCount.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList } from "lucide-react";
-import { api } from "../../utils/api"; // yo'lni loyihangizga moslashtiring
-import { useTranslation } from "../../components/languages/Menu"; // yoki to'g'ri yo'l
+import { api } from "../../utils/api";
+import { useTranslation } from "react-i18next";
 
 interface UserProductsCountProps {
   theme: "dark" | "light";
@@ -11,7 +10,9 @@ interface UserProductsCountProps {
 
 const LoginDataBase: React.FC<UserProductsCountProps> = ({ theme }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  
+  // ✅ Namespace'ni ko'rsatamiz: 'menu'
+  const { t } = useTranslation('menu');
 
   const [userProductCount, setUserProductCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);

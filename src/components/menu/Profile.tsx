@@ -1,14 +1,21 @@
-// src/components/menu/Profile.tsx
 import React from "react";
 import { UserCircle } from "lucide-react";
+// ✅ i18next hookini import qilamiz
+import { useTranslation } from "react-i18next";
 
 interface ProfileProps {
   theme: "dark" | "light";
+  onClick?: () => void; // Click hodisasi uchun ixtiyoriy prop
 }
 
-const Profile: React.FC<ProfileProps> = ({ theme }) => {
+const Profile: React.FC<ProfileProps> = ({ theme, onClick }) => {
+  // ✅ Namespace sifatida 'menu' yoki 'sidebar' dan foydalanish mumkin
+  // Agar 'profile' kaliti menu.json da bo'lsa:
+  const { t } = useTranslation('menu');
+
   return (
     <div
+      onClick={onClick}
       style={{
         padding: 20,
         borderRadius: 16,
@@ -31,15 +38,16 @@ const Profile: React.FC<ProfileProps> = ({ theme }) => {
     >
       <UserCircle color="#6366f1" size={32} style={{ marginBottom: 12 }} />
       <p
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: theme === "dark" ? "#fff" : "#1a1f2e",
-            margin: 0,
-          }}
-        >
-          {"Profil"}
-        </p>
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: theme === "dark" ? "#fff" : "#1a1f2e",
+          margin: 0,
+        }}
+      >
+        {/* ✅ Dinamik tarjima */}
+        {t("profile")}
+      </p>
     </div>
   );
 };

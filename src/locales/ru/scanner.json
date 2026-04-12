@@ -1,0 +1,23 @@
+{
+  "salesTerminal": "Терминал продаж",
+  "ready": "Готов",
+  "barcodePlaceholder": "Введите штрих-код или название",
+  "enterBarcodeOrName": "Введите штрих-код или название",
+  "total": "Итого",
+  "totalPrice": "ИТОГО",
+  "productName": "НАЗВАНИЕ ПРОДУКТА",
+  "barcode": "ШТРИХ-КОД",
+  "quantity": "КОЛ-ВО",
+  "price": "ЦЕНА",
+  "subtotal": "СУММА",
+  "cartEmpty": "Корзина пуста — найдите товар",
+  "qrBarcode": "QR / Штрих-код",
+  "sellViaQrCode": "Продажа через QR",
+  "camera": "Камера",
+  "printReceiptTitle": "Печать чека",
+  "naqd": "Наличные",
+  "sell": "Продажа",
+  "plastik": "Карта (Пластик)",
+  "qarz": "Долг",
+  "added": "добавлено"
+}

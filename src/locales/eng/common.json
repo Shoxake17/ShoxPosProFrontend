@@ -1,0 +1,20 @@
+{
+  "loading": "Loading...",
+  "securityTitle": "Security Check",
+  "accessDenied": "Access Denied",
+  "checkingAuth": "Verifying access level...",
+  "sessionInvalid": "Session expired or invalid",
+  "redirecting": "Redirecting...",
+  "notificationTitle": "Notifications",
+  "yesBtn": "Yes",
+  "noBtn": "No",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "selectLanguage": "Select Language",
+  "error": "An error occurred",
+  "success": "Successfully completed",
+  "search": "Search...",
+  "noData": "No data found",
+  "authRequired": "Authentication required"
+}

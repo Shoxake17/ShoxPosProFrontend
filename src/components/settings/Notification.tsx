@@ -1,11 +1,12 @@
 // components/settings/Notification.tsx
 import React, { useEffect } from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
+// ✅ i18next hookini import qilamiz
+import { useTranslation } from 'react-i18next';
 import { alertSuccess, alertError } from '../alert/SettingsAlert';
 
 interface NotificationProps {
   theme: 'dark' | 'light';
-  t: (key: string) => string;
   notifications: boolean;
   setNotifications: React.Dispatch<React.SetStateAction<boolean>>;
   hoveredSetting: string | null;
@@ -22,9 +23,16 @@ export const isNotificationsEnabled = (): boolean => {
 };
 
 export default function Notification({
-  theme, t, notifications, setNotifications,
-  hoveredSetting, setHoveredSetting, idx
+  theme, 
+  notifications, 
+  setNotifications,
+  hoveredSetting, 
+  setHoveredSetting, 
+  idx
 }: NotificationProps) {
+  
+  // ✅ useTranslation orqali t funksiyasini olamiz (settings namespace)
+  const { t } = useTranslation(['settings', 'common']);
 
   // ✅ localStorage dan yuklash
   useEffect(() => {
@@ -37,16 +45,18 @@ export default function Notification({
   const toggleNotifications = () => {
     const newValue = !notifications;
     setNotifications(newValue);
-    // ✅ NotificationBar tekshiradigan key
+    
+    // ✅ LocalStorage-ga saqlash
     localStorage.setItem('notificationsEnabled', JSON.stringify(newValue));
 
     if (newValue) {
-      alertSuccess(theme, t('notificationsEnabled'));
+      alertSuccess(theme, t('settings:notificationsEnabled'));
     } else {
-      alertError(theme, t('notificationsDisabled'));
+      alertError(theme, t('settings:notificationsDisabled'));
     }
   };
 
+  const isDark = theme === 'dark';
   const isHovered = hoveredSetting === idx;
 
   return (
@@ -55,14 +65,14 @@ export default function Notification({
       onMouseLeave={() => setHoveredSetting(null)}
       onClick={toggleNotifications}
       style={{
-        background: theme === 'dark'
+        background: isDark
           ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
           : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
         borderRadius: '16px',
         padding: '20px',
         border: isHovered
           ? '1px solid #667eea'
-          : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+          : `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
         transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
@@ -72,7 +82,7 @@ export default function Notification({
       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
         <div style={{
           width: '40px', height: '40px', borderRadius: '10px',
-          background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
+          background: isDark ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
           color: '#667eea', display: 'flex', alignItems: 'center',
           justifyContent: 'center', flexShrink: 0,
         }}>
@@ -82,31 +92,34 @@ export default function Notification({
         <div style={{ flex: 1 }}>
           <h3 style={{
             fontSize: '19px', fontWeight: 600,
-            color: theme === 'dark' ? '#fff' : '#1a1f2e',
+            color: isDark ? '#fff' : '#1a1f2e',
+            margin: 0,
+            marginBottom: '4px'
           }}>
-            {t('notifications')}
+            {t('settings:notifications')}
           </h3>
           <p style={{
             fontSize: '13px',
-            color: theme === 'dark' ? '#8b92a7' : '#64748b',
+            color: isDark ? '#8b92a7' : '#64748b',
+            margin: 0,
             marginBottom: '8px',
           }}>
-            {t('notificationsDescription')}
+            {t('settings:notificationsDescription')}
           </p>
           <span style={{
             display: 'inline-block', padding: '4px 12px', borderRadius: '6px',
-            background: theme === 'dark' ? '#0f1420' : '#f1f5f9',
+            background: isDark ? '#0f1420' : '#f1f5f9',
             fontSize: '12px',
-            color: notifications ? '#4caf50' : '#ef4444',
+            color: notifications ? '#10b981' : '#ef4444',
             fontWeight: 500,
           }}>
-            {notifications ? t('enabled') : t('disabled')}
+            {notifications ? t('settings:enabled') : t('settings:disabled')}
           </span>
         </div>
 
         <ChevronRight
           size={20}
-          color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+          color={isDark ? '#8b92a7' : '#64748b'}
           style={{ flexShrink: 0, marginTop: '10px' }}
         />
       </div>

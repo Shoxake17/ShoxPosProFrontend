@@ -1,0 +1,20 @@
+{
+  "reports": "Hisobotlar",
+  "loading": "Yuklanmoqda...",
+  "totalIncome": "Umumiy daromad",
+  "totalSalesAmount": "Umumiy sotuv miqdori",
+  "salesCount": "Sotilgan mahsulot turi",
+  "soldQuantity": "Sotilgan mahsulot miqdori",
+  "all": "Barchasi",
+  "today": "Bugun",
+  "week": "Hafta",
+  "month": "Oy",
+  "last7DaysSales": "Oxirgi 7 kunlik sotuvlar",
+  "salesByCategory": "Kategoriyalar bo'yicha sotuvlar",
+  "noData": "Ma'lumot yo'q",
+  "top10ProductsByQuantity": "Top 10 mahsulot (dona)",
+  "top10ProductsByAmount": "Top 10 mahsulot (summa)",
+  "allSalesHistory": "Barcha Sotuvlar Tarixi",
+  "sales": "Sotuvlar",
+  "unknown": "Noma'lum"
+}

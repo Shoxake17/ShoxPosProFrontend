@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, X, ChevronRight } from 'lucide-react';
-import { useTranslation } from '../languages/Settings';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -94,7 +94,7 @@ function BackupModal({
 }: {
   isOpen: boolean; onClose: () => void; theme: 'dark' | 'light'; login: string;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const [loading, setLoading] = useState(false);
 
   const handleSync = async () => {
@@ -191,7 +191,7 @@ interface BackupProps {
 }
 
 const Backup: React.FC<BackupProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const [isOpen, setIsOpen] = useState(false);
 
   const login = JSON.parse(sessionStorage.getItem("currentUser") || "{}")?.login || "unknown";

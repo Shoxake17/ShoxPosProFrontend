@@ -5,8 +5,8 @@ import { getFullDeviceInfo, getDeviceId as getStoredDeviceId } from '../utils/de
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import axiosInstance                   from '../api/axiosInstance';
 import { reconnectSocket, getSocket }  from '../utils/socket';
-import { getLayoutStyles }             from "../components/MainLayout";
-import { invalidateAuthCache }         from "../components/ProtectedRoute";
+import { getLayoutStyles }             from "../components/layout/MainLayout";
+import { invalidateAuthCache }         from "../components/layout/ProtectedRoute";
 import { setupAuthCheck }              from "../utils/authUtils";
 import { subscribeToPushNotifications } from '../utils/pushNotification';
 import {

@@ -1,18 +1,19 @@
-// components/menu/Tolov.tsx
 import React from "react";
 import { CreditCard } from "lucide-react";
-import { useTranslation } from "../../components/languages/Menu"; // yoki loyihangizdagi to'g'ri yo'l
+// ✅ react-i18next dan to'g'ri import
+import { useTranslation } from "react-i18next";
 
 interface TolovProps {
   theme: "dark" | "light";
 }
 
 const Tolov: React.FC<TolovProps> = ({ theme }) => {
-  const { t } = useTranslation();
+  // ✅ 'menu' namespace'ini ko'rsatamiz
+  const { t } = useTranslation('menu');
 
   return (
     <div
-      onClick={() => alert("Tez orada")} // keyinchalik bu joyga haqiqiy navigatsiya yoki funksiya qo'yiladi
+      onClick={() => alert(t("common:loading") || "Tez orada...")} 
       style={{
         padding: 20,
         borderRadius: 16,
@@ -43,6 +44,7 @@ const Tolov: React.FC<TolovProps> = ({ theme }) => {
           margin: 0,
         }}
       >
+        {/* ✅ menu.json faylidagi 'payment' kaliti ishlatiladi */}
         {t("payment")}
       </p>
     </div>

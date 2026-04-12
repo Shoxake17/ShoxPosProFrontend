@@ -1,0 +1,20 @@
+{
+  "sales": "Sales",
+  "totalAmount": "Total Amount",
+  "uniqueProductsCount": "Unique Products Count",
+  "soldProducts": "Sold Products",
+  "searchPlaceholder": "Search by Barcode or Name",
+  "all": "All",
+  "today": "Today",
+  "week": "Weekly",
+  "month": "Monthly",
+  "noSales": "No sales yet",
+  "changeFilters": "Try changing the filters",
+  "products": "Products",
+  "barcode": "Barcode",
+  "quantity": "Qty",
+  "price": "Price",
+  "total": "Total",
+  "time": "Time",
+  "loading": "Loading..."
+}

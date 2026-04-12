@@ -1,0 +1,17 @@
+{
+  "productsDatabase": "Products Database",
+  "searchPlaceholder": "Barcode or name...",
+  "number": "№",
+  "barcode": "Barcode",
+  "productName": "Product Name",
+  "price": "Price",
+  "quantity": "Quantity",
+  "category": "Category",
+  "actions": "Actions",
+  "noData": "No data found",
+  "deleteConfirm": "Are you sure you want to delete this product?",
+  "loading": "Page is loading...",
+  "offlineMode": "Internet disconnected — working in offline mode",
+  "syncSuccess": "{{count}} products synced successfully",
+  "allCategories": "All categories"
+}

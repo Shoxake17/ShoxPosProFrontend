@@ -1,18 +1,19 @@
-// components/menu/Qr.tsx
 import React from "react";
 import { Camera } from "lucide-react";
-import { useTranslation } from "../../components/languages/Menu"; // yoki loyihangizdagi to'g'ri yo'l
+// ✅ react-i18next dan to'g'ri import
+import { useTranslation } from "react-i18next";
 
 interface QrProps {
   theme: "dark" | "light";
 }
 
 const Qr: React.FC<QrProps> = ({ theme }) => {
-  const { t } = useTranslation();
+  // ✅ 'menu' namespace'ini ko'rsatamiz
+  const { t } = useTranslation('menu');
 
   return (
     <div
-      onClick={() => alert("Tez orada")} // keyinchalik bu joyga haqiqiy scanner sahifasi yoki funksiya qo'yiladi
+      onClick={() => alert(t("comingSoon") || "Tez orada")} 
       style={{
         padding: 20,
         borderRadius: 16,
@@ -43,6 +44,7 @@ const Qr: React.FC<QrProps> = ({ theme }) => {
           margin: 0,
         }}
       >
+        {/* ✅ menu.json dagi qrScanner kaliti ishlatiladi */}
         {t("qrScanner")}
       </p>
     </div>

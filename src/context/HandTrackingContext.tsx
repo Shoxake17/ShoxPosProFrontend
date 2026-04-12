@@ -1,9 +1,8 @@
 import React, { createContext, useContext, ReactNode, useEffect, useState, useRef } from "react";
 import { useHandTracking, HandTrackingState, CursorPos } from "../hooks/useHandTracking";
 import HandCursor from "../components/HandCursor";
-// import VirtualKeyboard from "../components/VirtualKeyboard";
-// ✅ 1. Eski getTranslation importini o'rniga o'zimizning asosiy useTranslation'ni olamiz
-import { useTranslation } from "../components/languages/Settings"; 
+// ✅ To'g'ri import: Standart i18next hooki
+import { useTranslation } from 'react-i18next';
 
 interface HandTrackingContextType {
   state: HandTrackingState;
@@ -40,8 +39,8 @@ function simulateClick(element: HTMLElement, x: number, y: number) {
 }
 
 export function HandTrackingProvider({ children }: { children: ReactNode }) {
-  // ✅ 2. Hookdan foydalanamiz. Til o'zgarishi bilan bu komponent avtomatik render bo'ladi!
-  const { t } = useTranslation(); 
+  // ✅ i18next hookidan foydalanamiz (settings namespace bilan)
+  const { t } = useTranslation(['settings', 'common']); 
 
   const [isVisualControlEnabled, setIsVisualControlEnabled] = useState(() => {
     return localStorage.getItem('handControlEnabled') === 'true';
@@ -80,8 +79,8 @@ export function HandTrackingProvider({ children }: { children: ReactNode }) {
       try {
         simulateClick(element, xPx, yPx);
       } catch (err) {
-        // ✅ 3. Dinamik tarjima
-        console.warn(t('clickError'), err); 
+        // ✅ Dinamik tarjima (settings namespace orqali)
+        console.warn(t('settings:clickError'), err); 
       }
     },
   });
@@ -116,15 +115,12 @@ export function HandTrackingProvider({ children }: { children: ReactNode }) {
     }
   }, [isVisualControlEnabled, state.isActive, stop]);
 
-  const isDark = !document.documentElement.classList.contains("light");
-
   return (
     <HandTrackingContext.Provider value={tracking}>
       {children}
       {isVisualControlEnabled && (
         <>
           <HandCursor pos={state.cursor} isFist={state.isFist} />
-          {/* <VirtualKeyboard theme={isDark ? "dark" : "light"} /> */}
           
           <div 
             ref={panelRef}
@@ -154,12 +150,12 @@ export function HandTrackingProvider({ children }: { children: ReactNode }) {
                 cursor: "pointer", zIndex: 1001
               }}
             >
-              {/* ✅ 4. t() funksiyasi orqali dinamik matnlar */}
+              {/* ✅ Namespace orqali dinamik matnlar */}
               {state.isLoading 
-                ? t('loading') 
+                ? t('settings:loading') 
                 : state.isActive 
-                  ? t('stop') 
-                  : t('start')
+                  ? t('settings:stop') 
+                  : t('settings:start')
               }
             </button>
           </div>
@@ -170,8 +166,9 @@ export function HandTrackingProvider({ children }: { children: ReactNode }) {
 }
 
 export function useHandTrackingContext() {
-  const { t } = useTranslation(); // ✅ Dinamik xatolik xabari
+  // ✅ Xatolik xabari uchun ham t ishlatamiz
+  const { t } = useTranslation(['settings']); 
   const ctx = useContext(HandTrackingContext);
-  if (!ctx) throw new Error(t('errorContext'));
+  if (!ctx) throw new Error(t('settings:errorContext'));
   return ctx;
 }

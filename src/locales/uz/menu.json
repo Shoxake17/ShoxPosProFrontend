@@ -1,0 +1,21 @@
+{
+  "dashboard": "Boshqaruv Paneli",
+  "productsDatabase": "Umumiy Mahsulotlar Bazasi",
+  "pieces": "ta",
+  "incomeDashboard": "Mahsulotlarim Bazasi",
+  "income": "Kirim",
+  "passwordRequired": "Parol kerak",
+  "weeklySales": "Haftalik Sotuvlar",
+  "qrScanner": "QR Skaner",
+  "sales": "Sotuvlar",
+  "report": "Hisobot",
+  "payment": "To'lov",
+  "chat": "Chat",
+  "monday": "Dushanba",
+  "tuesday": "Seshanba",
+  "wednesday": "Chorshanba",
+  "thursday": "Payshanba",
+  "friday": "Juma",
+  "saturday": "Shanba",
+  "sunday": "Yakshanba"
+}

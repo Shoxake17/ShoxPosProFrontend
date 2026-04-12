@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, ChevronRight, LucideIcon } from 'lucide-react';
+import { User, ChevronRight, LucideIcon } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { clearAuthClientState } from '../utils/clientSession';
-import MainLayout from "../components/MainLayout";
+import MainLayout from "../components/layout/MainLayout";
 import Profile from "../components/settings/Profile";
-import { useTranslation } from '../components/languages/Settings';
+
+// ✅ Professional i18next importi
+import { useTranslation } from 'react-i18next';
 
 import Notification from "../components/settings/Notification";
 import ChangePassword from "../components/settings/ChangePassword";
@@ -15,7 +17,6 @@ import DataExport from "../components/settings/DataExport";
 import Backup from "../components/settings/BackUp";
 import ClearData from "../components/settings/ClearData";
 import Logout from "../components/settings/Logout";
-import Email from "../components/settings/Email";
 import GoogleAuth from "../components/settings/Authentificator";
 import HandControl from "../components/settings/HandControl";
 import Languages from "../components/settings/Languages";
@@ -50,7 +51,7 @@ interface SettingGroup {
 function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message, t }: {
   isOpen: boolean; onClose: () => void; onConfirm: () => void;
   theme: 'dark' | 'light'; title: string; message: string; 
-  t: (key: string) => string;
+  t: any;
 }) {
   if (!isOpen) return null;
   return (
@@ -69,13 +70,13 @@ function ConfirmationModal({ isOpen, onClose, onConfirm, theme, title, message, 
             onClick={onClose}
             style={{ flex: 1, padding: '14px', background: theme === 'dark' ? '#1a1f2e' : '#f1f5f9', color: theme === 'dark' ? '#e2e8f0' : '#1e293b', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
           >
-            {t('noBtn')}
+            {t('settings:noBtn')}
           </button>
           <button
             onClick={() => { onConfirm(); onClose(); }}
             style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
           >
-            {t('yesBtn')}
+            {t('settings:yesBtn')}
           </button>
         </div>
       </div>
@@ -94,10 +95,11 @@ const getCurrentLogin = (): string | null => {
   return null;
 };
 
-// ─── POSSettingsPageContent ────────────────────────────────────────────────
-function POSSettingsPageContent() {
+export default function POSSettingsPage() {
   const navigate = useNavigate();
-  const { t, language, setLanguage } = useTranslation();
+  
+  // ✅ i18next hook (namespace: settings, common)
+  const { t } = useTranslation(['settings', 'common']);
 
   const [userImage, setUserImage]   = useState<string | null>(null);
   const [theme, setTheme]           = useState<'dark' | 'light'>('dark');
@@ -169,16 +171,16 @@ function POSSettingsPageContent() {
   };
 
   const settingsGroups: SettingGroup[] = [
-    { title: t('general'), items: [] },
-    { title: t('visioncontrol'), items: [] },
-    { title: t('security'), items: [] }, 
-    { title: t('data'), items: [] },
-    { title: t('account'), items: [
+    { title: t('settings:general'), items: [] },
+    { title: t('settings:visioncontrol'), items: [] },
+    { title: t('settings:security'), items: [] }, 
+    { title: t('settings:data'), items: [] },
+    { title: t('settings:account'), items: [
         {
           id: 'profile-card', 
           icon: User,
-          title: t('profile'),
-          description: t('profileDescription'),
+          title: t('settings:profile'),
+          description: t('settings:profileDescription'),
           onClick: () => setIsProfileOpen(true),
         },
       ],
@@ -186,7 +188,7 @@ function POSSettingsPageContent() {
   ];
 
   return (
-    <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('settings')}>
+    <MainLayout theme={theme} userImage={userImage} handleImageUpload={handleImageUpload} title={t('settings:settings')}>
       <Profile
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
@@ -255,10 +257,10 @@ function POSSettingsPageContent() {
 
             {gIdx === 0 && (
               <>
-                <Languages theme={theme} t={t} language={language} setLanguage={setLanguage} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />
-                <Currency theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />
-                <Theme theme={theme} t={t} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />
-                <Notification theme={theme} t={t} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />
+                <Languages theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />
+                <Currency theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />
+                <Theme theme={theme} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />
+                <Notification theme={theme} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />
               </>
             )}
             {gIdx === 1 && (
@@ -268,7 +270,7 @@ function POSSettingsPageContent() {
               <>
                 <ChangePassword theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="pw-card" />
                 <GoogleAuth theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="gauth-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
-                <Biometric theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="bio-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
+                <Biometric theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="bio-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
                 <Session theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="session-card" />
               </>
             )}
@@ -281,7 +283,6 @@ function POSSettingsPageContent() {
             )}
             {gIdx === 4 && (
               <>
-                {/* <Email theme={theme} t={t} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="email-card" /> */}
                 <Logout theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />
               </>
             )}
@@ -289,11 +290,5 @@ function POSSettingsPageContent() {
         </section>
       ))}
     </MainLayout>
-  );
-}
-
-export default function POSSettingsPage() {
-  return (
-      <POSSettingsPageContent />
   );
 }

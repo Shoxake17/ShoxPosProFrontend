@@ -1,0 +1,23 @@
+{
+  "title": "База прихода",
+  "barcodeOrName": "Штрих-код или название...",
+  "totalIncoming": "Общий приход",
+  "totalOutgoing": "Общий расход",
+  "income": "Доход",
+  "soldQuantity": "Проданное количество",
+  "n": "№",
+  "barcode": "Штрих-код",
+  "productName": "Название товара",
+  "exitPrice": "Цена выхода",
+  "quantity": "Количество",
+  "totalOutgoingSum": "Итого расход",
+  "category": "Категория",
+  "loadingTable": "⏳ Загрузка...",
+  "noData": "Оптовых приходов пока нет",
+  "priceUpdated": "Цена обновлена",
+  "quantityUpdated": "Количество обновлено",
+  "savedOffline": "📴 Сохранено офлайн — синхронизируется позже",
+  "noInternet": "Нет интернета",
+  "allDataLoaded": "Все данные загружены",
+  "changesSynced": "Синхронизировано изменений: {{count}}"
+}

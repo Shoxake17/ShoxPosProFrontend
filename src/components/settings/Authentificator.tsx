@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shield, ChevronRight, X, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useTranslation } from '../languages/Settings';
+import { useTranslation } from 'react-i18next';
 import axiosInstance from '../../api/axiosInstance';
 
 interface GoogleAuthProps {
@@ -20,7 +20,7 @@ export default function GoogleAuth({
   theme, hoveredSetting, setHoveredSetting, idx,
   currentLogin, showConfirm, handleSessionExpired,
 }: GoogleAuthProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
 
   const [isEnabled,         setIsEnabled]         = useState(false);
   const [isModalOpen,       setIsModalOpen]        = useState(false);

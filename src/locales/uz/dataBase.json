@@ -1,0 +1,17 @@
+{
+  "productsDatabase": "Mahsulotlar Bazasi",
+  "searchPlaceholder": "Barcode yoki nom...",
+  "number": "№",
+  "barcode": "Shtrix-kod",
+  "productName": "Mahsulot Nomi",
+  "price": "Narxi",
+  "quantity": "Miqdori",
+  "category": "Kategoriya",
+  "actions": "Amallar",
+  "noData": "Ma'lumot topilmadi",
+  "deleteConfirm": "Ushbu mahsulotni o'chirishni xohlaysizmi?",
+  "loading": "Sahifa yuklanmoqda...",
+  "offlineMode": "Internet uzildi — offline rejimda ishlayapti",
+  "syncSuccess": "{{count}} ta mahsulot yuklandi",
+  "allCategories": "Barcha kategoriyalar"
+}

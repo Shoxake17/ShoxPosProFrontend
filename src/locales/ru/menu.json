@@ -1,0 +1,21 @@
+{
+  "dashboard": "Панель управления",
+  "productsDatabase": "Общая база продуктов",
+  "pieces": "шт",
+  "incomeDashboard": "База моих продуктов",
+  "income": "Приход",
+  "passwordRequired": "Требуется пароль",
+  "weeklySales": "Еженедельные продажи",
+  "qrScanner": "QR Сканер",
+  "sales": "Продажи",
+  "report": "Отчет",
+  "payment": "Оплата",
+  "chat": "Чат",
+  "monday": "Понедельник",
+  "tuesday": "Вторник",
+  "wednesday": "Среда",
+  "thursday": "Четверг",
+  "friday": "Пятница",
+  "saturday": "Суббота",
+  "sunday": "Воскресенье"
+}

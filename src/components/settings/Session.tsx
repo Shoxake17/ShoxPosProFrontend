@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Smartphone, ChevronRight, Laptop, Tablet } from "lucide-react";
 import axiosInstance, { getMemoryCsrfToken } from '../../api/axiosInstance'; // ✅ getMemoryCsrfToken import
-import { useTranslation } from '../../components/languages/Settings';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getSocket } from '../../utils/socket';
@@ -52,7 +52,7 @@ function DevicesModal({
   onClose: () => void;
   theme: 'dark' | 'light';
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const [devices, setDevices]               = useState<any[]>([]);
   const [loading, setLoading]               = useState(true);
   const [kickingDeviceId, setKickingDeviceId] = useState<string | null>(null);
@@ -334,7 +334,7 @@ interface SessionProps {
 }
 
 const Session: React.FC<SessionProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']); // ✅ 'common' qo'shildi, umumiy tarjimalar uchun
   const [isOpen, setIsOpen] = useState(false);
   const tRef     = useRef(t);
   const themeRef = useRef(theme);

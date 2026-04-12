@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { KeyRound, Eye, EyeOff, Lock, ChevronRight } from "lucide-react";
-import { useTranslation } from '../../components/languages/Settings';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
 
 interface ChangePasswordProps {
@@ -16,7 +16,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({
   setHoveredSetting, 
   idx 
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   
   // Modal va Form state-lari
   const [isOpen, setIsOpen] = useState(false);

@@ -1,0 +1,17 @@
+{
+  "aiAnalyst": "AI Analyst",
+  "modelDropLabel": "Model",
+  "greeting": "Hello,",
+  "noResponse": "No response received",
+  "clearChatFull": "Do you want to clear the {{modelName}} chat history?",
+  "errNoInternet": "No internet",
+  "errNoInternetDesc": "Please check your network connection.",
+  "errLimit": "Rate limit reached",
+  "errLimitDesc": "Please wait a moment.",
+  "errServer": "Server error",
+  "errServerDesc": "The server is temporarily unavailable.",
+  "errBalance": "Balance depleted",
+  "errBalanceDesc": "Please top up your account.",
+  "errDefault": "Error",
+  "errDefaultDesc": "Please try again."
+}

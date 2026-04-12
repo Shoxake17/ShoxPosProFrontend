@@ -1,8 +1,9 @@
-// src/pages/Menu.tsx
 import React, { useState } from "react";
-import MainLayout from "../components/MainLayout";
-import { useTranslation } from "../components/languages/Menu";
+import MainLayout from "../components/layout/MainLayout";
+// ✅ Professional i18next importi
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from "../hooks/useResponsive";
+import { useNavigate } from 'react-router-dom';
 
 import DataBase from "../components/menu/DataBase";
 import UserProductsCount from "../components/menu/LoginDataBase";
@@ -15,7 +16,8 @@ import Sotuvlar from "../components/menu/Sotuvlar";
 import Qr from "../components/menu/Qr";
 
 export default function Menu() {
-  const { t } = useTranslation();
+  // ✅ 'menu' namespace'dan foydalanamiz
+  const { t } = useTranslation('menu');
   const { isMobile } = useResponsive();
 
   const [userImage] = useState<string | null>(localStorage.getItem("userImage"));
@@ -24,8 +26,7 @@ export default function Menu() {
   );
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const currentUserLogin = getSessionLogin();
-
-
+  const navigate = useNavigate();
   return (
     <MainLayout theme={theme} userImage={userImage} title={t("dashboard")}>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 20, marginBottom: 30 }}>
@@ -49,6 +50,7 @@ export default function Menu() {
           onClose={() => setIsProfileModalOpen(false)}
         />
       )}
+
     </MainLayout>
   );
 }

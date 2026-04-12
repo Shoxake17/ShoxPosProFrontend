@@ -1,6 +1,8 @@
 // components/settings/Biometric.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Fingerprint, ChevronRight } from "lucide-react";
+// ✅ i18next hookini import qilamiz
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
 import { getDeviceInfo, getRpId, getDeviceId } from '../../utils/deviceUtils';
 import { toast } from 'react-toastify';
@@ -8,7 +10,6 @@ import 'react-toastify/dist/ReactToastify.css';
 
 interface BiometricProps {
   theme: 'dark' | 'light';
-  t: (key: string) => string;
   hoveredSetting: string | null;
   setHoveredSetting: React.Dispatch<React.SetStateAction<string | null>>;
   idx: string;
@@ -18,35 +19,33 @@ interface BiometricProps {
   handleSessionExpired: () => void;
 }
 
-// ✅ deviceId ni FingerprintJS orqali olish (deviceUtils dan olinadi)
-
 const Biometric: React.FC<BiometricProps> = ({
-  theme, t,
-  hoveredSetting, setHoveredSetting, idx,
-  currentLogin, showConfirm, handleSessionExpired,
+  theme,
+  hoveredSetting,
+  setHoveredSetting,
+  idx,
+  currentLogin,
+  showConfirm,
+  handleSessionExpired,
 }) => {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  
+  // ✅ useTranslation hookini chaqiramiz
+  const { t } = useTranslation(['settings', 'common']);
 
   const currentLoginRef         = useRef(currentLogin);
   const handleSessionExpiredRef = useRef(handleSessionExpired);
-  const tRef                    = useRef(t);
   const themeRef                = useRef(theme);
 
-  useEffect(() => { currentLoginRef.current         = currentLogin;        }, [currentLogin]);
+  useEffect(() => { currentLoginRef.current         = currentLogin;         }, [currentLogin]);
   useEffect(() => { handleSessionExpiredRef.current = handleSessionExpired; }, [handleSessionExpired]);
-  useEffect(() => { tRef.current                    = t;                   }, [t]);
-  useEffect(() => { themeRef.current                = theme;               }, [theme]);
+  useEffect(() => { themeRef.current                = theme;                }, [theme]);
 
   // ✅ Mount da biometrik holat tekshirish
   useEffect(() => {
     const fetchBiometricStatus = async () => {
       const deviceId = await getDeviceId();
-      if (!deviceId) {
-        if (import.meta.env.DEV) {
-          console.warn('[Biometric] Device ID topilmadi.');
-        }
-        return;
-      }
+      if (!deviceId) return;
 
       try {
         const res = await api(`/api/biometric-status?deviceId=${deviceId}`);
@@ -57,9 +56,7 @@ const Biometric: React.FC<BiometricProps> = ({
           handleSessionExpiredRef.current();
         }
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error('[Biometric] Status yuklash xatosi:', err);
-        }
+        console.error('[Biometric] Status yuklash xatosi:', err);
       }
     };
 
@@ -75,50 +72,33 @@ const Biometric: React.FC<BiometricProps> = ({
     if (biometricEnabled) {
       // ── Biometrikni o'chirish ──────────────────────────────────────────────
       showConfirm(
-        tRef.current('biometricDisableTitle'),
-        tRef.current('confirmDisableBiometric'),
+        t('settings:biometricDisableTitle'),
+        t('settings:confirmDisableBiometric'),
         async () => {
           try {
             const deviceId = await getDeviceId();
-
             const res = await api('/api/disable-biometric', {
               method: 'POST',
               body: JSON.stringify({ deviceId })
             });
 
             if (res.ok) {
-          // ✅ biometric_ localStorage kaliti O'CHIRILDI
-          // Fingerprinting ishlatilganda localStorage ga saqlash shart emas
-          // if (deviceId) {
-          //   localStorage.removeItem(`biometric_${deviceId}`);
-          // }
-
               setBiometricEnabled(false);
-              toast.error(
-                tRef.current('biometricAuthDisabled'),
-                {
-                  position: "top-right",
-                  autoClose: 4000,
-                  hideProgressBar: false,
-                  closeOnClick: true,
-                  pauseOnHover: true,
-                  draggable: true,
-                  theme: themeRef.current === 'dark' ? 'dark' : 'light'
-                }
-              );
+              toast.error(t('settings:biometricAuthDisabled'), {
+                position: "top-right",
+                autoClose: 4000,
+                theme: themeRef.current === 'dark' ? 'dark' : 'light'
+              });
             } else {
               const data = await res.json();
-              toast.error(data.message || tRef.current('xatoYuzBerdi'), {
+              toast.error(data.message || t('settings:xatoYuzBerdi'), {
                 position: "top-right",
                 autoClose: 5000,
                 theme: themeRef.current === 'dark' ? 'dark' : 'light',
               });
             }
           } catch (err) {
-            if (import.meta.env.DEV) {
-              console.error('[Biometric] Disable xatosi:', err);
-            }
-            toast.error(tRef.current('serverError'), {
+            toast.error(t('settings:serverError'), {
               position: "top-right",
               autoClose: 5000,
               theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -130,7 +110,7 @@ const Biometric: React.FC<BiometricProps> = ({
       // ── Biometrikni yoqish — WebAuthn ─────────────────────────────────────
       try {
         if (!window.PublicKeyCredential) {
-          toast.error(tRef.current('biometricNotAvailable'), {
+          toast.error(t('settings:biometricNotAvailable'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -140,7 +120,7 @@ const Biometric: React.FC<BiometricProps> = ({
 
         const deviceId = await getDeviceId();
         if (!deviceId) {
-          toast.error(tRef.current('deviceIdNotFound'), {
+          toast.error(t('settings:deviceIdNotFound'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -153,10 +133,6 @@ const Biometric: React.FC<BiometricProps> = ({
         crypto.getRandomValues(challenge);
         const userId = new Uint8Array(16);
         crypto.getRandomValues(userId);
-
-        if (import.meta.env.DEV) {
-          console.log('[Biometric] Registration boshlandi');
-        }
 
         const credential = await navigator.credentials.create({
           publicKey: {
@@ -187,7 +163,6 @@ const Biometric: React.FC<BiometricProps> = ({
           String.fromCharCode(...new Uint8Array(credential.rawId))
         );
 
-        // ✅ credentialId FAQAT serverga yuboriladi — brauzerda saqlanmaydi
         const res = await api('/api/enable-biometric', {
           method: 'POST',
           body: JSON.stringify({
@@ -202,44 +177,25 @@ const Biometric: React.FC<BiometricProps> = ({
 
         if (res.ok && data.success) {
           setBiometricEnabled(true);
-          toast.success(
-            tRef.current('biometricAuthEnabled'),
-            {
-              position: "top-right",
-              autoClose: 4000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              theme: themeRef.current === 'dark' ? 'dark' : 'light'
-            }
-          );
-          if (import.meta.env.DEV) {
-            console.log('[Biometric] Backend ga muvaffaqiyatli saqlandi');
-          }
+          toast.success(t('settings:biometricAuthEnabled'), {
+            position: "top-right",
+            autoClose: 4000,
+            theme: themeRef.current === 'dark' ? 'dark' : 'light'
+          });
         } else {
-          if (import.meta.env.DEV) {
-            console.error('[Biometric] Backend xatosi:', data);
-          }
-          toast.error(data.message || tRef.current('xatoYuzBerdi'), {
+          toast.error(data.message || t('settings:xatoYuzBerdi'), {
             position: "top-right",
             autoClose: 5000,
             theme: themeRef.current === 'dark' ? 'dark' : 'light',
           });
-          // ✅ Eski biometric_ kalitini tozalash (migration — agar qolgan bo'lsa)
-          // localStorage.removeItem(`biometric_${deviceId}`);
         }
       } catch (err: any) {
-        if (import.meta.env.DEV) {
-          console.error('[Biometric] Faollashtirish xatosi:', err);
-        }
+        let errorKey = 'settings:xatoYuzBerdi';
+        if      (err.name === 'NotAllowedError')  errorKey = 'settings:biometricCancelled';
+        else if (err.name === 'SecurityError')     errorKey = 'settings:biometricSecurityError';
+        else if (err.name === 'NotSupportedError') errorKey = 'settings:biometricNotSupported';
 
-        let errorKey = 'xatoYuzBerdi';
-        if      (err.name === 'NotAllowedError')  errorKey = 'biometricCancelled';
-        else if (err.name === 'SecurityError')     errorKey = 'biometricSecurityError';
-        else if (err.name === 'NotSupportedError') errorKey = 'biometricNotSupported';
-
-        toast.error(tRef.current(errorKey), {
+        toast.error(t(errorKey), {
           position: "top-right",
           autoClose: 5000,
           theme: themeRef.current === 'dark' ? 'dark' : 'light',
@@ -248,30 +204,33 @@ const Biometric: React.FC<BiometricProps> = ({
     }
   };
 
+  const isDark = theme === 'dark';
+  const isHovered = hoveredSetting === idx;
+
   return (
     <div
       onMouseEnter={() => setHoveredSetting(idx)}
       onMouseLeave={() => setHoveredSetting(null)}
       onClick={handleToggle}
       style={{
-        background: theme === 'dark'
+        background: isDark
           ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
           : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
         borderRadius: '16px',
         padding: '20px',
-        border: hoveredSetting === idx
+        border: isHovered
           ? '1px solid #667eea'
-          : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+          : `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        transform: hoveredSetting === idx ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow: hoveredSetting === idx ? '0 8px 24px rgba(102,126,234,0.2)' : 'none',
+        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+        boxShadow: isHovered ? '0 8px 24px rgba(102,126,234,0.2)' : 'none',
       }}
     >
       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
         <div style={{
           width: '40px', height: '40px', borderRadius: '10px',
-          background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
+          background: isDark ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
           color: '#667eea', display: 'flex', alignItems: 'center',
           justifyContent: 'center', flexShrink: 0
         }}>
@@ -280,30 +239,30 @@ const Biometric: React.FC<BiometricProps> = ({
         <div style={{ flex: 1 }}>
           <h3 style={{
             fontSize: '19px', fontWeight: 600,
-            color: theme === 'dark' ? '#fff' : '#1a1f2e'
+            color: isDark ? '#fff' : '#1a1f2e'
           }}>
-            {t('biometric')}
+            {t('settings:biometric')}
           </h3>
           <p style={{
             fontSize: '13px',
-            color: theme === 'dark' ? '#8b92a7' : '#64748b',
+            color: isDark ? '#8b92a7' : '#64748b',
             marginBottom: '8px'
           }}>
-            {t('biometricDescription')}
+            {t('settings:biometricDescription')}
           </p>
           <span style={{
             display: 'inline-block', padding: '4px 12px', borderRadius: '6px',
-            background: theme === 'dark' ? '#0f1420' : '#f1f5f9',
+            background: isDark ? '#0f1420' : '#f1f5f9',
             fontSize: '12px',
-            color: biometricEnabled ? '#4caf50' : '#ef4444',
+            color: biometricEnabled ? '#10b981' : '#ef4444',
             fontWeight: 500
           }}>
-            {biometricEnabled ? t('enabled') : t('disabled')}
+            {biometricEnabled ? t('settings:enabled') : t('settings:disabled')}
           </span>
         </div>
         <ChevronRight
           size={20}
-          color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+          color={isDark ? '#8b92a7' : '#64748b'}
           style={{ flexShrink: 0, marginTop: '10px' }}
         />
       </div>

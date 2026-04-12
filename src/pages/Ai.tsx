@@ -1,32 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Send, Trash2, User, ChevronDown, Check,
-  BotMessageSquare, Zap, AlertCircle, RefreshCw, Database,
+  Send, Trash2, ChevronDown, Check,
+  BotMessageSquare, Zap, AlertCircle,
   Bot, Layers, BrainCircuit, FlaskConical
 } from 'lucide-react';
-import MainLayout from "../components/MainLayout";
-import { useTranslation } from '../components/languages/Ai';
+import MainLayout from "../components/layout/MainLayout";
+
+// ✅ Professional i18next importi
+import { useTranslation } from 'react-i18next';
+
 import { sanitizeAiMessageHtml } from "../utils/sanitizeHtml";
 import { api } from "../utils/api";
 
 const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?: string }) => {
   const s = { width: size, height: size, color: color || 'currentColor' };
   switch (id) {
-    case 'shox-ai':          return <Bot {...s} />;
-    case 'llama-3.3-70b':    return <BrainCircuit {...s} />;
-    case 'llama-3.1-8b':     return <Zap {...s} />;
-    case 'ds-v3-or':         return <Layers {...s} />;
-    case 'ds-r1-or':         return <FlaskConical {...s} />;
-    case 'shox-ai-lite':     return <BotMessageSquare {...s} />;
+    case 'shox-ai':           return <Bot {...s} />;
+    case 'llama-3.3-70b':     return <BrainCircuit {...s} />;
+    case 'llama-3.1-8b':      return <Zap {...s} />;
+    case 'ds-v3-or':          return <Layers {...s} />;
+    case 'ds-r1-or':          return <FlaskConical {...s} />;
+    case 'shox-ai-lite':      return <BotMessageSquare {...s} />;
     case 'llama-3.3-together': return <BrainCircuit {...s} />;
     case 'qwen-2.5-together':  return <Layers {...s} />;
-    default:                 return <Bot {...s} />;
+    default:                  return <Bot {...s} />;
   }
 };
 
 const ALL_MODELS = [
-  { id: 'shox-ai',          name: 'Shox AI',         provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai', groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    },
+  { id: 'shox-ai',           name: 'Shox AI',         provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai', groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    },
   { id: 'llama-3.3-70b',    name: 'LLaMA 3.3 · 70B', provider: 'ShaddiyAi', endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.3-70b-versatile', orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'ShaddiyAi' },
   { id: 'llama-3.1-8b',     name: 'LLaMA 3.1 · 8B',  provider: 'ShaddiyAi', endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'ShaddiyAi' },
   { id: 'ds-v3-or',         name: 'DeepSeek V3',     provider: 'OpenRouter', endpoint: '/api/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'OpenRouter' },
@@ -73,18 +76,19 @@ const EMPTY_CHATS: ChatStore = {
 
 export default function Ai() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  // ✅ i18next hook
+  const { t } = useTranslation(['ai', 'common']);
 
   const [chats,          setChats]          = useState<ChatStore>(EMPTY_CHATS);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [modelId,        setModelId]        = useState<ModelId>('shox-ai');
-  const [input,          setInput]          = useState('');
-  const [loading,        setLoading]        = useState(false);
-  const [dropOpen,       setDropOpen]       = useState(false);
-  const [useStore,       setUseStore]       = useState(false);
-  const [salesData,      setSalesData]      = useState<SaleItem[]>([]);
-  const [productsData,   setProductsData]   = useState<ProductItem[]>([]);
-  const [debtsData,      setDebtsData]      = useState<DebtItem[]>([]);
+  const [modelId,         setModelId]        = useState<ModelId>('shox-ai');
+  const [input,           setInput]          = useState('');
+  const [loading,         setLoading]        = useState(false);
+  const [dropOpen,        setDropOpen]       = useState(false);
+  const [useStore,        setUseStore]       = useState(false);
+  const [salesData,       setSalesData]      = useState<SaleItem[]>([]);
+  const [productsData,    setProductsData]   = useState<ProductItem[]>([]);
+  const [debtsData,       setDebtsData]      = useState<DebtItem[]>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [theme]     = useState<'dark'|'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
@@ -93,7 +97,6 @@ export default function Ai() {
   const bottomRef   = useRef<HTMLDivElement>(null);
   const dropRef     = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const inputBoxRef = useRef<HTMLDivElement>(null);
 
   const loginRef = useRef<string>(
     (() => {
@@ -105,20 +108,16 @@ export default function Ai() {
   );
   const login = loginRef.current;
 
-  const tRef = useRef(t);
-  useEffect(() => { tRef.current = t; }, [t]);
-
   const activeModel = ALL_MODELS.find(m => m.id === modelId)!;
   const messages    = chats[modelId] || [];
 
   const getErrorMsg = (status?: number) => {
-    const tr = tRef.current;
-    if (!navigator.onLine) return { icon: <AlertCircle size={13}/>, title: tr('errNoInternet'),  desc: tr('errNoInternetDesc') };
+    if (!navigator.onLine) return { icon: <AlertCircle size={13}/>, title: t('ai:errNoInternet'),  desc: t('ai:errNoInternetDesc') };
     switch (status) {
-      case 429: return { icon: <AlertCircle size={13}/>, title: tr('errLimit'),   desc: tr('errLimitDesc')   };
-      case 500: return { icon: <AlertCircle size={13}/>, title: tr('errServer'),  desc: tr('errServerDesc')  };
-      case 402: return { icon: <AlertCircle size={13}/>, title: tr('errBalance'), desc: tr('errBalanceDesc') };
-      default:  return { icon: <AlertCircle size={13}/>, title: tr('errDefault'), desc: tr('errDefaultDesc') };
+      case 429: return { icon: <AlertCircle size={13}/>, title: t('ai:errLimit'),   desc: t('ai:errLimitDesc')   };
+      case 500: return { icon: <AlertCircle size={13}/>, title: t('ai:errServer'),  desc: t('ai:errServerDesc')  };
+      case 402: return { icon: <AlertCircle size={13}/>, title: t('ai:errBalance'), desc: t('ai:errBalanceDesc') };
+      default:  return { icon: <AlertCircle size={13}/>, title: t('ai:errDefault'), desc: t('ai:errDefaultDesc') };
     }
   };
 
@@ -176,12 +175,6 @@ export default function Ai() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chats, modelId]);
 
-  useEffect(() => {
-    const handler = (e: any) => setKeyboardHeight(e.detail?.height ?? 0);
-    window.addEventListener('virtualKeyboardHeight', handler);
-    return () => window.removeEventListener('virtualKeyboardHeight', handler);
-  }, []);
-
   const buildContext = useCallback((): string => {
     const now = new Date();
     const todayS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -236,7 +229,7 @@ QARZLAR: ${debtsData.length} ta`;
       
       const data = await res.json();
       addMsg(currentModelId, {
-        role: 'ai', content: data.answer || tRef.current('noResponse'),
+        role: 'ai', content: data.answer || t('ai:noResponse'),
         timestamp: new Date().toISOString(), ms: data.ms || 0,
       });
     } catch (err: any) {
@@ -247,15 +240,8 @@ QARZLAR: ${debtsData.length} ta`;
     } finally { setLoading(false); }
   };
 
-  const retry = (idx: number) => {
-    const lastUser = [...messages.slice(0, idx)].reverse().find(m => m.role === 'user');
-    if (!lastUser) return;
-    setChats(prev => ({ ...prev, [modelId]: prev[modelId].slice(0, idx) }));
-    send(lastUser.content);
-  };
-
   const clearChat = async () => {
-    if (!window.confirm(t('clearChatFull', { modelName: activeModel.name }))) return;
+    if (!window.confirm(t('ai:clearChatFull', { modelName: activeModel.name }))) return;
     try {
       const res = await api(`/api/ai/history/${login}`, { method: 'DELETE' });
       if (res.ok) setChats(prev => ({ ...prev, [modelId]: [] }));
@@ -271,7 +257,7 @@ QARZLAR: ${debtsData.length} ta`;
   const card   = dark ? '#1e293b' : '#ffffff';
 
   return (
-    <MainLayout theme={theme} userImage={userImage} title={t('aiAnalyst')}>
+    <MainLayout theme={theme} userImage={userImage} title={t('ai:aiAnalyst')}>
       <div style={{
         width: '100%', height: 'calc(100vh - 160px)',
         display: 'flex', flexDirection: 'column', gap: 12,
@@ -290,7 +276,7 @@ QARZLAR: ${debtsData.length} ta`;
                 <ModelIcon id={activeModel.id} size={18} color={activeModel.color} />
               </div>
               <div style={{ textAlign: 'left', minWidth: 0 }}>
-                <div style={{ fontSize: 10, opacity: .5, fontWeight: 700, textTransform: 'uppercase' }}>{t('modelDropLabel')}</div>
+                <div style={{ fontSize: 10, opacity: .5, fontWeight: 700, textTransform: 'uppercase' }}>{t('ai:modelDropLabel')}</div>
                 <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>{activeModel.name}</div>
               </div>
               <ChevronDown size={15} color={sub} style={{ transform: dropOpen ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
@@ -298,8 +284,7 @@ QARZLAR: ${debtsData.length} ta`;
 
             {dropOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 280, background: card, border: `1px solid ${bdr}`, borderRadius: 20, padding: 8, zIndex: 1001, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
-             
-                {['Shox AI', 'ShaddiyAi', 'OpenRouter',  ].map(group => ( //together.ai ni vaqtincha ajratib qo'ydim, 
+                {['Shox AI', 'ShaddiyAi', 'OpenRouter'].map(group => (
                   <div key={group}>
                     <div style={{ fontSize: 10, fontWeight: 800, color: sub, padding: '8px 14px 4px' }}>{group}</div>
                     {ALL_MODELS.filter(m => m.group === group).map(m => (
@@ -319,7 +304,6 @@ QARZLAR: ${debtsData.length} ta`;
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={clearChat} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 8 }}><Trash2 size={20}/></button>
-            
           </div>
         </div>
 
@@ -328,7 +312,7 @@ QARZLAR: ${debtsData.length} ta`;
           {messages.length === 0 && !historyLoading && (
             <div style={{ margin: 'auto', textAlign: 'center', color: sub }}>
                <Bot size={48} color={activeModel.color} style={{ opacity: 0.5, marginBottom: 16 }} />
-               <p>{t('greeting')} {login}!</p>
+               <p>{t('ai:greeting')} {login}!</p>
             </div>
           )}
           {messages.map((msg, i) => (
@@ -352,40 +336,33 @@ QARZLAR: ${debtsData.length} ta`;
             </div>
           ))}
           {loading && (
-  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      padding: '12px 18px', borderRadius: 18, borderBottomLeftRadius: 6,
-      background: card, border: `1px solid ${bdr}`,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-    }}>
-      
-      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-        {[0, 1, 2].map(i => (
-          <span key={i} style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: activeModel.color,
-            display: 'inline-block',
-            animation: 'typingBounce 1.2s ease-in-out infinite',
-            animationDelay: `${i * 0.2}s`,
-            opacity: 0.85,
-          }} />
-        ))}
-      </div>
-      <style>{`
-        @keyframes typingBounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-6px); opacity: 1; }
-        }
-      `}</style>
-    </div>
-  </div>
-)}
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '12px 18px', borderRadius: 18, borderBottomLeftRadius: 6,
+                background: card, border: `1px solid ${bdr}`,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              }}>
+                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                  {[0, 1, 2].map(i => (
+                    <span key={i} style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: activeModel.color,
+                      display: 'inline-block',
+                      animation: 'typingBounce 1.2s ease-in-out infinite',
+                      animationDelay: `${i * 0.2}s`,
+                      opacity: 0.85,
+                    }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
         {/* INPUT AREA */}
-        <div ref={inputBoxRef} style={{ display: 'flex', gap: 10, padding: 12, borderRadius: 20, background: card, border: `1px solid ${bdr}` }}>
+        <div style={{ display: 'flex', gap: 10, padding: 12, borderRadius: 20, background: card, border: `1px solid ${bdr}` }}>
           <textarea
             ref={textareaRef}
             value={input}
@@ -400,6 +377,12 @@ QARZLAR: ${debtsData.length} ta`;
           </button>
         </div>
       </div>
+      <style>{`
+        @keyframes typingBounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-6px); opacity: 1; }
+        }
+      `}</style>
     </MainLayout>
   );
 }

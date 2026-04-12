@@ -1,8 +1,8 @@
-// components/menu/Sotuvlar.tsx
 import React from "react";
 import { DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTranslation } from "../../components/languages/Menu"; // yoki loyihangizdagi to'g'ri yo'l
+// ✅ i18next hookini to'g'ri import qilamiz
+import { useTranslation } from "react-i18next";
 
 interface SotuvlarProps {
   theme: "dark" | "light";
@@ -10,7 +10,9 @@ interface SotuvlarProps {
 
 const Sotuvlar: React.FC<SotuvlarProps> = ({ theme }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  
+  // ✅ Namespace sifatida 'menu' ko'rsatiladi
+  const { t } = useTranslation('menu');
 
   return (
     <div
@@ -45,6 +47,7 @@ const Sotuvlar: React.FC<SotuvlarProps> = ({ theme }) => {
           margin: 0,
         }}
       >
+        {/* ✅ menu.json faylidagi 'sales' kaliti ishlatiladi */}
         {t("sales")}
       </p>
     </div>

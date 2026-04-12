@@ -1,0 +1,21 @@
+{
+  "messages": "Xabarlar",
+  "myId": "Mening ID:",
+  "searchById": "ID orqali qidirish...",
+  "supportShoxPosPro": "Support ShoxPosPro",
+  "noMessage": "Xabar yo'q",
+  "online": "onlayn",
+  "offline": "offlayn",
+  "openProfile": "Profilni ochish",
+  "secretProfile": "Maxfiy Profil",
+  "deleteHistory": "Tarixni o'chirish",
+  "edited": "tahrirlandi",
+  "editing": "Tahrirlash...",
+  "cancel": "Bekor qilish",
+  "writeAMessage": "Xabar yozing...",
+  "startAConversation": "Muloqotni boshlang",
+  "selectUserToWriteMessage": "Xabar yozish uchun foydalanuvchini tanlang",
+  "confirmDeleteChatHistory": "Chat tarixini o'chirishni tasdiqlaysizmi?",
+  "userNotFound": "Foydalanuvchi topilmadi",
+  "adminAvatarPlaceholder": "A"
+}

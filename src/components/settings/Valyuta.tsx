@@ -1,26 +1,32 @@
 import React, { useState } from 'react';
 import { Coins, ChevronRight, X, Check } from 'lucide-react';
+// ✅ i18next hookini import qilamiz
+import { useTranslation } from 'react-i18next';
 import { useCurrency, CurrencyType } from '../../context/CurrencyContext';
 
 interface CurrencyProps {
   theme: 'dark' | 'light';
-  t: (key: string) => string;
   hoveredSetting: string | null;
   setHoveredSetting: (id: string | null) => void;
   idx: string;
 }
 
-const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHoveredSetting, idx }) => {
+const Currency: React.FC<CurrencyProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
   const { currency, setCurrency, rates } = useCurrency();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // ✅ useTranslation orqali t funksiyasini olamiz
+  const { t } = useTranslation(['settings', 'common']);
+
+  // Valyutalar ro'yxati tarjima kalitlari bilan
   const currencies: { id: CurrencyType; label: string; symbol: string; nativeName: string }[] = [
-    { id: 'UZS', label: t('uzs') || "O'zbek so'mi", nativeName: "O'zbek so'mi", symbol: "so'm" },
-    { id: 'USD', label: t('usd') || "AQSH dollari", nativeName: "US Dollar", symbol: "$" },
-    { id: 'RUB', label: t('rub') || "Rossiya rubli", nativeName: "Российский рубль", symbol: "₽" },
+    { id: 'UZS', label: t('settings:uzs'), nativeName: "O'zbek so'mi", symbol: "so'm" },
+    { id: 'USD', label: t('settings:usd'), nativeName: "US Dollar", symbol: "$" },
+    { id: 'RUB', label: t('settings:rub'), nativeName: "Российский рубль", symbol: "₽" },
   ];
 
-  const currentCurrency = currencies.find(c => c.id === currency);
+  const currentCurrency = currencies.find(c => c.id === currency) || currencies[0];
+  const isDark = theme === 'dark';
   const isHovered = hoveredSetting === idx;
 
   return (
@@ -31,14 +37,14 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
         onMouseLeave={() => setHoveredSetting(null)}
         onClick={() => setIsModalOpen(true)}
         style={{
-          background: theme === 'dark'
+          background: isDark
             ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
             : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
           borderRadius: '16px',
           padding: '20px',
           border: isHovered
             ? '1px solid #667eea'
-            : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+            : `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
           cursor: 'pointer',
           transition: 'all 0.3s ease',
           transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
@@ -52,7 +58,7 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
             width: '40px',
             height: '40px',
             borderRadius: '10px',
-            background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
+            background: isDark ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
             color: '#667eea',
             display: 'flex',
             alignItems: 'center',
@@ -62,39 +68,41 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
             <Coins size={20} />
           </div>
 
-          {/* Matn — Languages bilan aynan bir xil */}
+          {/* Matn */}
           <div style={{ flex: 1 }}>
             <h3 style={{
               fontSize: '19px',
               fontWeight: 600,
-              color: theme === 'dark' ? '#fff' : '#1a1f2e',
+              color: isDark ? '#fff' : '#1a1f2e',
+              margin: 0,
+              marginBottom: '4px'
             }}>
-              {t('currency')}
+              {t('settings:currency')}
             </h3>
             <p style={{
               fontSize: '13px',
-              color: theme === 'dark' ? '#8b92a7' : '#64748b',
+              color: isDark ? '#8b92a7' : '#64748b',
+              margin: 0,
               marginBottom: '8px',
             }}>
-              {t('currencyDescription')}
+              {t('settings:currencyDescription')}
             </p>
             <span style={{
               display: 'inline-block',
               padding: '4px 12px',
               borderRadius: '6px',
-              background: theme === 'dark' ? '#0f1420' : '#f1f5f9',
+              background: isDark ? '#0f1420' : '#f1f5f9',
               fontSize: '12px',
               color: '#667eea',
               fontWeight: 500,
             }}>
-              {currentCurrency?.label}
+              {currentCurrency.id} ({currentCurrency.symbol})
             </span>
           </div>
 
-          {/* Arrow */}
           <ChevronRight
             size={20}
-            color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+            color={isDark ? '#8b92a7' : '#64748b'}
             style={{ flexShrink: 0, marginTop: '10px' }}
           />
         </div>
@@ -115,28 +123,28 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: theme === 'dark'
+              background: isDark
                 ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
                 : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
               borderRadius: '24px',
               padding: '32px',
               width: '90%',
               maxWidth: '500px',
-              border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+              border: `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{
                 fontSize: '24px', fontWeight: 700,
-                color: theme === 'dark' ? '#fff' : '#1a1f2e',
+                color: isDark ? '#fff' : '#1a1f2e',
                 margin: 0,
               }}>
-                {t('selectCurrency') || "Valyutani tanlang"}
+                {t('settings:selectCurrency')}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: isDark ? '#8b92a7' : '#64748b' }}
               >
                 <X size={24} />
               </button>
@@ -151,11 +159,11 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
                     padding: '16px 20px',
                     borderRadius: '12px',
                     background: currency === c.id
-                      ? (theme === 'dark' ? 'rgba(102,126,234,0.15)' : 'rgba(79,70,229,0.1)')
-                      : (theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
+                      ? (isDark ? 'rgba(102,126,234,0.15)' : 'rgba(79,70,229,0.1)')
+                      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
                     border: currency === c.id
                       ? '2px solid #667eea'
-                      : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+                      : `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                     display: 'flex',
@@ -166,17 +174,17 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{
                       width: '44px', height: '44px', borderRadius: '12px',
-                      background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '20px', fontWeight: 700, color: '#667eea',
                     }}>
                       {c.symbol}
                     </div>
                     <div>
-                      <div style={{ fontSize: '18px', fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1a1f2e', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: isDark ? '#fff' : '#1a1f2e', marginBottom: '4px' }}>
                         {c.label}
                       </div>
-                      <div style={{ fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>
+                      <div style={{ fontSize: '14px', color: isDark ? '#8b92a7' : '#64748b' }}>
                         {c.nativeName}
                       </div>
                     </div>
@@ -194,32 +202,32 @@ const Currency: React.FC<CurrencyProps> = ({ theme, t, hoveredSetting, setHovere
               ))}
             </div>
 
-            {/* Kurslar */}
+            {/* Kurslar segmenti */}
             <div style={{
               marginTop: '32px',
               padding: '20px',
               borderRadius: '16px',
-              background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-              border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+              background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              border: `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
             }}>
               <h4 style={{
                 fontSize: '14px', fontWeight: 600,
-                color: theme === 'dark' ? '#8b92a7' : '#64748b',
+                color: isDark ? '#8b92a7' : '#64748b',
                 textTransform: 'uppercase', letterSpacing: '1px',
                 margin: '0 0 16px 0',
               }}>
-                {t('currentRate') || "Joriy kurs"} ({currentCurrency?.symbol})
+                {t('settings:currentRate')} ({currentCurrency.symbol})
               </h4>
               <div style={{ display: 'flex', gap: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '16px', fontWeight: 700, color: '#667eea' }}>$</span>
-                  <span style={{ fontSize: '16px', fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 600, color: isDark ? '#fff' : '#1a1f2e' }}>
                     {rates.USD.toLocaleString()}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '16px', fontWeight: 700, color: '#667eea' }}>₽</span>
-                  <span style={{ fontSize: '16px', fontWeight: 600, color: theme === 'dark' ? '#fff' : '#1a1f2e' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 600, color: isDark ? '#fff' : '#1a1f2e' }}>
                     {rates.RUB.toLocaleString()}
                   </span>
                 </div>

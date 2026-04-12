@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Download, FileText, X, ChevronRight } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import { api } from '../../utils/api';
-import { useTranslation } from '../../components/languages/Settings';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -12,7 +12,7 @@ function ExportFormatModal({
   isOpen: boolean; onClose: () => void; onExportExcel: () => void;
   onExportPDF: () => void; theme: 'dark' | 'light';
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   if (!isOpen) return null;
 
   return (
@@ -55,7 +55,7 @@ interface DataExportProps {
 }
 
 const DataExport: React.FC<DataExportProps> = ({ theme, hoveredSetting, setHoveredSetting, idx }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const [isOpen, setIsOpen] = useState(false);
   const [exportData, setExportData] = useState<{ products: any[], reports: any[], debts: any[] } | null>(null);
 

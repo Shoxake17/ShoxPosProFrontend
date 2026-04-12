@@ -216,7 +216,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       const qrBitmap = await qrToBitmap(qrPayload, 280);
       parts.push(qrBitmap);
 
-      parts.push(t2b(`\n\n  Chiqarildi: ${sanaLokal}\n  Muddat: 24 soat\n${line}\n${esc}a\x01Xaridingiz uchun rahmat!\n\n\n\n`));
+      parts.push(t2b(` Muddat: 24 soat\n${line}\n${esc}a\x01Xaridingiz uchun rahmat!\n\n\n\n`));
       parts.push(new Uint8Array([0x1D, 0x56, 0x41, 0x00])); // Paper cut
 
       // Barcha qismlarni bitta massivga yig'ish

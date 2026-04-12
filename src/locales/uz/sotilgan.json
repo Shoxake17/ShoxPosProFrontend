@@ -1,0 +1,20 @@
+{
+  "sales": "Sotuvlar",
+  "totalAmount": "Umumiy summa",
+  "uniqueProductsCount": "Turli mahsulotlar soni",
+  "soldProducts": "Sotilgan mahsulotlar",
+  "searchPlaceholder": "Barcode va Nomi orqali qidiring",
+  "all": "Barchasi",
+  "today": "Kunlik",
+  "week": "Haftalik",
+  "month": "Oylik",
+  "noSales": "Sotuvlar hali yo'q",
+  "changeFilters": "Filtrlarni o'zgartiring",
+  "products": "Mahsulotlar",
+  "barcode": "Barkod",
+  "quantity": "Soni",
+  "price": "Narxi",
+  "total": "Jammi",
+  "time": "Vaqti",
+  "loading": "Yuklanmoqda..."
+}

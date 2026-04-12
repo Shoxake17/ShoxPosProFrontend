@@ -1,0 +1,20 @@
+{
+  "reports": "Reports",
+  "loading": "Loading...",
+  "totalIncome": "Total Income",
+  "totalSalesAmount": "Total Sales Amount",
+  "salesCount": "Unique Products Sold",
+  "soldQuantity": "Total Quantity Sold",
+  "all": "All",
+  "today": "Today",
+  "week": "Week",
+  "month": "Month",
+  "last7DaysSales": "Last 7 Days Sales",
+  "salesByCategory": "Sales by Category",
+  "noData": "No Data",
+  "top10ProductsByQuantity": "Top 10 Products (by Qty)",
+  "top10ProductsByAmount": "Top 10 Products (by Amount)",
+  "allSalesHistory": "All Sales History",
+  "sales": "Sales",
+  "unknown": "Unknown"
+}

@@ -1,8 +1,8 @@
-// components/menu/Hisobot.tsx
 import React from "react";
 import { TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTranslation } from "../../components/languages/Menu"; // yoki loyihangizdagi to'g'ri yo'l
+// ✅ i18next hookini to'g'ri import qilamiz
+import { useTranslation } from "react-i18next";
 
 interface HisobotProps {
   theme: "dark" | "light";
@@ -10,7 +10,9 @@ interface HisobotProps {
 
 const Hisobot: React.FC<HisobotProps> = ({ theme }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  
+  // ✅ Namespace sifatida 'menu' ko'rsatiladi
+  const { t } = useTranslation('menu');
 
   return (
     <div

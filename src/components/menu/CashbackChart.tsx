@@ -1,6 +1,6 @@
 // components/menu/CashbackChart.tsx
 import React from "react";
-import { useTranslation } from "../../components/languages/Menu"; // yoki to'g'ri yo'l
+import { useTranslation } from "react-i18next";
 import {
   LineChart,
   Line,

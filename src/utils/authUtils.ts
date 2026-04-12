@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import axiosInstance from "../api/axiosInstance";
 import { NavigateFunction } from "react-router-dom";
 import { getSocket as getMainSocket, disconnectSocket as mainDisconnect } from "./socket";
-import { invalidateAuthCache } from "../components/ProtectedRoute";
+import { invalidateAuthCache } from "../components/layout/ProtectedRoute";
 import { clearAuthClientState, getSessionLogin } from "./clientSession";
 
 let authCheckInterval: ReturnType<typeof setInterval> | null = null;

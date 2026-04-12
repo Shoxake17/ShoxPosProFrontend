@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, User, Phone, Edit2, Save, Camera, Hash } from "lucide-react";
-import { useTranslation } from "../languages/Settings";
+// ✅ 1. To'g'ri import: Standart react-i18next hooki
+import { useTranslation } from 'react-i18next';
 import { api } from "../../utils/api";
 import { toast } from "sonner";
 import { getSessionLogin } from "../../utils/clientSession";
@@ -14,7 +15,8 @@ interface ProfileProps {
 }
 
 export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
-    const { t } = useTranslation();
+  // ✅ 2. i18next hookidan foydalanamiz (settings namespace bilan)
+  const { t } = useTranslation(['settings', 'common']);
   const login = getSessionLogin();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -48,7 +50,8 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           setPreviewUrl(data.avatarUrl);
         }
       } catch (err) {
-        console.error(t("errorLoadingProfile"), err);
+        // ✅ Namespace bilan tarjima
+        console.error(t("settings:errorLoadingProfile"), err);
       }
     };
 
@@ -65,7 +68,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
 
   const handleSave = async () => {
     if (!formData.firstName.trim()) {
-      toast.error(t("nameRequired"));
+      toast.error(t("settings:nameRequired"));
       return;
     }
 
@@ -87,9 +90,8 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
 
       if (res.ok) {
         const result = await res.json();
-        toast.success(t("updateSuccess"));
+        toast.success(t("settings:updateSuccess"));
         
-        // SessionStorage ni yangilash
         const sessionUserRaw = sessionStorage.getItem("currentUser");
         if (sessionUserRaw) {
           const sessionUser = JSON.parse(sessionUserRaw);
@@ -106,10 +108,10 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
         }
         setIsEditing(false);
       } else {
-        toast.error(t("updateError"));
+        toast.error(t("settings:updateError"));
       }
     } catch (err) {
-      toast.error(t("serverError"));
+      toast.error(t("settings:serverError"));
     } finally {
       setLoading(false);
     }
@@ -161,7 +163,6 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative",
         }}
       >
-        {/* Yopish tugmasi */}
         <button
           onClick={onClose}
           style={{
@@ -172,7 +173,6 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           <X size={24} />
         </button>
 
-        {/* Avatar qismi */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div
             onClick={() => isEditing && document.getElementById("profileImageInput")?.click()}
@@ -198,42 +198,41 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           <input id="profileImageInput" type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
 
           <h2 style={{ fontSize: "26px", fontWeight: 700, marginBottom: "8px", color: theme === "dark" ? "#fff" : "#1a1f2e" }}>
-            {t("profileTitle")}
+            {t("settings:profileTitle")}
           </h2>
           <p style={{ color: theme === "dark" ? "#8b92a7" : "#64748b", fontSize: "14px" }}>
-            {t("profileSubtitle")}
+            {t("settings:profileSubtitle")}
           </p>
         </div>
 
-        {/* Forma qismi */}
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={{ display: "flex", gap: "15px" }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>{t("firstName")}</label>
+              <label style={labelStyle}>{t("settings:firstName")}</label>
               <input
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 disabled={!isEditing}
-                placeholder={t("firstNamePlaceholder")}
+                placeholder={t("settings:firstNamePlaceholder")}
                 style={inputStyle}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>{t("lastName")}</label>
+              <label style={labelStyle}>{t("settings:lastName")}</label>
               <input
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 disabled={!isEditing}
-                placeholder={t("lastNamePlaceholder")}
+                placeholder={t("settings:lastNamePlaceholder")}
                 style={inputStyle}
               />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>{t("phoneLabel")}</label>
+            <label style={labelStyle}>{t("settings:phoneLabel")}</label>
             <div style={{ position: "relative" }}>
               <Phone style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#667eea", pointerEvents: "none" }} size={20} />
               <input
@@ -248,7 +247,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           </div>
 
           <div>
-            <label style={labelStyle}>{t("chatIdLabel")}</label>
+            <label style={labelStyle}>{t("settings:chatIdLabel")}</label>
             <div style={{ position: "relative" }}>
               <Hash style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#6366f1", pointerEvents: "none" }} size={20} />
               <input
@@ -267,7 +266,6 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
           </div>
         </div>
 
-        {/* Tugmalar */}
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginTop: "32px" }}>
           {isEditing ? (
             <>
@@ -280,7 +278,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
                   cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "8px",
                 }}
               >
-                {loading ? t("savingBtn") : <><Save size={20} /> {t("saveBtn")}</>}
+                {loading ? t("settings:savingBtn") : <><Save size={20} /> {t("settings:saveBtn")}</>}
               </button>
               <button
                 onClick={handleCancel}
@@ -290,7 +288,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
                   fontSize: "16px", cursor: "pointer",
                 }}
               >
-                {t("cancel")}
+                {t("settings:cancel")}
               </button>
             </>
           ) : (
@@ -303,7 +301,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
               }}
             >
               <Edit2 size={20} />
-              {t("editBtn")}
+              {t("settings:editBtn")}
             </button>
           )}
         </div>

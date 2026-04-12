@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, ChevronRight } from 'lucide-react';
-import { useTranslation } from '../../components/languages/Settings';
+import { useTranslation } from 'react-i18next';
 
 interface ClearDataProps {
   theme: 'dark' | 'light';
@@ -17,7 +17,7 @@ const ClearData: React.FC<ClearDataProps> = ({
   idx,
   showMessage
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 

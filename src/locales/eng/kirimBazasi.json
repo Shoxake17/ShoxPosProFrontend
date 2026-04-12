@@ -1,0 +1,23 @@
+{
+  "title": "Stock In Database",
+  "barcodeOrName": "Barcode or name...",
+  "totalIncoming": "Total Stock In",
+  "totalOutgoing": "Total Stock Out",
+  "income": "Profit",
+  "soldQuantity": "Sold Quantity",
+  "n": "No.",
+  "barcode": "Barcode",
+  "productName": "Product Name",
+  "exitPrice": "Sale Price",
+  "quantity": "Quantity",
+  "totalOutgoingSum": "Total Outgoing",
+  "category": "Category",
+  "loadingTable": "⏳ Loading...",
+  "noData": "No wholesale stock yet",
+  "priceUpdated": "Price updated",
+  "quantityUpdated": "Quantity updated",
+  "savedOffline": "📴 Saved offline — will sync later",
+  "noInternet": "No internet connection",
+  "allDataLoaded": "All data loaded successfully",
+  "changesSynced": "{{count}} changes synced"
+}

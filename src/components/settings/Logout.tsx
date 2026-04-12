@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogOut, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from '../languages/Settings';
+import { useTranslation } from 'react-i18next';
 import { clearAuthClientState } from '../../utils/clientSession';
 
 interface LogoutProps {
@@ -15,7 +15,7 @@ interface LogoutProps {
 const Logout: React.FC<LogoutProps> = ({
   theme, hoveredSetting, setHoveredSetting, idx, showMessage
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['settings', 'common']);
   const navigate = useNavigate();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 

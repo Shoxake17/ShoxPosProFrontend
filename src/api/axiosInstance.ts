@@ -1,6 +1,6 @@
 // src/api/axiosInstance.ts
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { invalidateAuthCache } from '../components/ProtectedRoute';
+import { invalidateAuthCache } from '../components/layout/ProtectedRoute';
 import { clearAuthClientState } from '../utils/clientSession';
 
 // 🔒 CSRF MEMORY STORAGE

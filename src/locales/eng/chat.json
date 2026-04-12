@@ -1,0 +1,21 @@
+{
+  "messages": "Messages",
+  "myId": "My ID:",
+  "searchById": "Search by ID...",
+  "supportShoxPosPro": "Support ShoxPosPro",
+  "noMessage": "No messages",
+  "online": "online",
+  "offline": "offline",
+  "openProfile": "Open Profile",
+  "secretProfile": "Secret Profile",
+  "deleteHistory": "Delete History",
+  "edited": "edited",
+  "editing": "Editing...",
+  "cancel": "Cancel",
+  "writeAMessage": "Write a message...",
+  "startAConversation": "Start a conversation",
+  "selectUserToWriteMessage": "Select a user to write a message",
+  "confirmDeleteChatHistory": "Are you sure you want to delete the chat history?",
+  "userNotFound": "User not found",
+  "adminAvatarPlaceholder": "A"
+}

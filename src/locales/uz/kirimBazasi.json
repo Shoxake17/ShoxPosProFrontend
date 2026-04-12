@@ -1,0 +1,23 @@
+{
+  "title": "Kirim Bazasi",
+  "barcodeOrName": "Barcode yoki nom...",
+  "totalIncoming": "Umumiy kirim",
+  "totalOutgoing": "Umumiy chiqim",
+  "income": "Daromad",
+  "soldQuantity": "Sotilgan miqdor",
+  "n": "№",
+  "barcode": "Barcode",
+  "productName": "Mahsulot nomi",
+  "exitPrice": "Chiqim narx",
+  "quantity": "Miqdori",
+  "totalOutgoingSum": "Umumiy chiqim",
+  "category": "Kategoriya",
+  "loadingTable": "⏳ Yuklanmoqda...",
+  "noData": "Hozircha ulgurji kirim yo'q",
+  "priceUpdated": "Narx yangilandi",
+  "quantityUpdated": "Miqdor yangilandi",
+  "savedOffline": "📴 Offline saqlandi — keyinchalik sync bo'ldi",
+  "noInternet": "Internet yo'q",
+  "allDataLoaded": "Barcha ma'lumot yuklandi",
+  "changesSynced": "{{count}} ta o'zgarish sync bo'ldi"
+}

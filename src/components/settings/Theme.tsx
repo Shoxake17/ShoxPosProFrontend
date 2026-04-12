@@ -1,10 +1,11 @@
 // components/settings/Theme.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Moon, Sun, ChevronRight } from 'lucide-react';
+// ✅ react-i18next hookini import qilamiz
+import { useTranslation } from 'react-i18next';
 
 interface ThemeProps {
   theme: 'dark' | 'light';
-  t: (key: string) => string;
   setTheme: (theme: 'dark' | 'light') => void;
   hoveredSetting: string | null;
   setHoveredSetting: (val: string | null) => void;
@@ -13,12 +14,13 @@ interface ThemeProps {
 
 export default function Theme({
   theme,
-  t,
   setTheme,
   hoveredSetting,
   setHoveredSetting,
   idx
 }: ThemeProps) {
+  // ✅ t funksiyasini hook orqali olamiz. Endi u Settings.tsx dan kelishiga qaram emas.
+  const { t } = useTranslation(['settings', 'common']);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -27,8 +29,9 @@ export default function Theme({
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
+  const isDark = theme === 'dark';
   const isHovered = hoveredSetting === idx;
-  const Icon = theme === 'dark' ? Moon : Sun;
+  const Icon = isDark ? Moon : Sun;
 
   return (
     <div
@@ -36,14 +39,14 @@ export default function Theme({
       onMouseLeave={() => setHoveredSetting(null)}
       onClick={toggleTheme}
       style={{
-        background: theme === 'dark'
+        background: isDark
           ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)'
           : 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
         borderRadius: '16px',
         padding: '20px',
         border: isHovered
           ? '1px solid #667eea'
-          : `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}`,
+          : `1px solid ${isDark ? '#2a3144' : '#e2e8f0'}`,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
         transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
@@ -57,7 +60,7 @@ export default function Theme({
           width: '40px',
           height: '40px',
           borderRadius: '10px',
-          background: theme === 'dark' ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
+          background: isDark ? 'rgba(102,126,234,0.1)' : 'rgba(79,70,229,0.1)',
           color: '#667eea',
           display: 'flex',
           alignItems: 'center',
@@ -67,39 +70,42 @@ export default function Theme({
           <Icon size={20} />
         </div>
 
-        {/* Matn — Notification bilan aynan bir xil joylashuv */}
+        {/* Matn */}
         <div style={{ flex: 1 }}>
           <h3 style={{
             fontSize: '19px',
             fontWeight: 600,
-            color: theme === 'dark' ? '#fff' : '#1a1f2e',
+            color: isDark ? '#fff' : '#1a1f2e',
+            margin: 0,
+            marginBottom: '4px'
           }}>
-            {t('theme')}
+            {t('settings:theme')}
           </h3>
           <p style={{
             fontSize: '13px',
-            color: theme === 'dark' ? '#8b92a7' : '#64748b',
+            color: isDark ? '#8b92a7' : '#64748b',
+            margin: 0,
             marginBottom: '8px',
           }}>
-            {t('themeDescription')}
+            {t('settings:themeDescription')}
           </p>
           <span style={{
             display: 'inline-block',
             padding: '4px 12px',
             borderRadius: '6px',
-            background: theme === 'dark' ? '#0f1420' : '#f1f5f9',
+            background: isDark ? '#0f1420' : '#f1f5f9',
             fontSize: '12px',
             color: '#667eea',
             fontWeight: 500,
           }}>
-            {theme === 'dark' ? t('dark') : t('light')}
+            {isDark ? t('settings:dark') : t('settings:light')}
           </span>
         </div>
 
         {/* Arrow */}
         <ChevronRight
           size={20}
-          color={theme === 'dark' ? '#8b92a7' : '#64748b'}
+          color={isDark ? '#8b92a7' : '#64748b'}
           style={{ flexShrink: 0, marginTop: '10px' }}
         />
       </div>

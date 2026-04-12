@@ -1,0 +1,21 @@
+{
+  "messages": "Сообщения",
+  "myId": "Мой ID:",
+  "searchById": "Поиск по ID...",
+  "supportShoxPosPro": "Поддержка ShoxPosPro",
+  "noMessage": "Нет сообщений",
+  "online": "в сети",
+  "offline": "не в сети",
+  "openProfile": "Открыть профиль",
+  "secretProfile": "Скрытый профиль",
+  "deleteHistory": "Очистить историю",
+  "edited": "изменено",
+  "editing": "Редактирование...",
+  "cancel": "Отмена",
+  "writeAMessage": "Напишите сообщение...",
+  "startAConversation": "Начните общение",
+  "selectUserToWriteMessage": "Выберите пользователя, чтобы написать сообщение",
+  "confirmDeleteChatHistory": "Вы подтверждаете удаление истории чата?",
+  "userNotFound": "Пользователь не найден",
+  "adminAvatarPlaceholder": "A"
+}

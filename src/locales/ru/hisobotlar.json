@@ -1,0 +1,20 @@
+{
+  "reports": "Отчеты",
+  "loading": "Загрузка...",
+  "totalIncome": "Общий доход",
+  "totalSalesAmount": "Общая сумма продаж",
+  "salesCount": "Видов проданных товаров",
+  "soldQuantity": "Количество проданных товаров",
+  "all": "Все",
+  "today": "Сегодня",
+  "week": "Неделя",
+  "month": "Месяц",
+  "last7DaysSales": "Продажи за последние 7 дней",
+  "salesByCategory": "Продажи по категориям",
+  "noData": "Нет данных",
+  "top10ProductsByQuantity": "Топ 10 товаров (в шт.)",
+  "top10ProductsByAmount": "Топ 10 товаров (по сумме)",
+  "allSalesHistory": "История всех продаж",
+  "sales": "Продажи",
+  "unknown": "Неизвестно"
+}
