@@ -535,12 +535,8 @@ export default function MaxsulotBazasi() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '12px',
+        marginBottom: '-20px',
       }}>
-        <span style={{ fontSize: '12px', fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '.5px' }}>
-          {t('products', 'MAHSULOTLAR')}
-        </span>
-        
       </div>
 
       {/* ── MOBILE: Kartochkalar ro'yxati ── */}

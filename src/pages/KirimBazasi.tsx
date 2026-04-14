@@ -1,30 +1,277 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-import MainLayout from "../components/layout/MainLayout";
-
-// ✅ Professional i18next importi
+import MainLayout from '../components/layout/MainLayout';
 import { useTranslation } from 'react-i18next';
-
-import { getCategories, getCategoryEmoji, translateCategory, getUserShopCategoriesAsync, syncUserCategoriesToIDB } from '../components/Category';
+import {
+  getCategories, getCategoryEmoji,
+  getUserShopCategoriesAsync, syncUserCategoriesToIDB,
+} from '../components/Category';
 import { Search, TrendingUp, TrendingDown, Package, DollarSign } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
-import "react-toastify/dist/ReactToastify.css";
+import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../api/axiosInstance';
-import { getSessionLogin } from "../utils/clientSession";
+import { getSessionLogin } from '../utils/clientSession';
 import { useCurrency } from '../context/CurrencyContext';
 import {
-  openDB,
-  saveToIDB,
-  saveAllToIDB,
-  getAllFromIDB,
-  fetchFromMongoDB
+  openDB, saveToIDB, saveAllToIDB,
+  getAllFromIDB, fetchFromMongoDB,
 } from '../hooks/useProductSync';
 
-// ─── IndexedDB yordamchi funksiyalari ──────────────────────
+// ─── CSS ─────────────────────────────────────────────────────────────────────
+const STYLES = (isDark: boolean) => `
+  /* ── Variables ── */
+  :root {
+    --kb-card:     ${isDark ? '#111827' : '#ffffff'};
+    --kb-card2:    ${isDark ? '#1a1f2e' : '#ffffff'};
+    --kb-bdr:      ${isDark ? '#1e293b' : '#e2e8f0'};
+    --kb-bdr2:     ${isDark ? '#2a3144' : '#cbd5e1'};
+    --kb-sub:      #64748b;
+    --kb-text:     ${isDark ? '#e2e8f0' : '#1e293b'};
+    --kb-input:    ${isDark ? '#0f1420' : '#f4f6fb'};
+    --kb-hover:    ${isDark ? 'rgba(255,255,255,.03)' : 'rgba(0,0,0,.02)'};
+    --kb-thead:    ${isDark ? '#1e293b' : '#f8fafc'};
+  }
+
+  .kb-root { width: 100%; }
+
+  /* ── Search + Category row ── */
+  .kb-filter-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .kb-search-wrap { position: relative; }
+  .kb-search-icon {
+    position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); pointer-events: none;
+  }
+  .kb-search-input {
+    width: 100%; padding: 13px 14px 13px 44px;
+    border-radius: 14px;
+    border: 1px solid var(--kb-bdr);
+    background: var(--kb-card);
+    color: var(--kb-text); font-size: 15px; outline: none;
+    transition: border-color .2s;
+    box-sizing: border-box;
+  }
+  .kb-search-input:focus { border-color: #667eea; }
+  .kb-search-input::placeholder { color: var(--kb-sub); }
+  .kb-cat-select {
+    padding: 13px 16px; border-radius: 14px;
+    border: 1px solid var(--kb-bdr);
+    background: var(--kb-card);
+    color: var(--kb-text); font-size: 14px; cursor: pointer; outline: none;
+    white-space: nowrap;
+    transition: border-color .2s;
+  }
+  .kb-cat-select:focus { border-color: #667eea; }
+
+  /* ── Stat cards ── */
+  .kb-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .kb-stat {
+    background: var(--kb-card2);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--kb-bdr);
+    transition: border-color .2s;
+  }
+  .kb-stat:hover { border-color: var(--kb-bdr2); }
+  .kb-stat-top {
+    display: flex; align-items: center;
+    gap: 10px; margin-bottom: 10px;
+  }
+  .kb-stat-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .kb-stat-lbl { font-size: 13px; color: var(--kb-sub); }
+  .kb-stat-val { font-size: 26px; font-weight: 700; line-height: 1.2; }
+
+  /* ── Desktop table ── */
+  .kb-table-card {
+    background: var(--kb-card);
+    border-radius: 20px;
+    border: 1px solid var(--kb-bdr);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .kb-table-scroll { overflow-x: auto; }
+  .kb-table {
+    width: 100%; border-collapse: collapse; min-width: 860px;
+  }
+  .kb-table thead tr { background: var(--kb-thead); }
+  .kb-table th {
+    padding: 15px 16px; text-align: left;
+    font-size: 12px; color: var(--kb-sub);
+    text-transform: uppercase; font-weight: 700;
+    letter-spacing: .5px; white-space: nowrap;
+  }
+  .kb-table tbody tr {
+    border-bottom: 1px solid var(--kb-bdr);
+    transition: background .15s;
+  }
+  .kb-table tbody tr:last-child { border-bottom: none; }
+  .kb-table tbody tr:hover { background: var(--kb-hover); }
+  .kb-table td { padding: 14px 16px; font-size: 14px; color: var(--kb-text); }
+  .kb-barcode { font-family: monospace; color: #6366f1; font-weight: 600; font-size: 13px; }
+  .kb-table-input {
+    width: 100px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--kb-bdr);
+    background: var(--kb-input);
+    color: var(--kb-text); text-align: center; font-size: 13px; outline: none;
+    transition: border-color .2s;
+  }
+  .kb-table-input:focus { border-color: #667eea; }
+  .kb-cat-badge {
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(99,102,241,.12); color: #818cf8;
+    white-space: nowrap;
+  }
+  .kb-empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--kb-sub); font-size: 15px;
+  }
+
+  /* ── Mobile: product card ── */
+  .kb-mobile-list { display: none; }
+  .kb-prod-card {
+    background: var(--kb-card);
+    border-radius: 14px;
+    border: 1px solid var(--kb-bdr);
+    padding: 13px;
+    margin-bottom: 8px;
+    transition: border-color .2s;
+  }
+  .kb-pc-top {
+    display: flex; align-items: flex-start;
+    gap: 8px; margin-bottom: 8px;
+  }
+  .kb-pc-num {
+    width: 22px; height: 22px; border-radius: 7px;
+    background: var(--kb-input);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: var(--kb-sub);
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .kb-pc-name {
+    font-size: 13px; font-weight: 700;
+    color: var(--kb-text); flex: 1; line-height: 1.35;
+  }
+  .kb-pc-badge {
+    padding: 3px 8px; border-radius: 7px;
+    font-size: 9px; font-weight: 700;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .kb-pc-barcode {
+    font-size: 10px; color: #6366f1;
+    font-family: monospace; font-weight: 600;
+    margin-bottom: 10px; padding-left: 30px;
+  }
+  .kb-pc-inputs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 7px; margin-bottom: 10px;
+  }
+  .kb-inp-block {
+    background: var(--kb-input);
+    border: 1px solid var(--kb-bdr);
+    border-radius: 9px; padding: 8px 10px;
+  }
+  .kb-inp-lbl {
+    font-size: 9px; font-weight: 700;
+    color: var(--kb-sub);
+    text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px;
+  }
+  .kb-inp-field {
+    width: 100%; background: transparent; border: none; outline: none;
+    color: var(--kb-text); font-size: 14px; font-weight: 700;
+    font-family: monospace;
+    -moz-appearance: textfield;
+  }
+  .kb-inp-field::-webkit-outer-spin-button,
+  .kb-inp-field::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .kb-pc-footer {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .kb-pc-total { font-size: 14px; font-weight: 800; color: #10b981; font-family: monospace; }
+  .kb-pc-total-lbl { font-size: 10px; color: var(--kb-sub); margin-top: 1px; }
+
+  /* ── Mobile skeleton ── */
+  .kb-skeleton {
+    background: var(--kb-input); border-radius: 12px;
+    height: 120px; margin-bottom: 8px;
+    animation: kb-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes kb-pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+  /* ── Mobile summary mini bar ── */
+  .kb-mini-bar {
+    display: none;
+    background: var(--kb-card); border: 1px solid var(--kb-bdr);
+    border-radius: 14px; padding: 10px 8px;
+    margin-bottom: 12px;
+    align-items: center; justify-content: space-around;
+  }
+  .kb-mb-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .kb-mb-lbl  { font-size: 9px; font-weight: 700; color: var(--kb-sub); text-transform: uppercase; letter-spacing: .4px; }
+  .kb-mb-val  { font-size: 12px; font-weight: 800; font-family: monospace; }
+  .kb-mb-div  { width: 1px; height: 26px; background: var(--kb-bdr); }
+
+  /* ── Sync badge ── */
+  .kb-sync-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(245,158,11,.12); color: #f59e0b;
+    border-radius: 8px; padding: 4px 10px;
+    font-size: 12px; font-weight: 600; margin-bottom: 10px;
+  }
+
+  /* ════════════════════════════
+     MOBILE ≤900px
+  ════════════════════════════ */
+  @media (max-width: 900px) {
+    /* filter row: search full width + category compact */
+    .kb-filter-row {
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .kb-search-input { padding: 11px 12px 11px 38px; font-size: 13px; border-radius: 12px; }
+    .kb-cat-select   { padding: 11px 10px; font-size: 12px; border-radius: 12px; }
+
+    /* Stats: 2×2 grid — barcha 4 karta teng ikkitadan */
+    .kb-stats {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .kb-stats .kb-stat:first-child { grid-column: auto; }
+    .kb-stat       { padding: 12px 13px; border-radius: 12px; }
+    .kb-stat-icon  { width: 28px; height: 28px; border-radius: 8px; }
+    .kb-stat-lbl   { font-size: 10px; }
+    .kb-stat-val   { font-size: 15px; }
+
+    /* Show mobile blocks */
+    .kb-mini-bar    { display: flex; }
+    .kb-mobile-list { display: block; }
+
+    /* Hide desktop table */
+    .kb-table-card  { display: none; }
+  }
+`;
+
+// ─── IndexedDB helpers ────────────────────────────────────────────────────────
 const PENDING_STORE = 'pendingSync';
 
-async function addToPending(data: any, action: 'update-base-price' | 'update-quantity'): Promise<void> {
+async function addToPending(data: any, action: string) {
   try {
     const db = await openDB();
     const tx = db.transaction(PENDING_STORE, 'readwrite');
@@ -35,16 +282,16 @@ async function addToPending(data: any, action: 'update-base-price' | 'update-qua
 async function getPending(): Promise<any[]> {
   try {
     const db = await openDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(PENDING_STORE, 'readonly');
+    return new Promise(resolve => {
+      const tx  = db.transaction(PENDING_STORE, 'readonly');
       const req = tx.objectStore(PENDING_STORE).getAll();
       req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => resolve([]);
+      req.onerror   = () => resolve([]);
     });
   } catch { return []; }
 }
 
-async function removeFromPending(barcode: string): Promise<void> {
+async function removeFromPending(barcode: string) {
   try {
     const db = await openDB();
     const tx = db.transaction(PENDING_STORE, 'readwrite');
@@ -52,7 +299,7 @@ async function removeFromPending(barcode: string): Promise<void> {
   } catch { /* silent */ }
 }
 
-async function syncPendingToMongoDB(login: string): Promise<number> {
+async function syncPendingToMongoDB(login: string) {
   if (!navigator.onLine) return 0;
   const pending = await getPending();
   let synced = 0;
@@ -60,16 +307,10 @@ async function syncPendingToMongoDB(login: string): Promise<number> {
     try {
       let ok = false;
       if (item.action === 'update-base-price') {
-        const res = await api('/api/products/update-base-price', {
-          method: 'POST',
-          body: JSON.stringify({ barcode: item.barcode, newBasePrice: item.basePrice, login }),
-        });
+        const res = await api('/api/products/update-base-price', { method: 'POST', body: JSON.stringify({ barcode: item.barcode, newBasePrice: item.basePrice, login }) });
         ok = res.ok;
       } else if (item.action === 'update-quantity') {
-        const res = await api('/api/products/update-quantity', {
-          method: 'POST',
-          body: JSON.stringify({ barcode: item.barcode, newQuantity: item.quantity, login }),
-        });
+        const res = await api('/api/products/update-quantity', { method: 'POST', body: JSON.stringify({ barcode: item.barcode, newQuantity: item.quantity, login }) });
         ok = res.ok;
       }
       if (ok) { await removeFromPending(item.barcode); synced++; }
@@ -78,7 +319,7 @@ async function syncPendingToMongoDB(login: string): Promise<number> {
   return synced;
 }
 
-// ─── Tiplar ───────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Product {
   _id?: string;
   barcode: string;
@@ -87,7 +328,6 @@ interface Product {
   price: number;
   quantity?: number;
   category: string;
-  createdAt?: string;
   login?: string;
 }
 
@@ -100,321 +340,403 @@ interface SoldProduct {
   category: string;
 }
 
-export default function KirimBazasi() {
-  // ✅ i18next hook (namespace: kirim, categories)
-  const { t, i18n } = useTranslation(['kirim', 'categories', 'common']);
-  const { currency, convert, format } = useCurrency();
-  const navigate = useNavigate();
+// ─── Category badge colors ────────────────────────────────────────────────────
+const CAT_COLORS: Record<string, { bg: string; color: string }> = {
+  'Kanselyariya maxsulotlari': { bg: 'rgba(99,102,241,.15)',  color: '#818cf8' },
+  'Gigiyena vositalari':       { bg: 'rgba(236,72,153,.15)',  color: '#ec4899' },
+  'Tamaki mahsulotlari':       { bg: 'rgba(16,185,129,.15)',  color: '#10b981' },
+  'Moy':                       { bg: 'rgba(245,158,11,.15)',  color: '#f59e0b' },
+  "Go'zallik va Parvarish":    { bg: 'rgba(168,85,247,.15)',  color: '#a855f7' },
+  'Sport oziqlanishi':         { bg: 'rgba(6,182,212,.15)',   color: '#06b6d4' },
+};
+function catStyle(cat: string) {
+  return CAT_COLORS[cat] || { bg: 'rgba(100,116,139,.15)', color: '#94a3b8' };
+}
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [soldProducts, setSoldProducts] = useState<SoldProduct[]>([]);
-  const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [userImage, setUserImage] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [syncing, setSyncing] = useState(false);
-  const [userCategories, setUserCategories] = useState<string[]>([]);
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
+export default function KirimBazasi() {
+  const { t, i18n }      = useTranslation(['kirim', 'categories', 'common']);
+  const { currency, convert, format } = useCurrency();
+  const navigate          = useNavigate();
+
+  const [products,         setProducts]        = useState<Product[]>([]);
+  const [filteredProducts, setFiltered]        = useState<Product[]>([]);
+  const [soldProducts,     setSoldProducts]    = useState<SoldProduct[]>([]);
+  const [searchText,       setSearchText]      = useState('');
+  const [selectedCategory, setSelectedCategory]= useState('');
+  const [loading,          setLoading]         = useState(true);
+  const [userImage,        setUserImage]       = useState<string | null>(null);
+  const [syncing,          setSyncing]         = useState(false);
+  const [userCategories,   setUserCategories]  = useState<string[]>([]);
+  const [theme,            setTheme]           = useState<'dark'|'light'>(
+    () => (localStorage.getItem('theme') as any) || 'dark',
+  );
 
   const login = getSessionLogin();
+  const isDark = theme === 'dark';
 
-  // Kategoriyalarni yuklash
+  // categories
   useEffect(() => {
-    const refreshData = async () => {
+    const refresh = async () => {
       if (!login) return;
       const idbCats = await getUserShopCategoriesAsync(login);
-      if (idbCats.length > 0) {
-        setUserCategories(idbCats);
-      }
-      if (idbCats.length === 0 && navigator.onLine) {
+      if (idbCats.length > 0) { setUserCategories(idbCats); return; }
+      if (navigator.onLine) {
         try {
-          const res = await axiosInstance.get("/me");
+          const res = await axiosInstance.get('/me');
           if (res.data.success) {
-            const freshUser = res.data.user;
-            setUserCategories(freshUser.shopCategories || []);
-            syncUserCategoriesToIDB(freshUser.login, freshUser.shopCategories);
+            const u = res.data.user;
+            setUserCategories(u.shopCategories || []);
+            syncUserCategoriesToIDB(u.login, u.shopCategories);
           }
-        } catch (err) { console.error(err); }
+        } catch (e) { console.error(e); }
       }
     };
-    refreshData();
+    refresh();
   }, [login]);
 
   const categories = getCategories(i18n.language, userCategories);
 
   useEffect(() => {
-    if (!login) navigate("/login", { replace: true });
+    if (!login) navigate('/login', { replace: true });
   }, [login, navigate]);
 
-  // Online/Offline listener
   useEffect(() => {
-    const handleOnline = async () => {
-      setIsOnline(true);
+    const onOnline = async () => {
       setSyncing(true);
       const count = await syncPendingToMongoDB(login!);
       if (count > 0) toast.success(`✅ ${t('kirim:changesSynced', { count })}`);
       setSyncing(false);
     };
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    window.addEventListener('online',  onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, [login, t]);
 
-  // Mahsulotlarni yuklash
+  // Load products
   const loadProducts = useCallback(async () => {
     if (!login) return;
     setLoading(true);
     try {
-      const idbProducts = await getAllFromIDB(login);
-      if (idbProducts.length > 0) {
-        const normalized = idbProducts.map(p => ({ ...p, basePrice: p.basePrice || 0 }));
-        setProducts(normalized);
-        setFilteredProducts(normalized);
-        if (navigator.onLine) syncFromMongoDB(login, idbProducts);
+      const idb = await getAllFromIDB(login);
+      if (idb.length > 0) {
+        const norm = idb.map((p: any) => ({ ...p, basePrice: p.basePrice || 0 }));
+        setProducts(norm); setFiltered(norm);
+        if (navigator.onLine) syncMongo(login, idb);
       } else if (navigator.onLine) {
-        await syncFromMongoDB(login, []);
+        await syncMongo(login, []);
       }
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [login]);
 
-  const syncFromMongoDB = async (userLogin: string, existingIdb: any[]) => {
+  const syncMongo = async (l: string, existing: any[]) => {
     try {
-      const mongoProducts = await fetchFromMongoDB(userLogin);
-      if (mongoProducts.length === 0) return;
-      const normalized = mongoProducts.map((p: any) => ({ ...p, basePrice: p.basePrice || 0, login: userLogin }));
-      await saveAllToIDB(normalized);
-      if (existingIdb.length === 0) {
-        setProducts(normalized);
-        setFilteredProducts(normalized);
-      }
-    } catch (err) { console.error(err); }
+      const mongo = await fetchFromMongoDB(l);
+      if (!mongo.length) return;
+      const norm = mongo.map((p: any) => ({ ...p, basePrice: p.basePrice || 0, login: l }));
+      await saveAllToIDB(norm);
+      if (!existing.length) { setProducts(norm); setFiltered(norm); }
+    } catch (e) { console.error(e); }
   };
 
-  const fetchSoldProducts = async () => {
+  const fetchSold = async () => {
     if (!navigator.onLine || !login) return;
     try {
       const res = await api(`/api/sales/${login}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSoldProducts(Array.isArray(data) ? data : []);
-      }
-    } catch (err) { console.error(err); }
+      if (res.ok) { const d = await res.json(); setSoldProducts(Array.isArray(d) ? d : []); }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
-    const savedImage = localStorage.getItem('userImage');
-    if (savedImage) setUserImage(savedImage);
+    const img = localStorage.getItem('userImage');
+    if (img) setUserImage(img);
+    const savedTheme = (localStorage.getItem('theme') as 'dark'|'light') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
     loadProducts();
-    fetchSoldProducts();
+    fetchSold();
   }, [login, loadProducts]);
 
-  // Filter mantiqi
+  // Filter
   useEffect(() => {
-    let filtered = products;
+    let f = products;
     if (searchText.trim()) {
-      const lower = searchText.toLowerCase();
-      filtered = filtered.filter(p =>
-        p.barcode.toLowerCase().includes(lower) || (p.name && p.name.toLowerCase().includes(lower))
-      );
+      const q = searchText.toLowerCase();
+      f = f.filter(p => p.barcode.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q));
     }
-    if (selectedCategory) {
-      filtered = filtered.filter(p => p.category === selectedCategory);
-    }
-    setFilteredProducts(filtered);
+    if (selectedCategory) f = f.filter(p => p.category === selectedCategory);
+    setFiltered(f);
   }, [searchText, selectedCategory, products]);
 
-  // Narxni yangilash
-  const updateBasePrice = async (barcode: string, newBasePrice: number) => {
-    if (newBasePrice < 0) return;
-    const updated = products.map(p => p.barcode === barcode ? { ...p, basePrice: newBasePrice } : p);
-    setProducts(updated);
-    const product = products.find(p => p.barcode === barcode);
-    if (product) await saveToIDB({ ...product, basePrice: newBasePrice, login });
-
+  // Update handlers
+  const updateBasePrice = async (barcode: string, newBase: number) => {
+    if (newBase < 0) return;
+    const upd = products.map(p => p.barcode === barcode ? { ...p, basePrice: newBase } : p);
+    setProducts(upd);
+    const prod = products.find(p => p.barcode === barcode);
+    if (prod) await saveToIDB({ ...prod, basePrice: newBase, login });
     if (navigator.onLine) {
       try {
-        const res = await api('/api/products/update-base-price', {
-          method: 'POST',
-          body: JSON.stringify({ barcode, newBasePrice, login }),
-        });
+        const res = await api('/api/products/update-base-price', { method: 'POST', body: JSON.stringify({ barcode, newBasePrice: newBase, login }) });
         if (res.ok) toast.success(t('kirim:priceUpdated'));
-        else await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price');
-      } catch { await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price'); }
+        else await addToPending({ barcode, basePrice: newBase, login }, 'update-base-price');
+      } catch { await addToPending({ barcode, basePrice: newBase, login }, 'update-base-price'); }
     } else {
-      await addToPending({ barcode, basePrice: newBasePrice, login }, 'update-base-price');
+      await addToPending({ barcode, basePrice: newBase, login }, 'update-base-price');
       toast.info(t('kirim:savedOffline'));
     }
   };
 
-  // Miqdor yangilash
-  const updateQuantity = async (barcode: string, newQuantity: number) => {
-    if (newQuantity < 0) return;
-    const updated = products.map(p => p.barcode === barcode ? { ...p, quantity: newQuantity } : p);
-    setProducts(updated);
-    const product = products.find(p => p.barcode === barcode);
-    if (product) await saveToIDB({ ...product, quantity: newQuantity, login });
-
+  const updateQuantity = async (barcode: string, newQty: number) => {
+    if (newQty < 0) return;
+    const upd = products.map(p => p.barcode === barcode ? { ...p, quantity: newQty } : p);
+    setProducts(upd);
+    const prod = products.find(p => p.barcode === barcode);
+    if (prod) await saveToIDB({ ...prod, quantity: newQty, login });
     if (navigator.onLine) {
       try {
-        const res = await api('/api/products/update-quantity', {
-          method: 'POST',
-          body: JSON.stringify({ barcode, newQuantity, login }),
-        });
+        const res = await api('/api/products/update-quantity', { method: 'POST', body: JSON.stringify({ barcode, newQuantity: newQty, login }) });
         if (res.ok) toast.success(t('kirim:quantityUpdated'));
-        else await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity');
-      } catch { await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity'); }
+        else await addToPending({ barcode, quantity: newQty, login }, 'update-quantity');
+      } catch { await addToPending({ barcode, quantity: newQty, login }, 'update-quantity'); }
     } else {
-      await addToPending({ barcode, quantity: newQuantity, login }, 'update-quantity');
+      await addToPending({ barcode, quantity: newQty, login }, 'update-quantity');
       toast.info(t('kirim:savedOffline'));
     }
   };
 
-  // Statistika hisoblari
-  const totalChiqim = soldProducts.reduce((sum, item) => sum + (item.basePrice || 0) * (item.quantity || 1), 0);
-  const totalKirim = soldProducts.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const totalDaromad = totalKirim - totalChiqim;
-  const totalIncomingQuantity = soldProducts.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  // Stats
+  const totalChiqim   = soldProducts.reduce((s, i) => s + (i.basePrice || 0) * (i.quantity || 1), 0);
+  const totalKirim    = soldProducts.reduce((s, i) => s + (i.price    || 0) * (i.quantity || 1), 0);
+  const totalDaromad  = totalKirim - totalChiqim;
+  const totalQty      = soldProducts.reduce((s, i) => s + (i.quantity || 1), 0);
+  const daromadColor  = totalDaromad >= 0 ? '#22c55e' : '#ef4444';
 
-  const theme = (localStorage.getItem('theme') as any) || 'dark';
+  const STATS = [
+    { icon: <TrendingUp  size={16} color="#10b981" />, iconBg: 'rgba(16,185,129,.15)',  lbl: t('kirim:totalIncoming', 'Umumiy kirim'),  val: format(totalKirim),  color: '#10b981' },
+    { icon: <TrendingDown size={16} color="#ef4444" />, iconBg: 'rgba(239,68,68,.15)',   lbl: t('kirim:totalOutgoing', 'Umumiy chiqim'), val: format(totalChiqim), color: '#ef4444' },
+    { icon: <DollarSign  size={16} color={daromadColor} />, iconBg: `${daromadColor}25`, lbl: t('kirim:income', 'Daromad'),           val: format(totalDaromad), color: daromadColor },
+    { icon: <Package     size={16} color="#f59e0b" />, iconBg: 'rgba(245,158,11,.15)',  lbl: t('kirim:soldQuantity', 'Sotilgan miqdor'), val: totalQty.toLocaleString(), color: '#f59e0b' },
+  ];
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <MainLayout theme={theme} userImage={userImage} title={t('kirim:title')}>
-      
-      <div className="filters-container">
-        <div className="search-box">
-          <Search className="search-icon" size={20} />
-          <input
-            type="text"
-            placeholder={t('kirim:barcodeOrName')}
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-          />
-        </div>
-        <select
-          className="category-select"
-          value={selectedCategory}
-          onChange={e => setSelectedCategory(e.target.value)}
-        >
-          {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
-      </div>
+    <>
+      <style>{STYLES(isDark)}</style>
+      <MainLayout
+        theme={theme}
+        userImage={userImage}
+        handleImageUpload={e => {
+          const file = e.target.files?.[0]; if (!file) return;
+          const r = new FileReader();
+          r.onload = ev => { const s = ev.target?.result as string; setUserImage(s); localStorage.setItem('userImage', s); };
+          r.readAsDataURL(file);
+        }}
+        title={t('kirim:title', 'Kirim Bazasi')}
+      >
+        <div className="kb-root">
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px', marginTop: '24px' }}>
-        {[
-          { icon: <TrendingUp size={20} color="#10b981" />,   label: t('kirim:totalIncoming'),   value: totalKirim,             color: '#10b981' },
-          { icon: <TrendingDown size={20} color="#ef4444" />, label: t('kirim:totalOutgoing'),  value: totalChiqim,            color: '#ef4444' },
-          { icon: <DollarSign size={20} color={totalDaromad >= 0 ? '#22c55e' : '#ef4444'} />, label: t('kirim:income'), value: totalDaromad, color: totalDaromad >= 0 ? '#22c55e' : '#ef4444' },
-          { icon: <Package size={20} color="#f59e0b" />,      label: t('kirim:soldQuantity'), value: totalIncomingQuantity, color: '#f59e0b', noUnit: true },
-        ].map((card, i) => (
-          <div key={i} style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%)' : '#fff', borderRadius: '16px', padding: '24px', border: `1px solid ${theme === 'dark' ? '#2a3144' : '#e2e8f0'}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              {card.icon}
-              <span style={{ fontSize: '14px', color: theme === 'dark' ? '#8b92a7' : '#64748b' }}>{card.label}</span>
+          {/* Syncing indicator */}
+          {syncing && (
+            <div className="kb-sync-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              Sinxronlanmoqda...
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: card.color }}>
-              {card.noUnit ? card.value.toLocaleString() : format(Number(card.value))}
+          )}
+
+          {/* ── Search + Category ── */}
+          <div className="kb-filter-row">
+            <div className="kb-search-wrap">
+              <Search size={16} color="var(--kb-sub)" className="kb-search-icon" />
+              <input
+                type="text"
+                className="kb-search-input"
+                placeholder={t('kirim:barcodeOrName', 'Barcode yoki nom...')}
+                value={searchText}
+                onChange={e => setSearchText(e.target.value)}
+              />
+            </div>
+            <select
+              className="kb-cat-select"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+            >
+              {categories.map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* ── Stat cards ── */}
+          <div className="kb-stats">
+            {STATS.map((s, i) => (
+              <div key={i} className="kb-stat">
+                <div className="kb-stat-top">
+                  <div className="kb-stat-icon" style={{ background: s.iconBg }}>{s.icon}</div>
+                  <span className="kb-stat-lbl">{s.lbl}</span>
+                </div>
+                <div className="kb-stat-val" style={{ color: s.color }}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* ══════════════════════════════════════
+              DESKTOP TABLE
+          ══════════════════════════════════════ */}
+          <div className="kb-table-card">
+            <div className="kb-table-scroll">
+              <table className="kb-table">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'center' }}>{t('kirim:n', '№')}</th>
+                    <th>{t('kirim:barcode', 'Barcode')}</th>
+                    <th>{t('kirim:productName', 'Mahsulot nomi')}</th>
+                    <th>{t('kirim:exitPrice', 'Chiqim narx')}</th>
+                    <th>{t('kirim:quantity', 'Miqdori')}</th>
+                    <th>{t('kirim:totalOutgoingSum', 'Umumiy chiqim')}</th>
+                    <th>{t('kirim:category', 'Kategoriya')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={7} className="kb-empty">{t('kirim:loadingTable', 'Yuklanmoqda...')}</td></tr>
+                  ) : filteredProducts.length === 0 ? (
+                    <tr><td colSpan={7} className="kb-empty">{t('kirim:noData', 'Ma\'lumot topilmadi')}</td></tr>
+                  ) : filteredProducts.map((p, i) => {
+                    const { bg, color } = catStyle(p.category);
+                    return (
+                      <tr key={p.barcode}>
+                        <td style={{ textAlign: 'center', color: 'var(--kb-sub)', fontWeight: 600 }}>{i + 1}</td>
+                        <td><span className="kb-barcode">{p.barcode}</span></td>
+                        <td style={{ fontWeight: 500 }}>{p.name || '—'}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <input
+                              type="number"
+                              className="kb-table-input"
+                              step={currency === 'UZS' ? '1' : '0.01'}
+                              value={convert(p.basePrice, 'UZS', currency).toFixed(currency === 'UZS' ? 0 : 2)}
+                              onChange={e => {
+                                const inUZS = convert(Number(e.target.value), currency, 'UZS');
+                                updateBasePrice(p.barcode, inUZS);
+                              }}
+                            />
+                            {currency !== 'UZS' && (
+                              <span style={{ fontSize: 10, color: 'var(--kb-sub)' }}>{p.basePrice.toLocaleString()} so'm</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="kb-table-input"
+                            min="0"
+                            value={p.quantity || 0}
+                            onChange={e => updateQuantity(p.barcode, Number(e.target.value))}
+                          />
+                        </td>
+                        <td style={{ fontWeight: 700, color: '#10b981' }}>
+                          {format(p.basePrice * (p.quantity || 1))}
+                        </td>
+                        <td>
+                          <span className="kb-cat-badge" style={{ background: bg, color }}>
+                            {getCategoryEmoji(p.category)} {t(`categories:${p.category}`, p.category)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        ))}
-      </div>
 
-      <div className="table-card">
-        <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>{t('kirim:n')}</th>
-                <th>{t('kirim:barcode')}</th>
-                <th>{t('kirim:productName')}</th>
-                <th>{t('kirim:exitPrice')}</th>
-                <th>{t('kirim:quantity')}</th>
-                <th>{t('kirim:totalOutgoingSum')}</th>
-                <th>{t('kirim:category')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7} className="empty-state">{t('kirim:loadingTable')}</td></tr>  
-              ) : filteredProducts.length === 0 ? (
-                <tr><td colSpan={7} className="empty-state">{t('kirim:noData')}</td></tr>
-              ) : (
-                filteredProducts.map((p, i) => (
-                  <tr key={p.barcode}>
-                    <td className="text-center">{i + 1}</td>
-                    <td className="barcode-cell">{p.barcode}</td>
-                    <td className="name-cell">{p.name || '-'}</td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <input
-                          type="number" className="table-input"
-                          step={currency === 'UZS' ? '1' : '0.01'}
-                          value={convert(p.basePrice, 'UZS', currency).toFixed(currency === 'UZS' ? 0 : 2)}
-                          onChange={e => {
-                            const val = Number(e.target.value);
-                            const inUZS = convert(val, currency, 'UZS');
-                            updateBasePrice(p.barcode, inUZS);
-                          }}
-                        />
-                        {currency !== 'UZS' && (
-                          <span style={{ fontSize: '10px', color: '#64748b' }}>
-                            {p.basePrice.toLocaleString()} so'm
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
+          {/* ══════════════════════════════════════
+              MOBILE CARDS
+          ══════════════════════════════════════ */}
+          <div className="kb-mobile-list">
+
+            
+
+            {loading ? (
+              <>{[1,2,3].map(i => <div key={i} className="kb-skeleton" />)}</>
+            ) : filteredProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--kb-sub)', fontSize: 14 }}>
+                {t('kirim:noData', 'Ma\'lumot topilmadi')}
+              </div>
+            ) : filteredProducts.map((p, i) => {
+              const { bg, color } = catStyle(p.category);
+              const total = p.basePrice * (p.quantity || 1);
+              return (
+                <div key={p.barcode} className="kb-prod-card">
+
+                  {/* Top: num + name + category badge */}
+                  <div className="kb-pc-top">
+                    <div className="kb-pc-num">{i + 1}</div>
+                    <div className="kb-pc-name">{p.name || '—'}</div>
+                    <div className="kb-pc-badge" style={{ background: bg, color }}>
+                      {getCategoryEmoji(p.category)} {t(`categories:${p.category}`, p.category)}
+                    </div>
+                  </div>
+
+                  {/* Barcode */}
+                  <div className="kb-pc-barcode">{p.barcode}</div>
+
+                  {/* Inputs */}
+                  <div className="kb-pc-inputs">
+                    <div className="kb-inp-block">
+                      <div className="kb-inp-lbl">Chiqim narx</div>
                       <input
-                        type="number" className="table-input" min="0"
+                        type="number"
+                        className="kb-inp-field"
+                        step={currency === 'UZS' ? '1' : '0.01'}
+                        value={convert(p.basePrice, 'UZS', currency).toFixed(currency === 'UZS' ? 0 : 2)}
+                        onChange={e => {
+                          const inUZS = convert(Number(e.target.value), currency, 'UZS');
+                          updateBasePrice(p.barcode, inUZS);
+                        }}
+                      />
+                    </div>
+                    <div className="kb-inp-block">
+                      <div className="kb-inp-lbl">Miqdori</div>
+                      <input
+                        type="number"
+                        className="kb-inp-field"
+                        min="0"
                         value={p.quantity || 0}
                         onChange={e => updateQuantity(p.barcode, Number(e.target.value))}
                       />
-                    </td>
-                    <td style={{ fontWeight: 700 }}>
-                      {format(p.basePrice * (p.quantity || 1))}
-                    </td>
-                    <td>
-                      <span className="category-badge">
-                        {getCategoryEmoji(p.category)} {t(`${p.category}`)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+
+                  {/* Footer: total */}
+                  <div className="kb-pc-footer">
+                    <div>
+                      <div className="kb-pc-total">{format(total)}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {/* Narx ko'rsatgich */}
+                      {currency !== 'UZS' && (
+                        <span style={{ fontSize: 10, color: 'var(--kb-sub)', alignSelf: 'center' }}>
+                          {p.basePrice.toLocaleString()} so'm
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+
         </div>
-      </div>
+      </MainLayout>
 
-      <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
+      <ToastContainer theme={isDark ? 'dark' : 'light'} position="bottom-center" />
 
-      <style>{`
-        .filters-container { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
-        .search-box { position: relative; display: flex; align-items: center; }
-        .search-icon { position: absolute; left: 16px; color: #64748b; pointer-events: none; }
-        .search-box input, .category-select {
-          width: 100%; padding: 14px 14px 14px 48px; border-radius: 14px;
-          border: 1px solid ${theme === 'dark' ? '#1e293b' : '#e2e8f0'};
-          background: ${theme === 'dark' ? '#111827' : '#fff'};
-          color: ${theme === 'dark' ? '#fff' : '#1a1f2e'}; font-size: 15px;
-        }
-        .category-select { padding-left: 16px; cursor: pointer; }
-        .table-card { background: ${theme === 'dark' ? '#111827' : '#fff'}; border-radius: 20px; border: 1px solid ${theme === 'dark' ? '#1e293b' : '#f1f5f9'}; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        .table-responsive { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; }
-        th { background: ${theme === 'dark' ? '#1e293b' : '#f8fafc'}; padding: 16px; text-align: left; font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: 600; }
-        td { padding: 16px; border-bottom: 1px solid ${theme === 'dark' ? '#1e293b' : '#f1f5f9'}; color: ${theme === 'dark' ? '#e2e8f0' : '#334155'}; }
-        .barcode-cell { font-family: monospace; color: #4f46e5; font-weight: 600; }
-        .name-cell { font-weight: 500; }
-        .table-input { width: 100px; padding: 8px; border-radius: 8px; border: 1px solid ${theme === 'dark' ? '#334155' : '#ddd'}; text-align: center; background: transparent; color: inherit; }
-        .category-badge { background: #4f46e515; color: #4f46e5; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .text-center { text-align: center; }
-        .empty-state { text-align: center; padding: 60px; color: #64748b; }
-      `}</style>
-    </MainLayout>
+      {/* spin animation */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </>
   );
 }
