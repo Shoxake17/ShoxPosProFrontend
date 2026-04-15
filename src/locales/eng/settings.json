@@ -105,7 +105,7 @@
   "sessionKickedError": "This device has been kicked out by another user!",
   "sessionKickedWarn": "⚠️ You have been logged out from another device!",
   "sessionKickConfirm": "Do you want to log out this device?",
-  "sessionKickSuccess": "✅ Device removed",
+  "sessionKickSuccess": " Device removed",
   "sessionCsrfExpired": "CSRF token expired, refreshing...",
   "sessionKickError": "Could not remove device",
   "noDevicesFound": "No active devices found",

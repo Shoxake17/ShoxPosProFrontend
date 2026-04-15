@@ -34,12 +34,14 @@ const AdminPanel     = lazy(() => import("./admin/adminPages/AdminMenu"));
 const AdminSettings  = lazy(() => import("./admin/adminPages/AdminSettings"));
 const AdminAddUser   = lazy(() => import("./admin/adminPages/AdminAddUser"));
 const ChatAdmin      = lazy(() => import("./admin/adminPages/ChatAdmin"));
+const SubscriptionPlans = lazy(() => import("./pages/SubscriptionPlans"));
 
 import { getSocket, disconnectSocket }         from "./utils/socket";
 import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
 import { invalidateAuthCache }                 from "./components/layout/ProtectedRoute";
 import { hydrateSessionUserFromCookie, getSessionLogin, clearAuthClientState } from "./utils/clientSession";
 import axiosInstance, { setMemoryCsrfToken } from "./api/axiosInstance";
+import { useAuthStore } from "./store/useAuthStore";
 
 const updateSW = registerSW({
   immediate: true,
@@ -62,6 +64,7 @@ import { showBrowserNotification, notificationStorage } from "./admin/adminUtils
 function GlobalSocketListener() {
   const navigate    = useNavigate();
   const navigateRef = useRef(navigate);
+  const { user, setUser } = useAuthStore();
   
   // ✅ Standart useTranslation ishlatamiz
   const { t } = useTranslation(['common', 'settings']);
@@ -137,14 +140,35 @@ function GlobalSocketListener() {
       }, 3000);
     };
 
+    const handleSubscriptionChanged = (data: { subscription: any }) => {
+      const currentUserStr = sessionStorage.getItem('currentUser');
+      if (currentUserStr) {
+        const currentUser = JSON.parse(currentUserStr);
+        const updatedUser = { ...currentUser, subscription: data.subscription };
+        
+        // Zustand store'ni yangilash
+        setUser(updatedUser);
+        
+        // SessionStorage'ni yangilash
+        sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        sessionStorage.setItem('authCache', JSON.stringify({ 
+          user: updatedUser, 
+          timestamp: Date.now() 
+        }));
+        
+      }
+    };
+
     socket.on('privateMessage', handleNewMessage);
     socket.on('forceLogout',    handleForceLogout);
     socket.on('user:blocked',   handleBlocked);
+    socket.on('subscriptionChanged', handleSubscriptionChanged);
 
     return () => {
       socket.off('privateMessage', handleNewMessage);
       socket.off('forceLogout',    handleForceLogout);
       socket.off('user:blocked',   handleBlocked);
+      socket.off('subscriptionChanged', handleSubscriptionChanged);
     };
   }, [t]);
 
@@ -183,6 +207,7 @@ function App() {
               <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
               <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
               <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
+              <Route path="/subscription"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><SubscriptionPlans /></ProtectedRoute></Suspense>} />
 
               {/* 👑 Admin Routes */}
               <Route path="/admin-panel"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminPanel /></ProtectedRoute></Suspense>} />

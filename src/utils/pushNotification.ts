@@ -54,7 +54,6 @@ export const subscribeToPushNotifications = async (): Promise<void> => {
     });
 
     if (res.ok) {
-      console.log('✅ Push notification subscribe bo\'lindi');
     }
   } catch (err) {
     console.error('Push subscribe xatosi:', err);

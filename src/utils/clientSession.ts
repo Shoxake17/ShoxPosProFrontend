@@ -53,20 +53,53 @@ export function clearAuthClientState(options?: { clearAiChats?: boolean }): void
   }
 }
 
+let hydrateInProgress = false;
+let hydrateCache: { timestamp: number; data: any } | null = null;
+
 /** Cookie bo'yicha sessiya bo'lsa, foydalanuvchini sessionStorage ga yozadi (socket / guard dan oldin). */
 export async function hydrateSessionUserFromCookie(): Promise<void> {
   try {
+    // 1. Agar allaqachon ma'lumotlar mavjud bo'lsa
     if (sessionStorage.getItem(SESSION_USER_KEY)) return;
+    
+    // 2. Deduplication - bir vaqtning o'zida faqat bitta so'rov
+    if (hydrateInProgress) return;
+    
+    // 3. Cache tekshirish (30 sekundlik kesh)
+    if (hydrateCache && Date.now() - hydrateCache.timestamp < 30000) {
+      if (hydrateCache.data?.user?.login) {
+        sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(hydrateCache.data.user));
+      }
+      return;
+    }
+
+    hydrateInProgress = true;
+    
     const r = await fetch("/api/verify-session", { credentials: "include" });
-    if (!r.ok) return;
+    if (!r.ok) {
+      hydrateInProgress = false;
+      return;
+    }
+    
     const d = (await r.json()) as { user?: { id?: string; login?: string; role?: string } };
+    
+    // Cache'ga saqlash
+    hydrateCache = {
+      timestamp: Date.now(),
+      data: d
+    };
+    
     if (d?.user?.login) {
       sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(d.user));
     }
+    
     for (const k of LEGACY_LS_AUTH_KEYS) {
       localStorage.removeItem(k);
     }
+    
   } catch {
     /* ignore */
+  } finally {
+    hydrateInProgress = false;
   }
 }

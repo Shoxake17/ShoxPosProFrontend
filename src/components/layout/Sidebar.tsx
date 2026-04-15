@@ -16,13 +16,16 @@ import {
   PanelRightOpen,
   PanelRightClose,
   MessageCircleMore,
-  Home
+  Home,
+  Crown
 } from "lucide-react";
+import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
 
 type MenuItem = {
   id: string;
   icon: LucideIcon;
   labelKey: string;
+  requiresPlan?: 'basic' | 'pro';
 };
 
 type SidebarProps = {
@@ -37,11 +40,11 @@ const menuItems: MenuItem[] = [
   { id: "products", icon: Package, labelKey: "products" },
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
-  { id: "reports", icon: BarChart3, labelKey: "reports" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
-  { id: "debts", icon: CreditCard, labelKey: "debts" },
-  { id: "ai", icon: Bot, labelKey: "ai" },
-  { id: "chat", icon: MessageCircleMore, labelKey: "chat" },
+  { id: "reports", icon: BarChart3, labelKey: "reports", requiresPlan: 'pro' },
+  { id: "debts", icon: CreditCard, labelKey: "debts", requiresPlan: 'basic' },
+  { id: "ai", icon: Bot, labelKey: "ai", requiresPlan: 'pro' },
+  { id: "chat", icon: MessageCircleMore, labelKey: "chat", requiresPlan: 'basic' },
   { id: "settings", icon: Settings, labelKey: "settings" },
 ];
 
@@ -49,6 +52,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation('sidebar');
+  const { user } = useAuthStore();
   
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
@@ -59,6 +63,19 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   }, []);
 
   const currentPage = location.pathname.split('/')[1] || "menu";
+  const userPlan = user?.subscription?.plan || 'free';
+  const userRole = user?.role?.toLowerCase();
+
+  const filteredMenuItems = menuItems.filter(item => {
+    // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
+    if (userRole === 'admin') return true;
+    
+    if (!item.requiresPlan) return true;
+    const planOrder = ['free', 'basic', 'pro'];
+    const itemPlanIndex = planOrder.indexOf(item.requiresPlan);
+    const userPlanIndex = planOrder.indexOf(userPlan);
+    return userPlanIndex >= itemPlanIndex;
+  });
 
   if (isMobile && !isOpen) {
     return (
@@ -119,7 +136,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
                 style={{ width: "40px", height: "40px", borderRadius: "50%" }} 
               />
               <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: 'Roboto, sans-serif' }}>
-                ShoxPosPro
+                {userRole === 'admin' ? 'ShoxPosPro' : userPlan === 'free' ? 'ShoxPosFree' : userPlan === 'basic' ? 'ShoxPosBasic' : 'ShoxPosPro'}
               </div>
             </div>
           )}
@@ -138,7 +155,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
         </div>
 
         <ul style={{ listStyle: "none", padding: "0 15px", margin: 0 }}>
-          {menuItems.map(item => {
+          {filteredMenuItems.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             const label = t(item.labelKey);

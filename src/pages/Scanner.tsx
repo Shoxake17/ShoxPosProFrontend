@@ -438,9 +438,9 @@ function ScannerContent() {
 
   useEffect(() => {
     checkPrinterStatus();
-    const interval = setInterval(checkPrinterStatus, 30000);
+    const interval = setInterval(checkPrinterStatus, 60000);
     return () => clearInterval(interval);
-  }, [checkPrinterStatus]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

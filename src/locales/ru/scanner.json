@@ -11,6 +11,7 @@
   "price": "ЦЕНА",
   "subtotal": "СУММА",
   "cartEmpty": "Корзина пуста — найдите товар",
+  "qrScan": "QR Scan",
   "qrBarcode": "QR / Штрих-код",
   "sellViaQrCode": "Продажа через QR",
   "camera": "Камера",
@@ -19,5 +20,13 @@
   "sell": "Продажа",
   "plastik": "Карта (Пластик)",
   "qarz": "Долг",
-  "added": "добавлено"
+  "saleSuccess": "Продажа успешно завершена",
+  "saleError": "Произошла ошибка",
+  "productNotFound": "Товар не найден",
+  "outOfStock": "Недостаточно товара на складе",
+  "scanSquareText": "Поместите штрих-код внутри квадрата",
+  "added": "добавлено",
+  "checkingPrinter": "Проверка...",
+  "printerConnected": "Принтер подключен",
+  "printerNotConnected": "Принтер не подключен"
 }

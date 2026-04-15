@@ -279,10 +279,16 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
   }, []);
 
   // ─── Mahsulot yuklash ────────────────────────────────────────────
+  const isLoadingRef = useRef(false);
+  
   const load = useCallback(async () => {
-      if (!notifEnabledRef.current) return;
-      const login = getCurrentLogin();
-      if (!login) return;
+    if (!notifEnabledRef.current) return;
+    if (isLoadingRef.current) return;
+    
+    const login = getCurrentLogin();
+    if (!login) return;
+    
+    isLoadingRef.current = true;
     try {
       const data = await loadProductsOfflineFirst(login);
       const low = data
@@ -295,6 +301,8 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
       setLowStockItems(low);
     } catch (err) {
       console.error("Notif load error:", err);
+    } finally {
+      isLoadingRef.current = false;
     }
   }, []);
 
@@ -307,15 +315,6 @@ const NotificationBar: React.FC<NotificationProps> = ({ theme }) => {
       window.removeEventListener("online", load);
       window.removeEventListener("saleAdded", load);
     };
-  }, []); // eslint-disable-line
-
-  useEffect(() => {
-    if (!notifEnabled) {
-      setOpen(false);
-      setLowStockItems([]);
-    } else {
-      load();
-    }
   }, [notifEnabled, load]);
 
   // ─── Gruplar ─────────────────────────────────────────────────────

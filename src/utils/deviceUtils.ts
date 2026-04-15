@@ -96,28 +96,30 @@ export const getLocationInfo = async () => {
   };
   
   try {
-    // 1-urinish: /ip-api (Vite proxy orqali CORS muammosini chetlab o'tish)
-    const res = await fetch('/ip-api/json', {
-      signal: AbortSignal.timeout(3000)
+    // 1-urinish: freeipapi.com (professional, CSP-ga mos)
+    const res = await fetch('https://freeipapi.com/api/json', {
+      signal: AbortSignal.timeout(5000)
     });
 
     if (!res.ok) throw new Error('First service failed');
     const data = await res.json();
 
     return {
-      ip: data.ipAddress || 'Noma\'lum',
-      city: data.cityName || 'Toshkent',
-      region: data.regionName || '',
-      country: data.countryName || 'O\'zbekiston',
+      ip: data.ipAddress || data.ip || 'Noma\'lum',
+      city: data.cityName || data.city || 'Toshkent',
+      region: data.regionName || data.region || '',
+      country: data.countryName || data.country || 'O\'zbekiston',
       flag: `https://flagcdn.com/24x18/${data.countryCode?.toLowerCase() || 'uz'}.png`,
-      isp: 'Internet Service Provider',
-      location: `${data.cityName || 'Toshkent'}, ${data.countryName || 'O\'zbekiston'}`,
+      isp: data.isp || 'Internet Service Provider',
+      location: `${data.cityName || data.city || 'Toshkent'}, ${data.countryName || data.country || 'O\'zbekiston'}`,
     };
   } catch (error) {
     console.warn("API xatosi, zaxira servisga o'tilmoqda...");
     try {
-      // 2-urinish: ipapi.co (HTTPS bepul versiyasi ba'zan ishlaydi)
-      const res2 = await fetch('https://ipapi.co/json/');
+      // 2-urinish: ipapi.co (HTTPS bepul versiyasi)
+      const res2 = await fetch('https://ipapi.co/json/', {
+        signal: AbortSignal.timeout(5000)
+      });
       const data2 = await res2.json();
       if(data2.error) throw new Error();
       

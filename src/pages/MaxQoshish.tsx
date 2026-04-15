@@ -34,7 +34,6 @@ function useIsMobile() {
 
 /* ── CSS ─────────────────────────────────────────────────────────── */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 .mq-root *, .mq-root *::before, .mq-root *::after { box-sizing: border-box; }
 .mq-root { font-family: 'DM Sans', sans-serif; }
 

@@ -105,7 +105,7 @@
   "sessionKickedError": "Bu qurilma boshqa tomonidan chiqarib yuborildi!",
   "sessionKickedWarn": "⚠️ Siz boshqa qurilma tomonidan tizimdan chiqarildingiz!",
   "sessionKickConfirm": "Tizimdan chiqarmoqchimisiz?",
-  "sessionKickSuccess": "✅ Qurilma chiqarildi",
+  "sessionKickSuccess": " Qurilma chiqarildi",
   "sessionCsrfExpired": "CSRF token muddati tugagan, yangilanmoqda...",
   "sessionKickError": "Qurilmani chiqarib bo'lmadi",
   "noDevicesFound": "Hech qanday faol qurilma topilmadi",

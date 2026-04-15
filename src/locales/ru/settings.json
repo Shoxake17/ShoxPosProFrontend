@@ -105,7 +105,7 @@
   "sessionKickedError": "Это устройство было удалено другим пользователем!",
   "sessionKickedWarn": "⚠️ Вы были выведены из системы с другого устройства!",
   "sessionKickConfirm": "Вы уверены, что хотите выйти из системы?",
-  "sessionKickSuccess": "✅ Устройство удалено",
+  "sessionKickSuccess": " Устройство удалено",
   "sessionCsrfExpired": "Срок действия CSRF-токена истёк, обновление...",
   "sessionKickError": "Не удалось удалить устройство",
   "noDevicesFound": "Активных устройств не найдено",

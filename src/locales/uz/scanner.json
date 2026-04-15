@@ -2,6 +2,8 @@
   "salesTerminal": "Sotuv terminali",
   "ready": "Tayyor",
   "barcodePlaceholder": "Shtrix-kod yoki nom kiriting",
+  "enterBarcodeOrName": "Shtrix-kod yoki nom kiriting",
+  "total": "Jami",
   "totalPrice": "JAMMI",
   "productName": "MAHSULOT NOMI",
   "barcode": "SHTRIX-KOD",
@@ -10,7 +12,12 @@
   "subtotal": "UMUMIY",
   "cartEmpty": "Savat bo'sh — mahsulot qidiring",
   "qrScan": "QR Scan",
+  "qrBarcode": "QR / Shtrix-kod",
+  "sellViaQrCode": "QR orqali sotish",
+  "camera": "Kamera",
+  "printReceiptTitle": "Chekni chiqarish",
   "naqd": "Naqd",
+  "sell": "Sotish",
   "plastik": "Plastik",
   "qarz": "Qarz",
   "saleSuccess": "Sotuv muvaffaqiyatli yakunlandi",
@@ -18,5 +25,8 @@
   "productNotFound": "Mahsulot topilmadi",
   "outOfStock": "Omborda yetarli mahsulot yo'q",
   "scanSquareText": "Barkodni kvadrat ichiga joylashtiring",
-  "added": "qo'shildi"
+  "added": "qo'shildi",
+  "checkingPrinter": "Tekshirilmoqda...",
+  "printerConnected": "Printer ulangan",
+  "printerNotConnected": "Printer ulanmagan"
 }

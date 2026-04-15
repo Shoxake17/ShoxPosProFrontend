@@ -18,6 +18,12 @@ interface UserData {
   name?: string;
   email?: string;
   blocked: boolean;
+  subscription?: {
+    plan: 'free' | 'basic' | 'pro';
+    isTrial: boolean;
+    trialEndDate?: string;
+    startDate?: string;
+  };
   currentDevice: {
     deviceId: string;
     deviceType: string;
@@ -49,6 +55,12 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_STYLES: Record<string, { bg: string; color: string }> = {
   admin:   { bg: "rgba(239,68,68,0.2)", color: "#fca5a5" },
   cashier: { bg: "rgba(34,197,94,0.2)", color: "#86efac" },
+};
+
+const PLAN_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+  free: { bg: "rgba(148,163,184,0.2)", color: "#94a3b8", label: "Free" },
+  basic: { bg: "rgba(59,130,246,0.2)", color: "#93c5fd", label: "Basic" },
+  pro: { bg: "rgba(168,85,247,0.2)", color: "#d8b4fe", label: "Pro" },
 };
 
 const STAT_CARDS = [
@@ -136,6 +148,16 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
   );
 };
 
+const PlanBadge: React.FC<{ plan?: string }> = ({ plan }) => {
+  const currentPlan = plan || 'free';
+  const style = PLAN_STYLES[currentPlan] ?? PLAN_STYLES.free;
+  return (
+    <span style={{ padding: "4px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: style.bg, color: style.color }}>
+      {style.label}
+    </span>
+  );
+};
+
 const UserStatus: React.FC<{ blocked: boolean }> = ({ blocked }) => (
   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
     <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: blocked ? "#ef4444" : "#22c55e" }} />
@@ -180,8 +202,8 @@ const ActionButton: React.FC<{
 const TableHead: React.FC<{ theme: Theme }> = ({ theme }) => (
   <thead>
     <tr style={{ background: tc(theme, "#1e293b", "#f8f9fa") }}>
-      {["Foydalanuvchi", "Rol", "Qurilma", "Birinchi kirish", "Oxirgi kirish", "Holat", "Harakat"].map((col, i) => (
-        <th key={col} style={{ padding: "16px", textAlign: i === 6 ? "center" : "left", color: tc(theme, "#e2e8f0", "#1a1f2e"), whiteSpace: "nowrap" }}>
+      {["Foydalanuvchi", "Rol", "Tarif", "Qurilma", "Birinchi kirish", "Oxirgi kirish", "Holat", "Harakat"].map((col, i) => (
+        <th key={col} style={{ padding: "16px", textAlign: i === 7 ? "center" : "left", color: tc(theme, "#e2e8f0", "#1a1f2e"), whiteSpace: "nowrap" }}>
           {col}
         </th>
       ))}
@@ -196,8 +218,18 @@ const UserRow: React.FC<{
   actionLoading: string | null;
   onBlock: (id: string, login: string) => void;
   onUnblock: (id: string, login: string) => void;
-}> = ({ user: u, theme, currentUserLogin, actionLoading, onBlock, onUnblock }) => {
+  onChangePlan: (userId: string, login: string, newPlan: 'free' | 'basic' | 'pro') => void;
+}> = ({ user: u, theme, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan }) => {
   const isMobile = u.currentDevice.deviceType?.toLowerCase().includes("mobile");
+  const currentPlan = u.subscription?.plan || 'free';
+
+  const handlePlanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newPlan = e.target.value as 'free' | 'basic' | 'pro';
+    if (newPlan !== currentPlan) {
+      onChangePlan(u._id, u.login, newPlan);
+    }
+  };
+
   return (
     <tr style={{
       borderBottom: `1px solid ${tc(theme, "#1e293b", "#e2e8f0")}`,
@@ -217,6 +249,29 @@ const UserRow: React.FC<{
         </div>
       </td>
       <td style={{ padding: "16px" }}><RoleBadge role={u.role} /></td>
+      <td style={{ padding: "16px" }}>
+        <select
+          value={currentPlan}
+          onChange={handlePlanChange}
+          disabled={actionLoading === u._id}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 600,
+            background: PLAN_STYLES[currentPlan].bg,
+            color: PLAN_STYLES[currentPlan].color,
+            border: "none",
+            outline: "none",
+            cursor: actionLoading === u._id ? "not-allowed" : "pointer",
+            opacity: actionLoading === u._id ? 0.6 : 1,
+          }}
+        >
+          <option value="free">Free</option>
+          <option value="basic">Basic</option>
+          <option value="pro">Pro</option>
+        </select>
+      </td>
       <td style={{ padding: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {isMobile ? <Smartphone size={16} color="#a78bfa" /> : <Monitor size={16} color="#60a5fa" />}
@@ -272,7 +327,8 @@ const UsersTable: React.FC<{
   actionLoading: string | null;
   onBlock: (id: string, login: string) => void;
   onUnblock: (id: string, login: string) => void;
-}> = ({ theme, loading, error, filteredUsers, selectedRole, currentUserLogin, actionLoading, onBlock, onUnblock }) => (
+  onChangePlan: (userId: string, login: string, newPlan: 'free' | 'basic' | 'pro') => void;
+}> = ({ theme, loading, error, filteredUsers, selectedRole, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan }) => (
   <div style={{
     borderRadius: "24px",
     overflow:     "hidden",
@@ -333,6 +389,7 @@ const UsersTable: React.FC<{
                 actionLoading={actionLoading}
                 onBlock={onBlock}
                 onUnblock={onUnblock}
+                onChangePlan={onChangePlan}
               />
             ))}
           </tbody>
@@ -404,6 +461,22 @@ export default function AdminPanel() {
     } finally { setActionLoading(null); }
   };
 
+  const handleChangePlan = async (userId: string, login: string, newPlan: 'free' | 'basic' | 'pro') => {
+    if (!confirm(`${login} foydalanuvchining tarif rejagini ${newPlan.toUpperCase()} ga o'zgartirishni xohlaysizmi?`)) return;
+    try {
+      setActionLoading(userId);
+      const res = await axiosInstance.post("/admin/change-user-plan", { userId, plan: newPlan });
+      if (res.data.success) { 
+        alert(`✅ ${login} foydalanuvchining tarif rejasi ${newPlan.toUpperCase()} ga o'zgartirildi!`); 
+        await refreshAll(); 
+      }
+    } catch (err: any) {
+      alert(`❌ ${err.response?.data?.message || "Tarif rejini o'zgartirishda xato"}`);
+      // Error bo'lsa, select'ni eski qiymatga qaytarish uchun refresh qilamiz
+      await refreshAll();
+    } finally { setActionLoading(null); }
+  };
+
   const filteredUsers = selectedRole === "All"
     ? users
     : users.filter((u) => u.role.toLowerCase() === selectedRole.toLowerCase());
@@ -470,6 +543,7 @@ export default function AdminPanel() {
             actionLoading={actionLoading}
             onBlock={handleBlockUser}
             onUnblock={handleUnblockUser}
+            onChangePlan={handleChangePlan}
           />
 
           <style>{`

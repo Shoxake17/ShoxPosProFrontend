@@ -1,7 +1,8 @@
 import React, { ReactNode, useEffect, useState, useCallback } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { ShieldCheck, ShieldAlert } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Lock } from "lucide-react";
 import { api } from "../../utils/api";
+import { useAuthStore, PLAN_PERMISSIONS } from "../../store/useAuthStore";
 // react-i18next kutubxonasiga o'tamiz
 import { useTranslation } from 'react-i18next';
 
@@ -17,13 +18,38 @@ interface AuthState {
   isVerifying: boolean;
   isAuthenticated: boolean;
   userRole: string | null;
+  userPlan: 'free' | 'basic' | 'pro' | null;
   authError: boolean;
   redirecting: boolean;
+  subscriptionError: boolean;
 }
 
 const VERIFY_SUCCESS_DELAY = 800;
 const ERROR_SHOW_DELAY = 2500;
 const ERROR_REDIRECT_DELAY = 1500;
+
+// Sahifa ID larini rejalarga moslash
+const PAGE_ID_MAP: Record<string, string> = {
+  'menu': 'menu',
+  'add-product': 'add-product',
+  'products': 'products',
+  'scanner': 'scanner',
+  'sales': 'sales',
+  'reports': 'reports',
+  'kirim-bazasi': 'kirim-bazasi',
+  'debts': 'debts',
+  'ai': 'ai',
+  'chat': 'chat',
+  'settings': 'settings'
+};
+
+const hasPageAccess = (plan: 'free' | 'basic' | 'pro', pageId: string) => {
+  const permissions = PLAN_PERMISSIONS[plan] || PLAN_PERMISSIONS.free;
+  if (permissions.pages.includes('all')) return true;
+  
+  const mappedPageId = PAGE_ID_MAP[pageId] || pageId;
+  return permissions.pages.includes(mappedPageId);
+};
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -45,9 +71,13 @@ const useAuth = (pathname: string) => {
     isVerifying: true,
     isAuthenticated: false,
     userRole: null,
+    userPlan: null,
     authError: false,
     redirecting: false,
+    subscriptionError: false,
   });
+
+  const { setUser } = useAuthStore();
 
   const updateState = useCallback(
     (partial: Partial<AuthState>) =>
@@ -67,9 +97,11 @@ const useAuth = (pathname: string) => {
           const { user, timestamp } = JSON.parse(cached);
           const age = Date.now() - timestamp;
           if (age < 30000 && user?.role) {
+            setUser(user);
             updateState({
               isAuthenticated: true,
               userRole: user.role.toLowerCase(),
+              userPlan: user.subscription?.plan || 'free',
               authError: false,
               isVerifying: false
             });
@@ -85,26 +117,51 @@ const useAuth = (pathname: string) => {
       }
 
       try {
-        const res = await api("/api/verify-session", { method: "GET" });
+        const res = await api("/api/me", { method: "GET" });
         if (!res.ok) throw new Error("Unauthorized");
 
         const data = (await res.json()) as {
-          user?: { role?: string; login?: string; id?: string };
+          success: boolean;
+          user?: { 
+            id?: string;
+            login?: string; 
+            role?: string; 
+            name?: string;
+            shopName?: string;
+            shopType?: string;
+            shopCategories?: string[];
+            subscription?: { plan: 'free' | 'basic' | 'pro'; isTrial: boolean; trialEndDate?: string; startDate?: string };
+          };
         };
-        if (!data?.user) throw new Error("Invalid Session");
+        if (!data?.success || !data?.user) throw new Error("Invalid Session");
 
-        const role = data.user.role?.toLowerCase() || null;
+        // Create complete user object with all required fields
+        const completeUser = {
+          id: data.user.id || '',
+          login: data.user.login || '',
+          role: data.user.role || 'cashier',
+          name: data.user.name,
+          shopName: data.user.shopName,
+          shopType: data.user.shopType,
+          shopCategories: data.user.shopCategories,
+          subscription: data.user.subscription || { plan: 'free', isTrial: false }
+        };
+
+        const role = completeUser.role.toLowerCase() || null;
+        const plan = completeUser.subscription?.plan || 'free';
 
         if (isMounted) {
-          sessionStorage.setItem("currentUser", JSON.stringify(data.user));
+          setUser(completeUser);
+          sessionStorage.setItem("currentUser", JSON.stringify(completeUser));
           sessionStorage.setItem(
             "authCache",
-            JSON.stringify({ user: data.user, timestamp: Date.now() })
+            JSON.stringify({ user: completeUser, timestamp: Date.now() })
           );
 
           updateState({
             isAuthenticated: true,
             userRole: role,
+            userPlan: plan,
             authError: false,
           });
           setTimeout(() => {
@@ -128,7 +185,7 @@ const useAuth = (pathname: string) => {
 
     verifyAuth();
     return () => { isMounted = false; };
-  }, [pathname, updateState]);
+  }, [updateState, setUser]);
 
   return state;
 };
@@ -227,10 +284,30 @@ const LoadingScreen: React.FC<{ authError: boolean; redirecting: boolean; }> = (
   );
 };
 
+const SubscriptionBlockedScreen: React.FC = () => {
+  const { t } = useTranslation('common');
+  
+  return (
+    <div style={{
+      height: "100vh", width: "100vw", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", backgroundColor: "#020617",
+      color: "white", position: "fixed", top: 0, left: 0, zIndex: 9999,
+    }}>
+      <Lock size={64} color="#f59e0b" style={{ marginBottom: '1.5rem' }} />
+      <h2 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem", color: "#fbbf24" }}>
+        Obuna Rejasini Yangilang
+      </h2>
+      <p style={{ fontSize: "1rem", color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>
+        Bu saxifaga kirish uchun obuna rejangizni yangilashingiz kerak.
+      </p>
+    </div>
+  );
+};
+
 // ✅ MAIN COMPONENT
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const location = useLocation();
-  const { isVerifying, isAuthenticated, userRole, authError, redirecting } = useAuth(location.pathname);
+  const { isVerifying, isAuthenticated, userRole, userPlan, authError, redirecting } = useAuth(location.pathname);
 
   if (isVerifying) {
     return <LoadingScreen authError={authError} redirecting={redirecting} />;
@@ -247,6 +324,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
   if (location.pathname.startsWith("/admin-") && userRole !== "admin") {
     return <Navigate to="/menu" replace />;
+  }
+
+  // Obuna rejasi tekshiruvi - ADMIN UCHUN CHEKLOV YO'Q!
+  const pageId = location.pathname.split('/')[1] || "menu";
+  if (userRole !== 'admin' && userPlan && !hasPageAccess(userPlan, pageId)) {
+    return <SubscriptionBlockedScreen />;
   }
 
   return <>{children}</>;
