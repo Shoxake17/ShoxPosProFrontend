@@ -3,8 +3,8 @@ import { BrowserMultiFormatReader } from '@zxing/library';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Check, X,
-  DollarSign, CreditCard, Wallet, Printer, ScanLine,
-  Package, PackageCheck,
+  CreditCard, Wallet, Printer, ScanLine,
+  Package,
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
@@ -119,14 +119,28 @@ const styles = `
   .pos-btn:active { transform: translateY(0); }
 
   .pos-search-row { display: grid; grid-template-columns: 1fr 268px; gap: 16px; margin-bottom: 16px; }
-  .pos-search-wrap { position: relative; min-width: 0; }
+  .pos-search-wrap {
+    position: relative;
+    min-width: 0;
+    overflow: hidden; /* ← QO'SHING */
+    width: 100%;      /* ← QO'SHING */
+}
 
   .search-input {
-    width: 94%; height: 52px; padding: 0 14px 0 48px;
-    background: #111827; border: 1px solid #1e293b; border-radius: 14px;
-    color: #e2e8f0; font-size: 15px; font-family: monospace;
-    outline: none; transition: border-color 0.2s, background 0.2s, color 0.2s;
-  }
+    width: 100%;          /* 94% emas, 100% */
+    box-sizing: border-box; /* ← BU YETISHMAYOTGAN EDI */
+    height: 52px;
+    padding: 0 14px 0 48px;
+    background: #111827;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    color: #e2e8f0;
+    font-size: 15px;
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
   .search-input:focus { border-color: #667eea; background: #131d35; }
   .search-input::placeholder { color: #4b5563; }
 
@@ -276,7 +290,7 @@ const styles = `
     background: linear-gradient(90deg, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
   }
 
-  /* ── Media query — eng oxirda ── */
+  /* ── Media query ── */
   @media (max-width: 900px) {
     .pos-root > div      { max-width: 100%; }
     .pos-search-row      { grid-template-columns: 1fr; }
@@ -292,25 +306,31 @@ function ScannerContent() {
   const { isMobile } = useResponsive();
   const { t } = useTranslation(['scanner', 'common']);
   const { format } = useCurrency();
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
 
   const loginRef = useRef<string>(getSessionLogin() || 'unknown');
-  const tRef = useRef(t);
+  const tRef     = useRef(t);
   useEffect(() => { tRef.current = t; }, [t]);
 
+  // ── State ──────────────────────────────────────────────────────────────────
   const [sales, setSales] = useState<any[]>(
     () => JSON.parse(sessionStorage.getItem('sales') || '[]'),
   );
   const [resultText, setResultText]     = useState(t('ready') || 'Tayyor');
   const [resultStatus, setResultStatus] = useState<'info' | 'success' | 'error'>('info');
   const [totalPrice, setTotalPrice]     = useState(0);
+
   const [cameraDevices, setCameraDevices]   = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
-  const [manualBarcode, setManualBarcode]   = useState('');
-  const [showCamera, setShowCamera]         = useState(false);
-  const [scannerActive, setScannerActive]   = useState(false);
-  const [userImage, setUserImage]           = useState<string | null>(null);
-  const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
+  // selectedCameraRef — useEffect dependency loop'ini oldini olish uchun
+  const selectedCameraRef = useRef<string | null>(null);
+  useEffect(() => { selectedCameraRef.current = selectedCamera; }, [selectedCamera]);
+
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [showCamera, setShowCamera]       = useState(false);
+  const [userImage, setUserImage]         = useState<string | null>(null);
+  const [theme, setTheme]                 = useState<'dark' | 'light'>('dark');
+
   const [printerConnected, setPrinterConnected] = useState<boolean | null>(null);
   const [printerModel, setPrinterModel]         = useState<string>('');
   const [checkingPrinter, setCheckingPrinter]   = useState(false);
@@ -318,93 +338,114 @@ function ScannerContent() {
   const [idbProducts, setIdbProducts] = useState<any[]>([]);
   const idbProductsRef = useRef<any[]>([]);
 
-  const videoRef        = useRef<HTMLVideoElement>(null);
-  const codeReader      = useRef(new BrowserMultiFormatReader());
-  const scannerActiveRef = useRef(scannerActive);
-  const searchRef       = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { scannerActiveRef.current = scannerActive; }, [scannerActive]);
-  useEffect(() => { idbProductsRef.current   = idbProducts;   }, [idbProducts]);
+  // ── Refs ───────────────────────────────────────────────────────────────────
+  const videoRef         = useRef<HTMLVideoElement>(null);
+  const codeReader       = useRef(new BrowserMultiFormatReader());
+  // scannerRunning — ayni vaqtda scanner ishlamoqdami (state loop'siz tekshirish)
+  const scannerRunning   = useRef(false);
+  const searchRef        = useRef<HTMLInputElement>(null);
 
   const socket = getSocket();
 
+  // ── idbProducts ref sync ───────────────────────────────────────────────────
+  useEffect(() => { idbProductsRef.current = idbProducts; }, [idbProducts]);
+
+  // ── Theme & userImage (bir marta mount'da) ────────────────────────────────
   useEffect(() => {
     const savedImage = localStorage.getItem('userImage');
     if (savedImage) setUserImage(savedImage);
+
     const savedTheme = (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
+
     setResultText(t('ready'));
-  }, [t]);
+
+    // ✅ AUTO-FOCUS O'CHIRILDI! Input avtomatik focus qilinmaydi!
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // faqat mount'da
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // ── IDB cache ─────────────────────────────────────────────────────────────
   const loadIdbCache = useCallback(async () => {
     const products = await getAllFromIDB(loginRef.current);
     setIdbProducts(products);
     idbProductsRef.current = products;
   }, []);
 
+  // ── Kamera qurilmalarini aniqlash (faqat bir marta, avtomatik yoqilmaydi!) ─
   useEffect(() => {
     openReportsDB().catch(err => console.warn('ReportsDB ochishda xato:', err));
     loadIdbCache();
 
-    navigator.mediaDevices?.getUserMedia({ video: true })
-      .then(() => {
-        codeReader.current.listVideoInputDevices().then(devices => {
-          setCameraDevices(devices);
-          if (devices.length > 0) {
-            const backCamera = devices.find(d =>
-              d.label.toLowerCase().includes('back') ||
-              d.label.toLowerCase().includes('orqa') ||
-              d.label.toLowerCase().includes('environment'),
-            );
-            setSelectedCamera(backCamera ? backCamera.deviceId : devices[0].deviceId);
-          }
-        });
-      })
-      .catch(err => console.warn('Kamera ruxsati yo\'q:', err));
 
-    return () => { codeReader.current.reset(); };
+    return () => {
+      codeReader.current.reset();
+    };
   }, [loadIdbCache]);
 
+  // ── startScanner — useCallback (ref orqali ishlaydi, state loop yo'q) ────
+  const startScanner = useCallback((deviceId: string) => {
+    if (!videoRef.current) return;
+    if (scannerRunning.current) return; // ikki marta ishga tushishini oldini ol
+
+    codeReader.current.reset();
+    scannerRunning.current = true;
+
+    codeReader.current.decodeFromVideoDevice(
+      deviceId,
+      videoRef.current,
+      async (result) => {
+        if (result && scannerRunning.current) {
+          scannerRunning.current = false;
+          codeReader.current.reset();
+
+          const scanned = result.getText().trim();
+          setResultText(`Barcode: ${scanned}`);
+          setResultStatus('info');
+
+          const product = await getProductByBarcodeOrName(scanned);
+          if (product) {
+            await addToSales(product, 1);
+          } else {
+            setResultText(tRef.current('productNotFound'));
+            setResultStatus('error');
+          }
+          setShowCamera(false);
+        }
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // addToSales/getProductByBarcodeOrName ref orqali yoki quyida forward-ref
+
+  // ✅ INSTANT CAMERA TOGGLE: showCamera o'zgarganda kamerani DARHOL yoq/o'chir
   useEffect(() => {
-    if (showCamera && selectedCamera) {
-      setScannerActive(true);
-    } else {
-      setScannerActive(false);
+  if (showCamera) {
+    const deviceId = selectedCameraRef.current;
+    if (deviceId && videoRef.current) {
+      scannerRunning.current = false;
       codeReader.current.reset();
+      startScanner(deviceId);
     }
-  }, [showCamera, selectedCamera]);
+  }
+  // else bloki olib tashlandi — stopCamera() allaqachon chaqirilgan bo'ladi
+}, [showCamera]);
 
-  useEffect(() => {
-    if (scannerActive && selectedCamera && videoRef.current) {
-      startScanner(selectedCamera);
-    }
-  }, [scannerActive, selectedCamera]);
-
-  useEffect(() => {
-    if (!showCamera) {
-      codeReader.current.reset();
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-    }
-  }, [showCamera]);
-
+  // ── Sales → sessionStorage & total ───────────────────────────────────────
   useEffect(() => {
     sessionStorage.setItem('sales', JSON.stringify(sales));
     const total = sales.reduce((sum, item) => sum + item.count * item.price, 0);
     setTotalPrice(total);
   }, [sales]);
 
+  // ── Socket ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const s = getSocket();
     if (!s.connected) s.connect();
+
     const handlePrintSuccess = (data: any) => {
       setResultText(`${tRef.current('checkPrintedSuccessfully')} (${data.login})`);
       setResultStatus('success');
@@ -421,6 +462,26 @@ function ScannerContent() {
     };
   }, []);
 
+  // ── stopCamera helper (yangi funksiya) ────────────────────────────
+const stopCamera = useCallback(() => {
+  scannerRunning.current = false;
+  codeReader.current.reset();
+
+  // videoRef orqali to'xtatish
+  if (videoRef.current?.srcObject) {
+    const stream = videoRef.current.srcObject as MediaStream;
+    stream.getTracks().forEach(track => {
+      track.enabled = false;
+      track.stop();
+    });
+    videoRef.current.srcObject = null;
+  }
+
+  // Agar videoRef boshlanmagan bo'lsa, barcha aktiv video streamlarni to'xtatish
+  navigator.mediaDevices?.getUserMedia({ video: false }).catch(() => {});
+}, []);
+
+  // ── Printer status ────────────────────────────────────────────────────────
   const checkPrinterStatus = useCallback(async () => {
     setCheckingPrinter(true);
     try {
@@ -440,8 +501,9 @@ function ScannerContent() {
     checkPrinterStatus();
     const interval = setInterval(checkPrinterStatus, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkPrinterStatus]);
 
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F8')  { e.preventDefault(); window.dispatchEvent(new CustomEvent('pos:chek')); }
@@ -450,18 +512,23 @@ function ScannerContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sales]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales]); // sales o'zgarganda finalizeSale yangi closure olsin
 
-  const normalizeText  = (text: string) => text.toLowerCase().trim().replace(/\s+/g, ' ');
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const normalizeText   = (text: string) => text.toLowerCase().trim().replace(/\s+/g, ' ');
   const isLikelyBarcode = (query: string): boolean => /^\d{4,}$/.test(query.trim());
 
+  // ── getProductByBarcodeOrName ─────────────────────────────────────────────
   const getProductByBarcodeOrName = useCallback(
     async (query: string): Promise<any | null> => {
       query = query.trim();
       if (!query) return null;
-      const q     = query.toLowerCase();
-      const login = loginRef.current;
-      const barcodeMode  = isLikelyBarcode(query);
+
+      const q          = query.toLowerCase();
+      const login      = loginRef.current;
+      const barcodeMode = isLikelyBarcode(query);
+
       const localProducts = idbProductsRef.current.length > 0
         ? idbProductsRef.current
         : await getAllFromIDB(login);
@@ -475,7 +542,9 @@ function ScannerContent() {
 
       if (navigator.onLine) {
         try {
-          const res = await api(`/api/products/search?q=${encodeURIComponent(query)}&login=${encodeURIComponent(login)}`);
+          const res = await api(
+            `/api/products/search?q=${encodeURIComponent(query)}&login=${encodeURIComponent(login)}`,
+          );
           if (res.ok) {
             const results = await res.json();
             if (Array.isArray(results) && results.length > 0) {
@@ -483,7 +552,7 @@ function ScannerContent() {
               if (found.isGlobal) return { ...found, source: 'global' };
               await saveToIDB({ ...found, login });
               setIdbProducts(prev => {
-                const exists  = prev.find(p => p.barcode === found.barcode);
+                const exists = prev.find(p => p.barcode === found.barcode);
                 if (exists) return prev;
                 const updated = [...prev, { ...found, login }];
                 idbProductsRef.current = updated;
@@ -499,11 +568,15 @@ function ScannerContent() {
     [],
   );
 
-  // ── addToSales — useCallback bilan (MobileBar ga prop sifatida uzatiladi) ──
+  // ── addToSales ────────────────────────────────────────────────────────────
   const addToSales = useCallback(async (product: any, count = 1) => {
     const login = loginRef.current;
-    if (!product) { setResultText(tRef.current('productNotFound')); setResultStatus('error'); return; }
-    if (!login || login === 'unknown') { setResultText(tRef.current('loginNotFound')); setResultStatus('error'); return; }
+    if (!product) {
+      setResultText(tRef.current('productNotFound')); setResultStatus('error'); return;
+    }
+    if (!login || login === 'unknown') {
+      setResultText(tRef.current('loginNotFound')); setResultStatus('error'); return;
+    }
 
     let productPrice = Number(product.price || 0);
 
@@ -513,6 +586,7 @@ function ScannerContent() {
         setResultText(tRef.current('canceled')); setResultStatus('error'); return;
       }
       productPrice = Number(userPrice);
+
       if (navigator.onLine) {
         try {
           await api('/api/products/update-or-add-user-product', {
@@ -525,15 +599,26 @@ function ScannerContent() {
           });
         } catch (err) { console.error('DB xato:', err); }
       }
+
       await saveToIDB({
         ...product, price: productPrice, login,
         quantity: product.source === 'global' ? count : product.quantity,
       });
       setIdbProducts(prev => {
-        const exists  = prev.find(p => String(p.barcode) === String(product.barcode));
+        const exists = prev.find(p => String(p.barcode) === String(product.barcode));
         const updated = exists
-          ? prev.map(p => String(p.barcode) === String(product.barcode) ? { ...p, price: productPrice } : p)
-          : [...prev, { ...product, price: productPrice, login, quantity: product.source === 'global' ? count : product.quantity }];
+          ? prev.map(p =>
+              String(p.barcode) === String(product.barcode)
+                ? { ...p, price: productPrice }
+                : p,
+            )
+          : [
+              ...prev,
+              {
+                ...product, price: productPrice, login,
+                quantity: product.source === 'global' ? count : product.quantity,
+              },
+            ];
         idbProductsRef.current = updated;
         return updated;
       });
@@ -542,8 +627,8 @@ function ScannerContent() {
     setSales(prev => {
       const existingIndex = prev.findIndex(s => s.barcode === product.barcode);
       if (existingIndex !== -1) {
-        const existing = prev[existingIndex];
-        const newCount = existing.count + count;
+        const existing  = prev[existingIndex];
+        const newCount  = existing.count + count;
         if (product.source === 'user' && newCount > (existing.maxQuantity || 0)) {
           setResultText(tRef.current('outOfStock')); setResultStatus('error'); return prev;
         }
@@ -554,12 +639,15 @@ function ScannerContent() {
         if (product.source === 'user' && count > (product.quantity || 0)) {
           setResultText(tRef.current('outOfStock')); setResultStatus('error'); return prev;
         }
-        return [...prev, {
-          barcode: product.barcode, name: product.name, price: productPrice,
-          count, category: product.category || '',
-          maxQuantity: product.source === 'user' ? product.quantity || 0 : Infinity,
-          source: product.source,
-        }];
+        return [
+          ...prev,
+          {
+            barcode: product.barcode, name: product.name, price: productPrice,
+            count, category: product.category || '',
+            maxQuantity: product.source === 'user' ? product.quantity || 0 : Infinity,
+            source: product.source,
+          },
+        ];
       }
     });
 
@@ -568,6 +656,7 @@ function ScannerContent() {
     setManualBarcode('');
   }, [format]);
 
+  // ── updateCount ───────────────────────────────────────────────────────────
   const updateCount = useCallback((barcode: string, value: number) => {
     setSales(prev => {
       const itemIndex = prev.findIndex(s => s.barcode === barcode);
@@ -583,6 +672,7 @@ function ScannerContent() {
     });
   }, []);
 
+  // ── handleSearchInput ─────────────────────────────────────────────────────
   const handleSearchInput = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && manualBarcode.trim()) {
@@ -591,56 +681,83 @@ function ScannerContent() {
           isLikelyBarcode(query) ? query : normalizeText(query),
         );
         if (product) await addToSales(product, 1);
-        else { setResultText(tRef.current('productNotFound')); setResultStatus('error'); }
+        else {
+          setResultText(tRef.current('productNotFound'));
+          setResultStatus('error');
+        }
         setManualBarcode('');
       }
     },
     [manualBarcode, getProductByBarcodeOrName, addToSales],
   );
 
+  // ── toggleCamera (oldingi/keyingi kamera) ─────────────────────────────────
   const toggleCamera = useCallback(() => {
     if (cameraDevices.length < 2) return;
-    const currentIndex = cameraDevices.findIndex(d => d.deviceId === selectedCamera);
+    const currentIndex = cameraDevices.findIndex(d => d.deviceId === selectedCameraRef.current);
     const nextIndex    = (currentIndex + 1) % cameraDevices.length;
-    codeReader.current.reset();
-    setSelectedCamera(cameraDevices[nextIndex].deviceId);
-  }, [cameraDevices, selectedCamera]);
+    const nextDeviceId = cameraDevices[nextIndex].deviceId;
 
-  const startScanner = useCallback((deviceId: string) => {
-    if (!videoRef.current) return;
+    // Eski streamni to'xtat, yangi kamerani ishga tushir
+    scannerRunning.current = false;
     codeReader.current.reset();
-    codeReader.current.decodeFromVideoDevice(
-      deviceId,
-      videoRef.current,
-      async (result) => {
-        if (result && scannerActiveRef.current) {
-          setScannerActive(false);
-          codeReader.current.reset();
-          const scanned = result.getText().trim();
-          setResultText(`Barcode: ${scanned}`);
-          setResultStatus('info');
-          const product = await getProductByBarcodeOrName(scanned);
-          if (product) {
-            await addToSales(product, 1);
-          } else {
-            setResultText(tRef.current('productNotFound'));
-            setResultStatus('error');
-          }
-          setShowCamera(false);
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
+    setSelectedCamera(nextDeviceId);
+    selectedCameraRef.current = nextDeviceId;
+
+    // showCamera true bo'lsa yangi kamerani DARHOL yoq
+    if (showCamera) {
+      startScanner(nextDeviceId);
+    }
+  }, [cameraDevices, showCamera, startScanner]);
+
+  // ── handleCameraToggle ────────────────────────────────────────────────────
+  const handleCameraToggle = useCallback(async () => {
+  if (!showCamera) {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+
+      if (cameraDevices.length === 0) {
+        const devices = await codeReader.current.listVideoInputDevices();
+        setCameraDevices(devices);
+        if (devices.length > 0) {
+          const backCamera = devices.find(d =>
+            d.label.toLowerCase().includes('back') ||
+            d.label.toLowerCase().includes('environment'),
+          );
+          const chosen = backCamera ? backCamera.deviceId : devices[0].deviceId;
+          setSelectedCamera(chosen);
+          selectedCameraRef.current = chosen;
         }
-      },
-    );
-  }, [getProductByBarcodeOrName, addToSales]);
+      }
+      setShowCamera(true);
+    } catch {
+      setResultText(tRef.current('cameraError') || 'Kamera ruxsati rad etildi');
+      setResultStatus('error');
+    }
+  } else {
+    stopCamera(); // ← setShowCamera(false) DAN OLDIN chaqiriladi!
+    setShowCamera(false);
+  }
+}, [showCamera, cameraDevices, stopCamera]);
 
+  // ── finalizeSale ──────────────────────────────────────────────────────────
   const finalizeSale = useCallback(async (paymentMethod = 'naqd') => {
     const login = loginRef.current;
     if (!login || login === 'unknown') { alert(tRef.current('loginNotFound')); return; }
-    if (sales.length === 0) { alert(tRef.current('cartEmpty')); return; }
+    if (sales.length === 0)            { alert(tRef.current('cartEmpty'));      return; }
 
     const hasInsufficient = sales.some(
       item => item.source === 'user' && item.count > (item.maxQuantity || 0),
     );
-    if (hasInsufficient) { setResultText(tRef.current('outOfStock')); setResultStatus('error'); return; }
+    if (hasInsufficient) {
+      setResultText(tRef.current('outOfStock')); setResultStatus('error'); return;
+    }
 
     const timestampISO = new Date().toISOString();
     try {
@@ -648,7 +765,7 @@ function ScannerContent() {
       sales.forEach(item => {
         const barcode = String(item.barcode);
         if (groupedSales.has(barcode)) {
-          const ex = groupedSales.get(barcode);
+          const ex     = groupedSales.get(barcode);
           ex.quantity += Number(item.count);
           ex.total     = ex.quantity * Number(item.price);
         } else {
@@ -672,6 +789,7 @@ function ScannerContent() {
         await addReportSafe(payload, timestampISO);
       }
 
+      // IDB'da miqdorni kamaytirish
       const updatedIdb = [...idbProductsRef.current];
       for (const item of payload) {
         const idx = updatedIdb.findIndex(p => p.barcode === item.barcode);
@@ -697,6 +815,7 @@ function ScannerContent() {
     }
   }, [sales, navigate]);
 
+  // ── handleImageUpload ─────────────────────────────────────────────────────
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -710,31 +829,7 @@ function ScannerContent() {
     }
   }, []);
 
-  const handleCameraToggle = useCallback(async () => {
-    if (!showCamera) {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (cameraDevices.length === 0) {
-          const devices = await codeReader.current.listVideoInputDevices();
-          setCameraDevices(devices);
-          if (devices.length > 0) {
-            const backCamera = devices.find(d =>
-              d.label.toLowerCase().includes('back') ||
-              d.label.toLowerCase().includes('environment'),
-            );
-            setSelectedCamera(backCamera ? backCamera.deviceId : devices[0].deviceId);
-          }
-        }
-        setShowCamera(true);
-      } catch {
-        setResultText(tRef.current('cameraError') || 'Kamera ruxsati rad etildi');
-        setResultStatus('error');
-      }
-    } else {
-      setShowCamera(false);
-    }
-  }, [showCamera, cameraDevices]);
-
+  // ── Derived values ────────────────────────────────────────────────────────
   const printerStatusText = checkingPrinter
     ? t('checkingPrinter')
     : printerConnected
@@ -755,6 +850,7 @@ function ScannerContent() {
     return <Search size={15} />;
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <style>{styles}</style>
@@ -782,6 +878,7 @@ function ScannerContent() {
                     color: clr.subtext, pointerEvents: 'none',
                   }}
                 />
+                {/* ✅ FIX 1: autoFocus olib tashlandi — yuqorida useEffect bilan bir marta focus */}
                 <input
                   ref={searchRef}
                   className="search-input"
@@ -790,7 +887,11 @@ function ScannerContent() {
                   value={manualBarcode}
                   onChange={e => setManualBarcode(e.target.value)}
                   onKeyDown={handleSearchInput}
-                  autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  inputMode="text"
+                  enterKeyHint="search"
                 />
               </div>
               <div className="jammi-box">
@@ -798,7 +899,7 @@ function ScannerContent() {
               </div>
             </div>
 
-            {/* Mobile savat — faqat ≤900px da ko'rinadi */}
+            {/* Mobile savat */}
             <ScannerMobileCart
               sales={sales}
               resultText={resultText}
@@ -810,7 +911,7 @@ function ScannerContent() {
 
             <div className="pos-main-grid">
 
-              {/* Desktop: status + savatcha jadval */}
+              {/* Desktop: status + cart table */}
               <div className="desktop-cart-col">
                 <div className={`status-block ${
                   resultStatus === 'success' ? 'status-ok'
@@ -867,7 +968,7 @@ function ScannerContent() {
                 </div>
               </div>
 
-              {/* Desktop: action panel — o'ng ustun */}
+              {/* Desktop: right action panel */}
               <div className="pos-right-col">
                 <button
                   className={`qr-scan-block pos-btn ${showCamera ? 'active' : ''}`}
@@ -892,6 +993,7 @@ function ScannerContent() {
                   </div>
                 </button>
 
+                {/* Desktop camera preview */}
                 {showCamera && !isMobile && (
                   <div className="cam-preview">
                     <video ref={videoRef} autoPlay muted playsInline />
@@ -1000,7 +1102,6 @@ function ScannerContent() {
               </div>
             </div>
 
-            
             <ScannerMobileBar
               totalPrice={totalPrice}
               format={format}
@@ -1009,14 +1110,14 @@ function ScannerContent() {
               t={t}
               finalizeSale={finalizeSale}
               handleCameraToggle={handleCameraToggle}
-              addToSales={addToSales}   // ← MUHIM: ilgari bu prop uzatilmagan edi
+              addToSales={addToSales}
             />
 
           </div>
         </MainLayout>
       </div>
 
-      {/* Mobile kamera — to'liq ekran, MainLayout tashqarisida */}
+      {/* Mobile kamera — to'liq ekran */}
       {showCamera && isMobile && (
         <ScannerMobileCamera
           videoRef={videoRef}

@@ -195,38 +195,45 @@ const ScannerMobileCamera: React.FC<ScannerMobileCameraProps> = ({
   onClose,
   onToggleCamera,
 }) => {
+
+  // ✅ X bosilganda stream DARHOL o'chadi
+  const handleClose = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => {
+        track.enabled = false;
+        track.stop();          // ← kamera chiroqni o'chiradi
+      });
+      videoRef.current.srcObject = null;
+    }
+    onClose(); // keyin parent'ga xabar beradi
+  };
+
   return (
     <div className="cam-preview-mobile">
-
-      {/* Video oqimi — to'liq ekran */}
       <video ref={videoRef} autoPlay muted playsInline />
 
-      {/* Yopish tugmasi */}
-      <button className="cam-close-btn" onClick={onClose}>
+      {/* ✅ onClick={handleClose} — eski onClose emas */}
+      <button className="cam-close-btn" onClick={handleClose}>
         <X size={22} />
       </button>
 
-      {/* Kamera almashtirish (faqat 2+ kamera bo'lsa) */}
       {cameraDevices.length > 1 && (
         <button className="cam-switch-btn" onClick={onToggleCamera}>
           <RefreshCcw size={22} />
         </button>
       )}
 
-      {/* Skaner overlay */}
       <div className="cam-overlay">
         <div className="scan-square">
-          {/* 4 burchak indikator */}
           <div className="scan-corner-tr" />
           <div className="scan-corner-bl" />
-          {/* Skaner chizig'i */}
           <div className="scan-line-anim" />
         </div>
         <p className="scan-hint">
           {t('scanSquareText') || 'Barkodni ramka ichiga joylashtiring'}
         </p>
       </div>
-
     </div>
   );
 };

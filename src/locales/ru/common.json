@@ -1,7 +1,7 @@
 {
   "loading": "Загрузка...",
   "securityTitle": "Проверка безопасности",
-  "accessDenied": "Доступ запрещен",
+  "accessDenied": "Доступ запрещён",
   "checkingAuth": "Определение уровня доступа...",
   "sessionInvalid": "Сессия истекла или недействительна",
   "redirecting": "Перенаправление...",
@@ -16,5 +16,16 @@
   "success": "Успешно выполнено",
   "search": "Поиск...",
   "noData": "Данные не найдены",
-  "authRequired": "Необходимо войти в систему"
+  "authRequired": "Необходимо войти в систему",
+  "home": "Главная",
+  "add": "Добавить",
+  "nav_products": "Товары",
+  "nav_sell": "Продажа",
+  "nav_sold": "Проданные",
+  "nav_report": "Отчёт",
+  "nav_incoming": "Приход",
+  "nav_debt": "Долг",
+  "nav_ai": "Shox AI",
+  "nav_chat": "Чат",
+  "nav_settings": "Настройки"
 }

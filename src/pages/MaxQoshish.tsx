@@ -133,10 +133,12 @@ const MSGS: Record<MsgT, { bg: string; col: string; bdr: string; ico: string }> 
 };
 
 /* ── Scanner ─────────────────────────────────────────────────────── */
+// ScanOverlay ichida:
 function ScanOverlay({ onResult, onClose }: { onResult: (c: string) => void; onClose: () => void }) {
   const vRef = useRef<HTMLVideoElement>(null);
   const rRef = useRef(new BrowserMultiFormatReader());
   const done = useRef(false);
+  const { t } = useTranslation('products'); // ← QO'SHING
 
   useEffect(() => {
     (async () => {
@@ -162,7 +164,7 @@ function ScanOverlay({ onResult, onClose }: { onResult: (c: string) => void; onC
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
         <div className="mq-sfr"><div className="mq-sl" /></div>
         <p style={{ marginTop: 28, color: '#fff', fontSize: 15, fontWeight: 500, textShadow: '0 1px 4px rgba(0,0,0,.6)', pointerEvents: 'none' }}>
-          Barcodni ramkaga yo'naltiring
+          {t('alignBarcode')} {/* ← OLDIN: hardcoded string */}
         </p>
       </div>
       <button onClick={onClose} style={{ position: 'absolute', top: 40, right: 24, zIndex: 20, background: 'rgba(0,0,0,.55)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
@@ -182,6 +184,7 @@ interface CatModalProps {
 }
 
 function CategoryModal({ cats, selected, onSelect, onClose, theme, isMobile }: CatModalProps) {
+  const { t } = useTranslation(['products', 'common']);
   const c = theme === 'dark' ? DK : LT;
 
   return (
@@ -228,13 +231,13 @@ function CategoryModal({ cats, selected, onSelect, onClose, theme, isMobile }: C
           flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: c.text, fontFamily: "'DM Sans',sans-serif" }}>
-              Kategoriya tanlang
-            </div>
-            <div style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: "'DM Sans',sans-serif" }}>
-              {cats.length} ta kategoriya mavjud
-            </div>
+         <div style={{ fontSize: 17, fontWeight: 700, color: c.text, fontFamily: "'DM Sans',sans-serif" }}>
+          {t('selectCategory')}
           </div>
+        <div style={{ fontSize: 12, color: c.muted, marginTop: 2, fontFamily: "'DM Sans',sans-serif" }}>
+        {cats.length} {t('categoriesAvailable')} 
+          </div>
+</div>
           <button
             type="button"
             onClick={onClose}
@@ -403,7 +406,7 @@ export default function MaxsulotQoshish() {
     const h = async () => {
       const n = await syncPendingToMongoDB(login);
       if (n > 0) {
-        setMessage({ type: 'info', text: `✅ ${n} ta sync bo'ldi` });
+        setMessage({ type: 'info', text: `✅ ${n} ${t('syncSuccess')}` });
         setTimeout(() => setMessage(null), 3000);
       }
     };
@@ -437,7 +440,7 @@ export default function MaxsulotQoshish() {
   const lookupBarcode = useCallback(async (code: string) => {
     if (!code) return;
     setScanLoad(true);
-    setMessage({ type: 'info', text: '🔍 Qidirilmoqda...' });
+    setMessage({ type: 'info', text: `🔍 ${t('searching')}` });
     try {
       const idb = await getAllFromIDB(login);
       const localMatch = idb.find((p: any) => String(p.barcode).toLowerCase() === code.toLowerCase());
@@ -447,7 +450,7 @@ export default function MaxsulotQoshish() {
         setBasePrice(String(localMatch.basePrice || ''));
         setPrice(String(localMatch.price || ''));
         if (localMatch.category) setCategory(localMatch.category);
-        setMessage({ type: 'success', text: `✅ O'z bazangizdan topildi: ${localMatch.name}` });
+        setMessage({ type: 'success', text: ` ${t('foundInLocal')}: ${localMatch.name}` });
         return;
       }
 
@@ -462,8 +465,10 @@ export default function MaxsulotQoshish() {
               setBasePrice(fm.basePrice ? String(fm.basePrice) : '');
               setPrice(fm.price ? String(fm.price) : '');
               if (fm.category) setCategory(fm.category);
-              const sourceText = fm.isGlobal ? 'Umumiy bazadan' : 'Bazadan';
-              setMessage({ type: 'success', text: `✅ ${sourceText} topildi: ${fm.name}` });
+              const sourceText = fm.isGlobal ? t('foundInGlobal') : t('foundInBase');
+              setMessage({ type: 'success', text: `✅ ${sourceText}: ${fm.name}` });
+              setMessage({ type: 'info', text: `ℹ️ ${t('productNotFound')}` });
+              setMessage({ type: 'error', text: t('errorOccurred') });
               return;
             }
           }
@@ -498,23 +503,24 @@ export default function MaxsulotQoshish() {
   /* submit */
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!name.trim())      { setMessage({ type: 'error', text: 'Mahsulot nomini kiriting' }); return; }
-    if (!barcode.trim())   { setMessage({ type: 'error', text: 'Barcode kiriting' }); return; }
-    if (!basePrice.trim()) { setMessage({ type: 'error', text: 'Ulgurji narxni kiriting' }); return; }
-    if (!price.trim())     { setMessage({ type: 'error', text: 'Sotuv narxini kiriting' }); return; }
-
+    if (!name.trim())      { setMessage({ type: 'error', text: t('enterProductName') }); return; }
+    if (!barcode.trim())   { setMessage({ type: 'error', text: t('enterBarcode') }); return; }
+    if (!basePrice.trim()) { setMessage({ type: 'error', text: t('enterWholesalePrice') }); return; }
+    if (!price.trim())     { setMessage({ type: 'error', text: t('enterSalePrice') }); return; }
+    
     const bp = Number(basePrice), sp = Number(price);
     if (bp > sp) {
-      setMessage({ type: 'error', text: "⚠️ Ulgurji narx sotuv narxidan yuqori bo'lishi mumkin emas!" });
+      setMessage({ type: 'error', text: t('wholesaleHighError') });
       return;
     }
+    
 
     setLoading(true); setMessage(null);
     try {
       const idb = await getAllFromIDB(login);
       const dup = idb.find((p: any) => String(p.barcode).toLowerCase() === barcode.trim().toLowerCase());
       if (dup) {
-        setMessage({ type: 'error', text: `⚠️ Bu barcode allaqachon mavjud: ${dup.name || dup.barcode}` });
+        setMessage({ type: 'error', text: `⚠️ ${t('wholesaleHighError')}` });
         return;
       }
       await addProductOfflineFirst({
@@ -526,10 +532,10 @@ export default function MaxsulotQoshish() {
         login,
         addedAt: new Date().toISOString(),
       });
-      setMessage({ type: 'success', text: `✅ ${t('successMessage') || "Mahsulot muvaffaqiyatli qo'shildi!"}` });
+      setMessage({ type: 'success', text: `✅ ${t('successMessage')}` });
       setTimeout(() => navigate('/products'), 1500);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Xatolik yuz berdi' });
+      setMessage({ type: 'error', text: err.message || t('errorOccurred') });
     } finally {
       setLoading(false);
     }
@@ -561,15 +567,15 @@ export default function MaxsulotQoshish() {
   const selEmojiMatch = selectedCat?.label.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u);
   const selEmoji = selEmojiMatch ? selEmojiMatch[0].trim() : '📦';
   const selLabel = selectedCat
-    ? (selEmojiMatch ? selectedCat.label.replace(selEmojiMatch[0], '').trim() : selectedCat.label)
-    : 'Tanlang';
+  ? (selEmojiMatch ? selectedCat.label.replace(selEmojiMatch[0], '').trim() : selectedCat.label)
+  : t('selectPlaceholder');
 
   return (
     <MainLayout
       theme={theme}
       userImage={userImage}
       handleImageUpload={handleImageUpload}
-      title={t('newProduct') || "Mahsulot qo'shish"}
+      title={t('newProduct')}
     >
       {showScan && <ScanOverlay onResult={handleScanResult} onClose={() => setShowScan(false)} />}
 
@@ -628,7 +634,7 @@ export default function MaxsulotQoshish() {
       marginBottom: 12,
     }}>
       <label style={{ ...ls, marginBottom: 0 }}>
-        {t('productName') || 'Mahsulot nomi'}
+        {t('productName')}
       </label>
     </div>
     <input
@@ -651,7 +657,7 @@ export default function MaxsulotQoshish() {
     marginBottom: 12,
   }}>
     <label style={{ ...ls, marginBottom: 0 }}>
-      {t('barcode') || 'Barcode'}
+      {t('barcode')}
     </label>
 
     {/* ✅ Mobileda ham, desktopda ham ko'rinadi */}
@@ -684,7 +690,7 @@ export default function MaxsulotQoshish() {
     value={barcode}
     onChange={e => setBarcode(e.target.value)}
     onKeyDown={handleBarcodeKey}
-    placeholder="Enter → avtoto'ldirish"
+    placeholder={t('enterAutoFill')}
     style={{ ...fs, fontFamily: 'monospace' }}
   />
 </div>
@@ -698,7 +704,7 @@ export default function MaxsulotQoshish() {
                   <input className="mq-f" type="number" min="0" value={basePrice}
                     onChange={e => setBasePrice(e.target.value)} placeholder="0"
                     style={{ ...fs, paddingRight: 46 }} />
-                  <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: c.muted, fontWeight: 700, pointerEvents: 'none' }}>so'm</span>
+                  <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: c.muted, fontWeight: 700, pointerEvents: 'none' }}>{t('currencyUnit')}</span>
                 </div>
               </div>
               <div>
@@ -877,7 +883,7 @@ export default function MaxsulotQoshish() {
                     <span>{t('saving') || 'Saqlanmoqda...'}</span>
                   </>
                 ) : (
-                  <span>{scanLoad ? 'Qidirilmoqda...' : (t('saveProduct') || 'Saqlash')}</span>
+                 <span>{scanLoad ? t('searching') : t('saveProduct')}</span>
                 )}
               </button>
             </div>
