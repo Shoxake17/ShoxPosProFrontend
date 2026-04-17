@@ -21,7 +21,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000, 
+  timeout: 60000, // 60 soniya (AI uchun)
 });
 
 // 🛠 SESSION MANAGEMENT HELPERS

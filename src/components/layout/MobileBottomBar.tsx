@@ -3,6 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/useAuthStore';
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: (active: boolean) => React.ReactElement;
+  requiresPlan?: 'free' | 'basic' | 'pro';
+}
+
 interface MobileBottomBarProps {
   theme: 'dark' | 'light';
   onScanClick?: () => void;
@@ -16,8 +23,9 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const userPlan = user?.subscription?.plan || 'free';
+  const isPharmacy = user?.shopType === 'dorixona';
 
-  const ALL_ITEMS = [
+  const REGULAR_ITEMS: NavItem[] = [
     { id: 'menu', label: t('home'), icon: (active: boolean) => <HomeIcon active={active} /> },
     { id: 'add-product', label: t('add'), icon: (active: boolean) => <AddIcon active={active} /> },
     { id: 'products', label: t('nav_products'), icon: (active: boolean) => <ProductIcon active={active} /> },
@@ -30,6 +38,23 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
     { id: 'chat', label: t('nav_chat'), icon: (active: boolean) => <ChatIcon active={active} />, requiresPlan: 'basic' },
     { id: 'settings', label: t('nav_settings'), icon: (active: boolean) => <SettingsIcon active={active} /> },
   ];
+
+  const PHARMACY_ITEMS: NavItem[] = [
+    { id: 'pharm-menu', label: t('home'), icon: (active: boolean) => <HomeIcon active={active} /> },
+    { id: 'pharm-add', label: t('add'), icon: (active: boolean) => <AddIcon active={active} /> },
+    { id: 'pharm-base', label: t('nav_products'), icon: (active: boolean) => <PillIcon active={active} /> },
+    { id: 'pharm-scanner', label: t('nav_sell'), icon: (active: boolean) => <ScannerIcon active={active} /> },
+    { id: 'pharm-sale', label: 'Sotuvlar', icon: (active: boolean) => <HistoryIcon active={active} /> },
+    { id: 'pharm-kirim-base', label: 'Kirim', icon: (active: boolean) => <TrendingUpIcon active={active} /> },
+    { id: 'pharm-hisobotlar', label: 'Hisobot', icon: (active: boolean) => <BarChart3Icon active={active} /> },
+    { id: 'pharm-info', label: 'Ma\'lumot', icon: (active: boolean) => <SearchIcon active={active} /> },
+    { id: 'pharm-qarzlar', label: 'Qarz', icon: (active: boolean) => <CreditCardIcon active={active} /> },
+    { id: 'pharm-ai', label: 'AI', icon: (active: boolean) => <BotIcon active={active} /> },
+    { id: 'pharm-chat', label: 'Chat', icon: (active: boolean) => <ChatIcon active={active} /> },
+    { id: 'settings', label: t('nav_settings'), icon: (active: boolean) => <SettingsIcon active={active} /> },
+  ];
+
+  const ALL_ITEMS = isPharmacy ? PHARMACY_ITEMS : REGULAR_ITEMS;
   
   const FILTERED_ITEMS = ALL_ITEMS.filter(item => {
     if (!item.requiresPlan) return true;
@@ -170,5 +195,11 @@ const BotIcon = ({ active }: { active: boolean }) => (
 );
 const ChatIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 const SettingsIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+const PillIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>;
+const HistoryIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>;
+const SearchIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+const TrendingUpIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+const BarChart3Icon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
+const CreditCardIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>;
 
 export default MobileBottomBar;

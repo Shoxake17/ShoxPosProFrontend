@@ -35,6 +35,17 @@ const AdminSettings  = lazy(() => import("./admin/adminPages/AdminSettings"));
 const AdminAddUser   = lazy(() => import("./admin/adminPages/AdminAddUser"));
 const ChatAdmin      = lazy(() => import("./admin/adminPages/ChatAdmin"));
 const SubscriptionPlans = lazy(() => import("./pages/SubscriptionPlans"));
+const PharmAdd = lazy(() => import("./pages/PharmAdd"));
+const PharmBase = lazy(() => import("./pages/PharmBase"));
+const PharmScanner = lazy(() => import("./pages/PharmScanner"));
+const PharmSale = lazy(() => import("./pages/PharmSale"));
+const PharmInformation = lazy(() => import("./pages/PharmInformation"));
+const PharmMenu = lazy(() => import("./pages/PharmMenu"));
+const PharmKirimBase = lazy(() => import("./pages/PharmKirimBase"));
+const PharmHisobotlar = lazy(() => import("./pages/PharmHisobotlar"));
+const PharmQarzlar = lazy(() => import("./pages/PharmQarzlar"));
+const PharmAi = lazy(() => import("./pages/PharmAi"));
+const PharmChat = lazy(() => import("./pages/PharmChat"));
 
 import { getSocket, disconnectSocket }         from "./utils/socket";
 import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
@@ -208,6 +219,19 @@ function App() {
               <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
               <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
               <Route path="/subscription"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><SubscriptionPlans /></ProtectedRoute></Suspense>} />
+              
+              {/* 💊 Pharmacy Routes */}
+              <Route path="/pharm-menu"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmMenu /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-add"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmAdd /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-base"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmBase /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-scanner"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmScanner /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-sale"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmSale /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-info"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmInformation /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-kirim-base"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmKirimBase /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-hisobotlar"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmHisobotlar /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-qarzlar"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmQarzlar /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-ai"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmAi /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-chat"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmChat /></ProtectedRoute></Suspense>} />
 
               {/* 👑 Admin Routes */}
               <Route path="/admin-panel"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['admin']}><AdminPanel /></ProtectedRoute></Suspense>} />

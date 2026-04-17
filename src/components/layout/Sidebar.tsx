@@ -17,7 +17,12 @@ import {
   PanelRightClose,
   MessageCircleMore,
   Home,
-  Crown
+  Crown,
+  Pill,
+  PlusCircle,
+  Search,
+  History,
+  TrendingUp
 } from "lucide-react";
 import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
 
@@ -34,7 +39,7 @@ type SidebarProps = {
   setIsOpen: (value: boolean) => void;
 };
 
-const menuItems: MenuItem[] = [
+const regularMenuItems: MenuItem[] = [
   { id: "menu", icon: Home, labelKey: "dashboard" },
   { id: "add-product", icon: Plus, labelKey: "addProduct" },
   { id: "products", icon: Package, labelKey: "products" },
@@ -47,6 +52,21 @@ const menuItems: MenuItem[] = [
   { id: "chat", icon: MessageCircleMore, labelKey: "chat", requiresPlan: 'basic' },
   { id: "settings", icon: Settings, labelKey: "settings" },
 ];
+
+const pharmacyMenuItems: MenuItem[] = [
+    { id: "pharm-menu", icon: Home, labelKey: "dashboard" },
+    { id: "pharm-add", icon: PlusCircle, labelKey: "addProduct" },
+    { id: "pharm-base", icon: Pill, labelKey: "products" },
+    { id: "pharm-scanner", icon: ShoppingCart, labelKey: "scanner" },
+    { id: "pharm-sale", icon: History, labelKey: "sales" },
+    { id: "pharm-hisobotlar", icon: BarChart3, labelKey: "reports" },
+    { id: "pharm-kirim-base", icon: TrendingUp, labelKey: "products" },
+    { id: "pharm-info", icon: Search, labelKey: "reports" },
+    { id: "pharm-qarzlar", icon: CreditCard, labelKey: "debts" },
+    { id: "pharm-ai", icon: Bot, labelKey: "ai" },
+    { id: "pharm-chat", icon: MessageCircleMore, labelKey: "chat" },
+    { id: "settings", icon: Settings, labelKey: "settings" },
+  ];
 
 export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const navigate = useNavigate();
@@ -65,6 +85,8 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const currentPage = location.pathname.split('/')[1] || "menu";
   const userPlan = user?.subscription?.plan || 'free';
   const userRole = user?.role?.toLowerCase();
+  const isPharmacy = user?.shopType === 'dorixona';
+  const menuItems = isPharmacy ? pharmacyMenuItems : regularMenuItems;
 
   const filteredMenuItems = menuItems.filter(item => {
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
@@ -185,8 +207,8 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
                       whiteSpace: "nowrap", 
                       overflow: "hidden", 
                       textOverflow: "ellipsis",
-                      fontSize: "16px", // ✅ MATN XAJMI KATTALASHTIRILDI
-                      fontWeight: isActive ? 400 : 500, // ✅ ACTIVE BO'LGANDA QALINROQ
+                      fontSize: "16px", 
+                      fontWeight: isActive ? 400 : 500, 
                     }}>
                       {label}
                     </span>
