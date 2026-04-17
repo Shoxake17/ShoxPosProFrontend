@@ -57,7 +57,31 @@ jobs:
           sarif_file: semgrep.sarif
         continue-on-error: true
 
-  # 2. SonarCloud — Kod sifatini va chuqur tahlilni amalga oshiradi
+  # 2. Snyk - Barcha pakerlar uchun zaifliklarni tekshiradi
+  snyk_sca:
+    name: SCA - Snyk
+    runs-on: ubuntu-latest
+    needs: semgrep_sast
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Snyk Test
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # 3. SonarCloud — Kod sifatini va chuqur tahlilni amalga oshiradi
   sonarcloud_sast:
     name: SAST - SonarCloud
     runs-on: ubuntu-latest
@@ -79,11 +103,11 @@ jobs:
             -Dsonar.projectKey=Shoxake17_ShoxPosProFrontend
             -Dsonar.sources=.
             -Dsonar.host.url=https://sonarcloud.io
-  # 3. Build va Push
+  # 4. Build va Push
   build-and-push:
     name: Build and Push Docker
     runs-on: ubuntu-latest
-    needs: [semgrep_sast, sonarcloud_sast]
+    needs: [semgrep_sast, sonarcloud_sast, snyk_sca]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -96,7 +120,7 @@ jobs:
           docker build --no-cache -t ghcr.io/shoxake17/shoxposprofrontend:latest .
           docker push ghcr.io/shoxake17/shoxposprofrontend:latest
 
-  # 4. Deploy
+  # 5. Deploy
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
@@ -114,7 +138,7 @@ jobs:
             docker-compose pull frontend
             docker-compose up -d --no-deps --force-recreate frontend
 
-  # 5. DAST — OWASP ZAP (Tunda ishlaydi)
+  # 6. DAST — OWASP ZAP (Tunda ishlaydi)
   zap_scan:
     name: DAST - OWASP ZAP
     runs-on: ubuntu-latest

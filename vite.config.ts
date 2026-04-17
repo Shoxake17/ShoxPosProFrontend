@@ -114,7 +114,7 @@ export default defineConfig(({ mode }) => {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://api.openai.com https://cbu.uz",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://generativelanguage.googleapis.com  https://cbu.uz",
         ].join('; '),
       },
     },
