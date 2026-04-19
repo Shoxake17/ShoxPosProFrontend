@@ -456,24 +456,38 @@ export default function MaxsulotQoshish() {
 
       if (navigator.onLine) {
         try {
-          const r = await axiosInstance.get(`/api/products/search?q=${encodeURIComponent(code)}&login=${encodeURIComponent(login)}`);
+          console.log('🔍 MaxQoshish: qidiruvga kirdi, code:', code);
+          const r = await axiosInstance.get(`/products/search?q=${encodeURIComponent(code)}&login=${encodeURIComponent(login)}`);
+          console.log('🔍 MaxQoshish: serverdan javob:', r.data);
           const results = Array.isArray(r.data) ? r.data : [];
+          console.log('🔍 MaxQoshish: resultlar soni:', results.length);
+          
           if (results.length > 0) {
-            const fm = results.find((p: any) => String(p.barcode).toLowerCase() === code.toLowerCase()) || results[0];
+            let fm = results.find((p: any) => String(p.barcode).toLowerCase() === code.toLowerCase());
+            
+            if (!fm) {
+              fm = results[0];
+            }
+
+            console.log('🔍 MaxQoshish: topilgan product:', fm);
+
             if (fm) {
               setName(fm.name || '');
               setBasePrice(fm.basePrice ? String(fm.basePrice) : '');
               setPrice(fm.price ? String(fm.price) : '');
               if (fm.category) setCategory(fm.category);
-              const sourceText = fm.isGlobal ? t('foundInGlobal') : t('foundInBase');
-              setMessage({ type: 'success', text: `✅ ${sourceText}: ${fm.name}` });
-              setMessage({ type: 'info', text: `ℹ️ ${t('productNotFound')}` });
-              setMessage({ type: 'error', text: t('errorOccurred') });
+              
+              let sourceText = t('foundInBase');
+              if (fm.isGlobal) {
+                sourceText = t('foundInGlobal');
+              }
+              
+              setMessage({ type: 'success', text: ` ${sourceText} ${fm.name}` });
               return;
             }
           }
         } catch (err) {
-          console.error('Search error:', err);
+          console.error('❌ MaxQoshish: Search error:', err);
         }
       }
 

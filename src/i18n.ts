@@ -47,6 +47,12 @@ import enAi from './locales/eng/ai.json';
 import enChat from './locales/eng/chat.json';
 import enSettings from './locales/eng/settings.json';
 
+// Default tilni localStorage da 'uz' ga o'rnatish
+const savedLang = localStorage.getItem('i18nextLng');
+if (!savedLang || !['uz', 'ru', 'en'].includes(savedLang)) {
+  localStorage.setItem('i18nextLng', 'uz');
+}
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -99,6 +105,7 @@ i18n
       }
     },
     
+    lng: 'uz',
     fallbackLng: 'uz',
     
     // ✅ NAMESPACE LARNI TO'G'IRLASH

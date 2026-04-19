@@ -307,10 +307,10 @@ async function syncPendingToMongoDB(login: string) {
     try {
       let ok = false;
       if (item.action === 'update-base-price') {
-        const res = await api('/api/products/update-base-price', { method: 'POST', body: JSON.stringify({ barcode: item.barcode, newBasePrice: item.basePrice, login }) });
+        const res = await api(`/api/products/update-base-price/${login}`, { method: 'POST', body: JSON.stringify({ barcode: item.barcode, basePrice: item.basePrice }) });
         ok = res.ok;
       } else if (item.action === 'update-quantity') {
-        const res = await api('/api/products/update-quantity', { method: 'POST', body: JSON.stringify({ barcode: item.barcode, newQuantity: item.quantity, login }) });
+        const res = await api(`/api/products/update-quantity/${login}`, { method: 'POST', body: JSON.stringify({ barcode: item.barcode, quantity: item.quantity }) });
         ok = res.ok;
       }
       if (ok) { await removeFromPending(item.barcode); synced++; }
@@ -476,7 +476,7 @@ export default function KirimBazasi() {
     if (prod) await saveToIDB({ ...prod, basePrice: newBase, login });
     if (navigator.onLine) {
       try {
-        const res = await api('/api/products/update-base-price', { method: 'POST', body: JSON.stringify({ barcode, newBasePrice: newBase, login }) });
+        const res = await api(`/api/products/update-base-price/${login}`, { method: 'POST', body: JSON.stringify({ barcode, basePrice: newBase }) });
         if (res.ok) toast.success(t('kirim:priceUpdated'));
         else await addToPending({ barcode, basePrice: newBase, login }, 'update-base-price');
       } catch { await addToPending({ barcode, basePrice: newBase, login }, 'update-base-price'); }
@@ -494,7 +494,7 @@ export default function KirimBazasi() {
     if (prod) await saveToIDB({ ...prod, quantity: newQty, login });
     if (navigator.onLine) {
       try {
-        const res = await api('/api/products/update-quantity', { method: 'POST', body: JSON.stringify({ barcode, newQuantity: newQty, login }) });
+        const res = await api(`/api/products/update-quantity/${login}`, { method: 'POST', body: JSON.stringify({ barcode, quantity: newQty }) });
         if (res.ok) toast.success(t('kirim:quantityUpdated'));
         else await addToPending({ barcode, quantity: newQty, login }, 'update-quantity');
       } catch { await addToPending({ barcode, quantity: newQty, login }, 'update-quantity'); }
@@ -503,6 +503,8 @@ export default function KirimBazasi() {
       toast.info(t('kirim:savedOffline'));
     }
   };
+
+
 
   // Stats
   const totalChiqim   = soldProducts.reduce((s, i) => s + (i.basePrice || 0) * (i.quantity || 1), 0);
@@ -641,7 +643,7 @@ export default function KirimBazasi() {
                         </td>
                         <td>
                           <span className="kb-cat-badge" style={{ background: bg, color }}>
-                            {getCategoryEmoji(p.category)} {t(`categories:${p.category}`, p.category)}
+                            {getCategoryEmoji(p.category)} {p.category}
                           </span>
                         </td>
                       </tr>
@@ -676,7 +678,7 @@ export default function KirimBazasi() {
                     <div className="kb-pc-num">{i + 1}</div>
                     <div className="kb-pc-name">{p.name || '—'}</div>
                     <div className="kb-pc-badge" style={{ background: bg, color }}>
-                      {getCategoryEmoji(p.category)} {t(`categories:${p.category}`, p.category)}
+                      {getCategoryEmoji(p.category)} {p.category}
                     </div>
                   </div>
 

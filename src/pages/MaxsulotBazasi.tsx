@@ -389,7 +389,7 @@ export default function MaxsulotBazasi() {
     if (navigator.onLine) {
       api(`/api/products/update-price/${login}`, {
         method: 'POST',
-        body: JSON.stringify({ barcode, newPrice, login }),
+        body: JSON.stringify({ barcode, price: newPrice }),
       }).catch(console.error);
     }
   };

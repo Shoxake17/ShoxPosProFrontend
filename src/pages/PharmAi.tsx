@@ -9,31 +9,28 @@ import MainLayout from "../components/layout/MainLayout";
 import { useTranslation } from 'react-i18next';
 import axiosInstance from '../api/axiosInstance';
 import { sanitizeAiMessageHtml } from "../utils/sanitizeHtml";
+import { api } from "../utils/api";
 
 const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?: string }) => {
   const s = { width: size, height: size, color: color || 'currentColor' };
   switch (id) {
-    case 'shox-ai':           return <Bot {...s} />;
-    case 'llama-3.3-70b':     return <BrainCircuit {...s} />;
-    case 'llama-3.1-8b':      return <Zap {...s} />;
-    case 'ds-v3-or':          return <Layers {...s} />;
-    case 'ds-r1-or':          return <FlaskConical {...s} />;
+    case 'shox-ai-pro':       return <Bot {...s} />;
+    case 'shox-ai':           return <Zap {...s} />;
     case 'shox-ai-lite':      return <BotMessageSquare {...s} />;
-    case 'llama-3.3-together': return <BrainCircuit {...s} />;
-    case 'qwen-2.5-together':  return <Layers {...s} />;
+    case 'shaddiy-ai-pro':    return <BrainCircuit {...s} />;
+    case 'shaddiy-ai':        return <Layers {...s} />;
+    case 'shaddiy-ai-lite':   return <FlaskConical {...s} />;
     default:                  return <Bot {...s} />;
   }
 };
 
 const ALL_MODELS = [
-  { id: 'shox-ai',           name: 'Shox AI',         provider: 'ShoxPosPro', endpoint: '/ask-shoxai', groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    },
-  { id: 'llama-3.3-70b',    name: 'LLaMA 3.3 · 70B', provider: 'ShaddiyAi', endpoint: '/ask-groq-ai',  groqModel: 'llama-3.3-70b-versatile', orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'ShaddiyAi' },
-  { id: 'llama-3.1-8b',     name: 'LLaMA 3.1 · 8B',  provider: 'ShaddiyAi', endpoint: '/ask-groq-ai',  groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'ShaddiyAi' },
-  { id: 'ds-v3-or',         name: 'DeepSeek V3',     provider: 'OpenRouter', endpoint: '/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'OpenRouter' },
-  { id: 'ds-r1-or',         name: 'DeepSeek R1',     provider: 'OpenRouter', endpoint: '/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-r1', color: '#3b82f6', badge: 'Fikrlovchi', group: 'OpenRouter' },
-  { id: 'shox-ai-lite',     name: 'ShoxAI Lite',     provider: 'ShoxPosPro', endpoint: '/shoxai-lite', groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' },
-  { id: 'llama-3.3-together', name: 'Llama 3.3 (Together)', provider: 'Together.ai', endpoint: '/ask-together', togetherModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', orModel: null, color: '#00a3ff', badge: 'Tezkor', group: 'Together.ai' },
-  { id: 'qwen-2.5-together', name: 'Qwen 2.5 72B', provider: 'Together.ai', endpoint: '/ask-together', togetherModel: 'Qwen/Qwen2.5-72B-Instruct-Turbo', orModel: null, color: '#8b5cf6', badge: 'Aqlli', group: 'Together.ai' },
+  { id: 'shox-ai-pro',      name: 'ShoxAi Pro',      provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai',     groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    }, 
+  { id: 'shox-ai',          name: 'ShoxAi',          provider: 'ShoxAi',     endpoint: '/api/shoxai',    groqModel: null, orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'Shox AI' }, 
+  { id: 'shox-ai-lite',     name: 'ShoxAi Lite',     provider: 'ShoxAiLite',  endpoint: '/api/shoxai-lite',    groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' }, 
+  { id: 'shaddiy-ai-pro',   name: 'Shaddiy Ai Pro',  provider: 'ShaddiyAiPro',  endpoint: '/api/shaddiy-ai-pro',    groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'Shaddiy Ai' }, 
+  { id: 'shaddiy-ai',       name: 'Shaddiy Ai',      provider: 'ShaddiyAi',  endpoint: '/api/shaddiy-ai', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'Shaddiy Ai' }, 
+  { id: 'shaddiy-ai-lite',  name: 'Shaddiy Ai Lite', provider: 'ShaddiyAi Lite',  endpoint: '/api/shaddiy-ai-lite', groqModel: null, orModel: 'deepseek/deepseek-r1', color: '#3b82f6', badge: 'Fikrlovchi', group: 'Shaddiy Ai' }, 
 ] as const;
 
 type ModelId = (typeof ALL_MODELS)[number]['id'];
@@ -67,8 +64,7 @@ function renderMd(text: string): string {
 }
 
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai': [], 'llama-3.3-70b': [], 'llama-3.1-8b': [], 'ds-v3-or': [], 'ds-r1-or': [], 'shox-ai-lite': [],
-  'llama-3.3-together': [], 'qwen-2.5-together': []
+  'shox-ai-pro': [], 'shox-ai': [], 'shox-ai-lite': [], 'shaddiy-ai-pro': [], 'shaddiy-ai': [], 'shaddiy-ai-lite': []
 };
 
 export default function PharmAi() {
@@ -97,13 +93,11 @@ export default function PharmAi() {
     (() => {
       try {
         const user = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
-        console.log("🔑 [PharmAi Frontend] Current user from sessionStorage:", user);
         return user?.login || "";
       } catch { return ""; }
     })()
   );
   const login = loginRef.current;
-  console.log("🔑 [PharmAi Frontend] login value:", login);
 
   const activeModel = ALL_MODELS.find(m => m.id === modelId)!;
   const messages    = chats[modelId] || [];
@@ -133,6 +127,30 @@ export default function PharmAi() {
   const addMsg = (id: ModelId, msg: Message) =>
     setChats(prev => ({ ...prev, [id]: [...(prev[id] || []), msg] }));
 
+  const loadHistory = useCallback(async () => {
+    if (!login) return;
+    setHistoryLoading(true);
+    try {
+      const res = await api(`/api/ai/history/${login}`);
+      if (res.ok) {
+        const history: Message[] = await res.json();
+        const newChats: ChatStore = { ...EMPTY_CHATS };
+        history.forEach(msg => {
+          const mId = msg.modelId as any;
+          const targetId = (mId === 'gemini-pro' || mId === 'gemini-2.5-flash') ? 'shox-ai-lite' : mId;
+          if (newChats[targetId as ModelId]) {
+            newChats[targetId as ModelId].push(msg);
+          } else {
+            newChats['shox-ai'].push(msg);
+          }
+        });
+        setChats(newChats);
+      }
+    } catch (err) {
+      console.error("History error:", err);
+    } finally { setHistoryLoading(false); }
+  }, [login]);
+
   const send = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || loading) return;
@@ -160,15 +178,24 @@ export default function PharmAi() {
         body.systemOverride = `Professional dorixona tahlilchisi ShoxAi modelisan.\n\n=== ${login.toUpperCase()} DORIXONASI ===\nSana: ${now.toLocaleString('uz-UZ')}\nBUGUN SAVDO: ${pharmData.todayTotal?.toLocaleString() || 0} so'm\nJAMI DORI: ${pharmData.productCount || 0} ta\nJAMI SOTUV: ${pharmData.saleCount || 0} ta\n\nDORILAR: ${JSON.stringify(pharmData.products?.slice(0, 50) || [])}\n\nOXIRGI SOTUVLAR: ${JSON.stringify(pharmData.sales?.slice(0, 30) || [])}`;
       }
 
-      const res = await axiosInstance.post(model.endpoint, body);
-      const data = res.data;
+      const res = await api(model.endpoint, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(errData.error || 'API Error'), { status: res.status });
+      }
+      
+      const data = await res.json();
       addMsg(currentModelId, {
         role: 'ai', content: data.answer || 'Javob yo\'q',
         timestamp: new Date().toISOString(), ms: data.ms || 0,
       });
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.message || 'API xatosi';
-      const errorCode = err.response?.status;
+      const errorCode = err?.status;
       addMsg(currentModelId, {
         role: 'ai', content: errorMessage, isError: true,
         errorCode, timestamp: new Date().toISOString(),
@@ -179,7 +206,8 @@ export default function PharmAi() {
   useEffect(() => {
     if (!login) { navigate('/'); return; }
     loadPharmData();
-  }, [login, navigate, loadPharmData]);
+    loadHistory();
+  }, [login, navigate, loadPharmData, loadHistory]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -218,7 +246,7 @@ export default function PharmAi() {
 
             {dropOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 280, background: card, border: `1px solid ${bdr}`, borderRadius: 20, padding: 8, zIndex: 1001, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
-                {['Shox AI', 'ShaddiyAi', 'OpenRouter'].map(group => (
+                {['Shox AI', 'Shaddiy Ai'].map(group => (
                   <div key={group}>
                     <div style={{ fontSize: 10, fontWeight: 800, color: sub, padding: '8px 14px 4px' }}>{group}</div>
                     {ALL_MODELS.filter(m => m.group === group).map(m => (
@@ -238,12 +266,19 @@ export default function PharmAi() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             
-            <button onClick={() => { if (window.confirm('Suhbatni tozalashni xohlaysizmi?')) setChats(prev => ({ ...prev, [modelId]: [] })); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 8 }}><Trash2 size={20}/></button>
+            <button onClick={async () => { 
+              if (window.confirm('Suhbatni tozalashni xohlaysizmi?')) {
+                try {
+                  const res = await api(`/api/ai/history/${login}`, { method: 'DELETE' });
+                  if (res.ok) setChats(EMPTY_CHATS);
+                } catch (err) { console.error(err); }
+              }
+            }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 8 }}><Trash2 size={20}/></button>
           </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px', borderRadius: 24, background: chatBg, border: `1px solid ${bdr}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {messages.length === 0 && (
+          {messages.length === 0 && !historyLoading && (
             <div style={{ margin: 'auto', textAlign: 'center', color: sub }}>
                <Bot size={48} color={activeModel.color} style={{ opacity: 0.5, marginBottom: 16 }} />
                <p>Salom {login}! Dorixonangiz haqida savol berishingiz mumkin!</p>

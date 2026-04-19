@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/library';
+import { 
+  BrowserMultiFormatReader, 
+  BarcodeFormat, 
+  DecodeHintType 
+} from '@zxing/library';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Check, X,
@@ -301,13 +305,22 @@ const styles = `
   }
 `;
 
+const hints = new Map();
+hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+  BarcodeFormat.QR_CODE,
+  BarcodeFormat.EAN_13,  
+  BarcodeFormat.EAN_8,   
+  BarcodeFormat.CODE_128, 
+  BarcodeFormat.UPC_A,   
+  BarcodeFormat.UPC_E
+]);
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 function ScannerContent() {
   const { isMobile } = useResponsive();
   const { t } = useTranslation(['scanner', 'common']);
   const { format } = useCurrency();
   const navigate = useNavigate();
-
   const loginRef = useRef<string>(getSessionLogin() || 'unknown');
   const tRef     = useRef(t);
   useEffect(() => { tRef.current = t; }, [t]);
@@ -340,7 +353,7 @@ function ScannerContent() {
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const videoRef         = useRef<HTMLVideoElement>(null);
-  const codeReader       = useRef(new BrowserMultiFormatReader());
+  const codeReader       = useRef(new BrowserMultiFormatReader(hints));
   // scannerRunning — ayni vaqtda scanner ishlamoqdami (state loop'siz tekshirish)
   const scannerRunning   = useRef(false);
   const searchRef        = useRef<HTMLInputElement>(null);
@@ -686,6 +699,9 @@ const stopCamera = useCallback(() => {
           setResultStatus('error');
         }
         setManualBarcode('');
+        
+        // YANGA QO'SHILGAN QATOR: Izlashdan keyin inputni yana aktiv holatga qaytarish
+        setTimeout(() => searchRef.current?.focus(), 10); 
       }
     },
     [manualBarcode, getProductByBarcodeOrName, addToSales],
@@ -888,6 +904,7 @@ const stopCamera = useCallback(() => {
                   onChange={e => setManualBarcode(e.target.value)}
                   onKeyDown={handleSearchInput}
                   autoComplete="off"
+                  autoFocus
                   autoCorrect="off"
                   autoCapitalize="off"
                   inputMode="text"

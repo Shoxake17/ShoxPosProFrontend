@@ -12,7 +12,7 @@
   "errorRequired": "Please fill in all required fields!",
   "successMessage": "Product added successfully!",
   "searching": "🔍 Searching...",
-  "foundInLocal": "✅ Found in your database: ",
+  "foundInLocal": "✅ Found in your database ",
   "foundInGlobal": "✅ Found in global database: ",
   "foundInBase": "✅ Found in database: ",
   "productNotFound": "ℹ️ Product not found. Please enter new details.",

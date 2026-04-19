@@ -526,12 +526,10 @@ export default function PharmSale() {
   const isMounted = useRef(true);
 
   const loadData = useCallback(async () => {
-    console.log("🔄 [PharmSale] loadData called!");
     if (!isMounted.current) return;
     setLoading(true);
     try {
       const apiData = await loadPharmSalesFromAPI();
-      console.log("✅ [PharmSale] apiData:", apiData);
       if (isMounted.current) setReports(apiData);
     } catch (err) {
       console.error('❌ [PharmSale] Yuklash xatosi:', err);

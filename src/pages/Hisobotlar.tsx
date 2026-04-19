@@ -324,8 +324,7 @@ function HisobotlarContent() {
   const isFetching      = useRef(false);
   const isMounted       = useRef(true);
 
-  const getCatLabel = (val: string) =>
-    t(`categories:${val}`, { defaultValue: val });
+  const getCatLabel = (val: string) => val;
 
   // ── Load ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {

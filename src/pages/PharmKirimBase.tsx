@@ -503,7 +503,7 @@ export default function PharmKirimBase() {
                         </td>
                         <td>
                           <span className="kb-cat-badge" style={{ background: bg, color }}>
-                            {getCategoryEmoji(p.category)} {t(`categories:${p.category}`, p.category)}
+                            {getCategoryEmoji(p.category)} {p.category}
                           </span>
                         </td>
                       </tr>

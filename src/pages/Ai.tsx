@@ -29,14 +29,12 @@ const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?
 };
 
 const ALL_MODELS = [
-  { id: 'shox-ai',           name: 'Shox AI',         provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai', groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    },
-  { id: 'llama-3.3-70b',    name: 'LLaMA 3.3 · 70B', provider: 'ShaddiyAi', endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.3-70b-versatile', orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'ShaddiyAi' },
-  { id: 'llama-3.1-8b',     name: 'LLaMA 3.1 · 8B',  provider: 'ShaddiyAi', endpoint: '/api/ask-groq-ai',  groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'ShaddiyAi' },
-  { id: 'ds-v3-or',         name: 'DeepSeek V3',     provider: 'OpenRouter', endpoint: '/api/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'OpenRouter' },
-  { id: 'ds-r1-or',         name: 'DeepSeek R1',     provider: 'OpenRouter', endpoint: '/api/ask-openrouter', groqModel: null, orModel: 'deepseek/deepseek-r1', color: '#3b82f6', badge: 'Fikrlovchi', group: 'OpenRouter' },
-  { id: 'shox-ai-lite',     name: 'ShoxAI Lite',     provider: 'ShoxPosPro', endpoint: '/api/shoxai-lite', groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' },
-  { id: 'llama-3.3-together', name: 'Llama 3.3 (Together)', provider: 'Together.ai', endpoint: '/api/ask-together', togetherModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', orModel: null, color: '#00a3ff', badge: 'Tezkor', group: 'Together.ai' },
-  { id: 'qwen-2.5-together', name: 'Qwen 2.5 72B', provider: 'Together.ai', endpoint: '/api/ask-together', togetherModel: 'Qwen/Qwen2.5-72B-Instruct-Turbo', orModel: null, color: '#8b5cf6', badge: 'Aqlli', group: 'Together.ai' },
+  { id: 'shox-ai-pro',      name: 'ShoxAi Pro',      provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai',     groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    }, 
+  { id: 'shox-ai',          name: 'ShoxAi',          provider: 'ShoxAi',     endpoint: '/api/shoxai',    groqModel: 'null', orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'Shox AI' }, 
+  { id: 'shox-ai-lite',     name: 'ShoxAi Lite',     provider: 'ShoxAiLite',  endpoint: '/api/shoxai-lite',    groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' }, 
+  { id: 'shaddiy-ai-pro',   name: 'Shaddiy Ai Pro',  provider: 'ShaddiyAiPro',  endpoint: '/api/shaddiy-ai-pro',    groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'Shaddiy Ai' }, 
+  { id: 'shaddiy-ai',       name: 'Shaddiy Ai',      provider: 'ShaddiyAi',  endpoint: '/api/shaddiy-ai', groqModel: null, orModel: 'deepseek/deepseek-chat', color: '#a855f7', badge: 'Aqlli', group: 'Shaddiy Ai' }, 
+  { id: 'shaddiy-ai-lite',  name: 'Shaddiy Ai Lite', provider: 'ShaddiyAi Lite',  endpoint: '/api/shaddiy-ai-lite', groqModel: null, orModel: 'deepseek/deepseek-r1', color: '#3b82f6', badge: 'Fikrlovchi', group: 'Shaddiy Ai' }, 
 ] as const;
 
 type ModelId = (typeof ALL_MODELS)[number]['id'];
@@ -70,8 +68,7 @@ function renderMd(text: string): string {
 }
 
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai': [], 'llama-3.3-70b': [], 'llama-3.1-8b': [], 'ds-v3-or': [], 'ds-r1-or': [], 'shox-ai-lite': [],
-  'llama-3.3-together': [], 'qwen-2.5-together': []
+  'shox-ai-pro': [], 'shox-ai': [], 'shox-ai-lite': [], 'shaddiy-ai-pro': [], 'shaddiy-ai': [], 'shaddiy-ai-lite': []
 };
 
 export default function Ai() {
@@ -284,7 +281,7 @@ QARZLAR: ${debtsData.length} ta`;
 
             {dropOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 280, background: card, border: `1px solid ${bdr}`, borderRadius: 20, padding: 8, zIndex: 1001, boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
-                {['Shox AI', 'ShaddiyAi', 'OpenRouter'].map(group => (
+                {['Shox AI', 'Shaddiy Ai'].map(group => (
                   <div key={group}>
                     <div style={{ fontSize: 10, fontWeight: 800, color: sub, padding: '8px 14px 4px' }}>{group}</div>
                     {ALL_MODELS.filter(m => m.group === group).map(m => (
