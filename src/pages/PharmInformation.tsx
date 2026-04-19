@@ -232,7 +232,7 @@ export default function PharmInformation() {
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, boxSizing: 'border-box', width: '100%' }}>
           
-          {/* Search & Scanner */}
+          {/* Search & Scannero */}
           <div style={{ display: 'flex', alignItems: 'center', height: 56, gap: 12, boxSizing: 'border-box', width: '100%' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <Search size={20} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: c.muted, pointerEvents: 'none' }} />
