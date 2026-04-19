@@ -4,7 +4,7 @@ import axiosInstance from '../api/axiosInstance';
 import MainLayout from '../components/layout/MainLayout';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../context/CurrencyContext';
-import { Plus, X, TrendingUp, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, X, TrendingUp, Users, CheckCircle, AlertTriangle, Send } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -383,6 +383,39 @@ function PharmQarzlarContent() {
     setShowModal(false); setModalType(null);
     setModalMessage(null); setSelectedDebt(null); setPayInput('');
   };
+  
+  const sendTelegramReminder = async (q: Qarz) => {
+    try {
+      setModalType('input');
+      setSelectedDebt(q);
+      setModalMessage(`Yuborilmoqda...`);
+      setShowModal(true);
+      
+      const res = await axiosInstance.post(`/telegram/send-debt-reminder`, {
+        debtorName: q.name,
+        debtorPhone: q.phone,
+        debtAmount: q.amount,
+        login
+      });
+      
+      if (res.data && res.data.success) {
+        setModalType('success');
+        setModalMessage('Xabar yuborildi!');
+        toast.success('Xabar yuborildi!');
+      } else {
+        setModalType('error');
+        setModalMessage(res.data?.message || 'Xabar yuborishda xato');
+        toast.error(res.data?.message || 'Xabar yuborishda xato');
+      }
+    } catch (err: any) {
+      console.error(err);
+      const errorMsg = err.response?.data?.message || 'Server bilan ulanishda xato';
+      setModalType('error');
+      setModalMessage(errorMsg);
+      toast.error(errorMsg);
+      if (!showModal) setShowModal(true);
+    }
+  };
 
   const confirmPayment = async () => {
     if (!selectedDebt) return;
@@ -560,9 +593,14 @@ function PharmQarzlarContent() {
                           <td style={{ textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{format(q.amount)}</td>
                           <td style={{ textAlign: 'center', color: 'var(--qz-sub)', fontSize: 13 }}>{formatDate(q.lastPayment)}</td>
                           <td style={{ textAlign: 'center' }}>
-                            <button className="qz-pay-btn" onClick={() => openPayModal(q)}>
-                              To'lov
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                              <button className="qz-pay-btn" onClick={() => sendTelegramReminder(q)} title="Telegram orqali eslatma yuborish">
+                                <Send size={14} />
+                              </button>
+                              <button className="qz-pay-btn" onClick={() => openPayModal(q)}>
+                                To'lov
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -588,9 +626,14 @@ function PharmQarzlarContent() {
                           <div className="qz-dc-date-dot" />
                           {formatDate(q.lastPayment)}
                         </div>
-                        <button className="qz-dc-pay-btn" onClick={() => openPayModal(q)}>
-                          To'lov qilish
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button className="qz-dc-pay-btn" onClick={() => sendTelegramReminder(q)} title="Telegram orqali eslatma yuborish">
+                            <Send size={12} />
+                          </button>
+                          <button className="qz-dc-pay-btn" onClick={() => openPayModal(q)}>
+                            To'lov qilish
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

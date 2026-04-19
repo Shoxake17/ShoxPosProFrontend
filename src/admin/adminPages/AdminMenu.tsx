@@ -18,6 +18,7 @@ interface UserData {
   name?: string;
   email?: string;
   blocked: boolean;
+  telegramId?: string;
   subscription?: {
     plan: 'free' | 'basic' | 'pro';
     isTrial: boolean;
@@ -202,8 +203,8 @@ const ActionButton: React.FC<{
 const TableHead: React.FC<{ theme: Theme }> = ({ theme }) => (
   <thead>
     <tr style={{ background: tc(theme, "#1e293b", "#f8f9fa") }}>
-      {["Foydalanuvchi", "Rol", "Tarif", "Qurilma", "Birinchi kirish", "Oxirgi kirish", "Holat", "Harakat"].map((col, i) => (
-        <th key={col} style={{ padding: "16px", textAlign: i === 7 ? "center" : "left", color: tc(theme, "#e2e8f0", "#1a1f2e"), whiteSpace: "nowrap" }}>
+      {["Foydalanuvchi", "Rol", "Tarif", "Telegram ID", "Qurilma", "Birinchi kirish", "Oxirgi kirish", "Holat", "Harakat"].map((col, i) => (
+        <th key={col} style={{ padding: "16px", textAlign: i === 8 ? "center" : "left", color: tc(theme, "#e2e8f0", "#1a1f2e"), whiteSpace: "nowrap" }}>
           {col}
         </th>
       ))}
@@ -219,15 +220,23 @@ const UserRow: React.FC<{
   onBlock: (id: string, login: string) => void;
   onUnblock: (id: string, login: string) => void;
   onChangePlan: (userId: string, login: string, newPlan: 'free' | 'basic' | 'pro') => void;
-}> = ({ user: u, theme, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan }) => {
+  onUpdateTelegramId: (userId: string, login: string, telegramId: string) => void;
+}> = ({ user: u, theme, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan, onUpdateTelegramId }) => {
   const isMobile = u.currentDevice.deviceType?.toLowerCase().includes("mobile");
   const currentPlan = u.subscription?.plan || 'free';
+  const [telegramIdInput, setTelegramIdInput] = useState(u.telegramId || '');
+  const [editingTelegramId, setEditingTelegramId] = useState(false);
 
   const handlePlanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newPlan = e.target.value as 'free' | 'basic' | 'pro';
     if (newPlan !== currentPlan) {
       onChangePlan(u._id, u.login, newPlan);
     }
+  };
+
+  const handleTelegramIdSave = () => {
+    onUpdateTelegramId(u._id, u.login, telegramIdInput);
+    setEditingTelegramId(false);
   };
 
   return (
@@ -271,6 +280,83 @@ const UserRow: React.FC<{
           <option value="basic">Basic</option>
           <option value="pro">Pro</option>
         </select>
+      </td>
+      <td style={{ padding: "16px" }}>
+        {editingTelegramId ? (
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              value={telegramIdInput}
+              onChange={(e) => setTelegramIdInput(e.target.value)}
+              placeholder="Telegram ID"
+              style={{
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: `1px solid ${tc(theme, "#334155", "#cbd5e1")}`,
+                background: tc(theme, "#0f172a", "#f8fafc"),
+                color: tc(theme, "#e2e8f0", "#1a1f2e"),
+                fontSize: "13px",
+                outline: "none",
+                width: "150px",
+              }}
+            />
+            <button
+              onClick={handleTelegramIdSave}
+              disabled={actionLoading === u._id}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "8px",
+                border: "none",
+                background: "#22c55e",
+                color: "white",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: actionLoading === u._id ? "not-allowed" : "pointer",
+              }}
+            >
+              Saqlash
+            </button>
+            <button
+              onClick={() => {
+                setEditingTelegramId(false);
+                setTelegramIdInput(u.telegramId || '');
+              }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "8px",
+                border: "none",
+                background: "transparent",
+                color: "#64748b",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Bekor
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ 
+              fontSize: "13px", 
+              color: u.telegramId ? tc(theme, "#22c55e", "#16a34a") : tc(theme, "#64748b", "#94a3b8"),
+              fontFamily: "monospace"
+            }}>
+              {u.telegramId || "—"}
+            </span>
+            <button
+              onClick={() => setEditingTelegramId(true)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: tc(theme, "#64748b", "#64748b"),
+                cursor: "pointer",
+                padding: "4px",
+              }}
+            >
+              ✏️
+            </button>
+          </div>
+        )}
       </td>
       <td style={{ padding: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -328,7 +414,8 @@ const UsersTable: React.FC<{
   onBlock: (id: string, login: string) => void;
   onUnblock: (id: string, login: string) => void;
   onChangePlan: (userId: string, login: string, newPlan: 'free' | 'basic' | 'pro') => void;
-}> = ({ theme, loading, error, filteredUsers, selectedRole, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan }) => (
+  onUpdateTelegramId: (userId: string, login: string, telegramId: string) => void;
+}> = ({ theme, loading, error, filteredUsers, selectedRole, currentUserLogin, actionLoading, onBlock, onUnblock, onChangePlan, onUpdateTelegramId }) => (
   <div style={{
     borderRadius: "24px",
     overflow:     "hidden",
@@ -390,6 +477,7 @@ const UsersTable: React.FC<{
                 onBlock={onBlock}
                 onUnblock={onUnblock}
                 onChangePlan={onChangePlan}
+                onUpdateTelegramId={onUpdateTelegramId}
               />
             ))}
           </tbody>
@@ -477,6 +565,20 @@ export default function AdminPanel() {
     } finally { setActionLoading(null); }
   };
 
+  const handleUpdateTelegramId = async (userId: string, login: string, telegramId: string) => {
+    try {
+      setActionLoading(userId);
+      const res = await axiosInstance.put(`/telegram/user/${login}`, { telegramId: telegramId || null });
+      if (res.data.success) { 
+        alert(`✅ Telegram ID saqlandi!`); 
+        await refreshAll(); 
+      }
+    } catch (err: any) {
+      alert(`❌ ${err.response?.data?.message || "Telegram ID ni saqlashda xato"}`);
+      await refreshAll();
+    } finally { setActionLoading(null); }
+  };
+
   const filteredUsers = selectedRole === "All"
     ? users
     : users.filter((u) => u.role.toLowerCase() === selectedRole.toLowerCase());
@@ -544,6 +646,7 @@ export default function AdminPanel() {
             onBlock={handleBlockUser}
             onUnblock={handleUnblockUser}
             onChangePlan={handleChangePlan}
+            onUpdateTelegramId={handleUpdateTelegramId}
           />
 
           <style>{`
