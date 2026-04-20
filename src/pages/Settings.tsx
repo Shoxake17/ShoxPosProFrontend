@@ -183,7 +183,7 @@ export default function POSSettingsPage() {
 
   const settingsGroups: SettingGroup[] = [
     { title: t('settings:general'), items: [] },
-    { title: t('settings:visioncontrol'), items: [] },
+    { title: t(''), items: [] },
     { title: t('settings:security'), items: [] }, 
     { title: t('settings:data'), items: [] },
     { title: t('settings:account'), items: [
@@ -279,9 +279,9 @@ export default function POSSettingsPage() {
                 {hasAllSettingsFeatures && <Notification theme={theme} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />}
               </>
             )}
-            {gIdx === 1 && hasAllSettingsFeatures && (
+            {/* {gIdx === 1 && hasAllSettingsFeatures && (
               <HandControl theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="hand-card" />
-            )}
+            )} */}
             {gIdx === 2 && hasAllSettingsFeatures && (
               <>
                 <ChangePassword theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="pw-card" />
