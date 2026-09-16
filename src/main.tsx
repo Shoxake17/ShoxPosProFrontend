@@ -191,12 +191,7 @@ function GlobalSocketListener() {
 // ─────────────────────────────────────────────────────────────
 function App() {
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
+    <BrowserRouter>
       <CurrencyProvider>
         <HandTrackingProvider>
           <Toaster position="top-center" richColors />
