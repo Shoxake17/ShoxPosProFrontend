@@ -279,9 +279,11 @@ export default function POSSettingsPage() {
                 {hasAllSettingsFeatures && <Notification theme={theme} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />}
               </>
             )}
-            {/* {gIdx === 1 && hasAllSettingsFeatures && (
+            
+            {gIdx === 1 && hasAllSettingsFeatures && (
               <HandControl theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="hand-card" />
-            )} */}
+            )}
+
             {gIdx === 2 && hasAllSettingsFeatures && (
               <>
                 <ChangePassword theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="pw-card" />

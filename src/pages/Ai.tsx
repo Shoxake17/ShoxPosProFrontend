@@ -68,7 +68,7 @@ function renderMd(text: string): string {
 }
 
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai-pro': [], 'shox-ai': [], 'shox-ai-lite': [], 'shaddiy-ai-pro': [], 'shaddiy-ai': [], 'shaddiy-ai-lite': []
+  'shox-ai-pro': [], */'shox-ai': [],/* 'shox-ai-lite': [], 'shaddiy-ai-pro': [], 'shaddiy-ai': [], 'shaddiy-ai-lite': []
 };
 
 export default function Ai() {
