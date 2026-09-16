@@ -46,7 +46,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@types/file-saver": "^2.0.7",
     "@zxing/library": "^0.21.3",
-    "axios": "^1.15.0",
+    "axios": "^1.16.0",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -74,17 +74,17 @@
     "react-i18next": "^16.6.6",
     "react-qr-code": "^2.0.18",
     "react-resizable-panels": "^3.0.6",
-    "react-router-dom": "^6.26.0",
+    "react-router-dom": "^7.18.0",
     "react-toastify": "^11.0.5",
     "recharts": "^3.6.0",
-    "socket.io-client": "^4.8.1",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
     "vaul": "^1.1.2",
     "workbox-precaching": "^7.4.0",
     "workbox-routing": "^7.4.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -108,5 +108,10 @@
     "vite": "^7.2.4",
     "vite-plugin-javascript-obfuscator": "^3.1.0",
     "vite-plugin-pwa": "^1.2.0"
+  },
+  "overrides": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "socket.io-parser": "^4.2.7",
+    "ws": "^8.21.0"
   }
 }
