@@ -29,7 +29,7 @@ const ModelIcon = ({ id, size = 16, color }: { id: string; size?: number; color?
 };
 
 const ALL_MODELS = [
-  { id: 'shox-ai-pro',      name: 'ShoxAi Pro',      provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai',     groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    }, 
+  { id: 'shox-ai-pro',      name: 'ShoxAi Pro',      provider: 'ShoxPosPro', endpoint: '/api/ask-shoxai',    groqModel: null, orModel: null, color: '#6366f1', badge: 'Asosiy',     group: 'Shox AI'    }, 
   { id: 'shox-ai',          name: 'ShoxAi',          provider: 'ShoxAi',     endpoint: '/api/shoxai',    groqModel: 'null', orModel: null, color: '#f97316', badge: 'Eng kuchli', group: 'Shox AI' }, 
   { id: 'shox-ai-lite',     name: 'ShoxAi Lite',     provider: 'ShoxAiLite',  endpoint: '/api/shoxai-lite',    groqModel: null, orModel: null, color: '#4285f4', badge: 'Lite', group: 'Shox AI' }, 
   { id: 'shaddiy-ai-pro',   name: 'Shaddiy Ai Pro',  provider: 'ShaddiyAiPro',  endpoint: '/api/shaddiy-ai-pro',    groqModel: 'llama-3.1-8b-instant',    orModel: null, color: '#22c55e', badge: 'Eng tez',     group: 'Shaddiy Ai' }, 
@@ -67,8 +67,14 @@ function renderMd(text: string): string {
     .replace(/\n/g,   '<br/>');
 }
 
+// ✅ EMPTY_CHATS obyekti sintaksisi va tiplari to'g'rilandi
 const EMPTY_CHATS: ChatStore = {
-  'shox-ai-pro': [], */'shox-ai': [],/* 'shox-ai-lite': [], 'shaddiy-ai-pro': [], 'shaddiy-ai': [], 'shaddiy-ai-lite': []
+  'shox-ai-pro': [],
+  'shox-ai': [],
+  'shox-ai-lite': [],
+  'shaddiy-ai-pro': [],
+  'shaddiy-ai': [],
+  'shaddiy-ai-lite': [],
 };
 
 export default function Ai() {
@@ -78,15 +84,15 @@ export default function Ai() {
 
   const [chats,          setChats]          = useState<ChatStore>(EMPTY_CHATS);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [modelId,         setModelId]        = useState<ModelId>('shox-ai');
-  const [input,           setInput]          = useState('');
-  const [loading,         setLoading]        = useState(false);
-  const [dropOpen,        setDropOpen]       = useState(false);
-  const [useStore,        setUseStore]       = useState(false);
-  const [salesData,       setSalesData]      = useState<SaleItem[]>([]);
-  const [productsData,    setProductsData]   = useState<ProductItem[]>([]);
-  const [debtsData,       setDebtsData]      = useState<DebtItem[]>([]);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [modelId,        setModelId]        = useState<ModelId>('shox-ai');
+  const [input,          setInput]          = useState('');
+  const [loading,        setLoading]        = useState(false);
+  const [dropOpen,       setDropOpen]       = useState(false);
+  const [useStore]                          = useState(false);
+  const [salesData,      setSalesData]      = useState<SaleItem[]>([]);
+  const [productsData,   setProductsData]   = useState<ProductItem[]>([]);
+  const [debtsData,      setDebtsData]      = useState<DebtItem[]>([]);
+  const [keyboardHeight]                    = useState(0);
 
   const [theme]     = useState<'dark'|'light'>(() => (localStorage.getItem('theme') as any) || 'dark');
   const [userImage] = useState<string|null>(localStorage.getItem('userImage'));
