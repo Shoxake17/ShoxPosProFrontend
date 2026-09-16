@@ -4,7 +4,7 @@ version: v1.25.1
 ignore:
   SNYK-JS-XLSX-6252523:
     - '*':
-        reason: 'No patch available, internal use only'
-        expires: 2026-05-17T19:32:05.536Z
-        created: 2026-04-17T19:32:05.541Z
+        reason: 'No upstream fix available, using official CDN build'
+        expires: 2026-10-16T19:46:02.187Z
+        created: 2026-09-16T19:46:02.191Z
 patch: {}
