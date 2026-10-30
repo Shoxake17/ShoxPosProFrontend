@@ -60,7 +60,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 export function showBrowserNotification(
   title: string,
   body: string,
-  icon: string = "/shoxpospro.png"
+  icon: string = "/ondexmerchant-192.png"
 ): void {
   // 1. Ovoz
   playNotificationSound();

@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  let data: any = { title: 'ShoxPosPro', body: 'Yangi xabar keldi!', icon: '/shoxpospro.png' };
+  let data: any = { title: 'OnDex Merchant', body: 'Yangi xabar keldi!', icon: '/ondexmerchant-192.png' };
 
   if (event.data) {
     try {
@@ -41,8 +41,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/shoxpospro.png',
-    badge: '/shoxpospro.png', // Small icon for notification bar
+    icon: data.icon || '/ondexmerchant-192.png',
+    badge: '/ondexmerchant-192.png', // Small icon for notification bar
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/'

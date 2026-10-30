@@ -28,9 +28,9 @@ export default defineConfig(({ mode }) => {
           navigateFallback: 'index.html',
         },
         manifest: {
-          name: 'ShoxPosPro',
-          short_name: 'ShoxPosPro',
-          description: 'ShoxPosPro',
+          name: 'OnDex Merchant Panel',
+          short_name: 'OnDex Merchant',
+          description: 'OnDex Merchant Panel',
           theme_color: '#000000',
           background_color: '#000000',
           display: 'standalone',
@@ -40,17 +40,17 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: 'shoxpospro.png',
+              src: 'ondexmerchant-192.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'shoxpospro.png',
+              src: 'ondexmerchant.png',
               sizes: '512x512',
               type: 'image/png'
             },
             {
-              src: 'shoxpospro.png',
+              src: 'ondexmerchant.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
@@ -85,12 +85,12 @@ export default defineConfig(({ mode }) => {
       allowedHosts: ['localhost', '*.ngrok-free.dev', '*.ngrok.io'],
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:3300',
           changeOrigin: true,
           secure: false,
         },
         '/socket.io': {
-          target: 'ws://localhost:3000',
+          target: 'ws://localhost:3300',
           ws: true,
         },
         '/ip-api': {
@@ -142,14 +142,14 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:3300',
           changeOrigin: true,
           secure: false,
           cookieDomainRewrite: 'localhost',
           headers: { 'Origin': 'http://localhost:3000' },
         },
         '/socket.io': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:3300',
           changeOrigin: true,
           secure: false,
           ws: true,

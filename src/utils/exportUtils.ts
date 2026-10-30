@@ -55,7 +55,7 @@ export const exportToPDF = (
 
   // Sarlavha
   doc.setFontSize(18);
-  doc.text("ShoxPosPro Eksport Hisoboti", 14, y);
+  doc.text("OnDex Merchant Eksport Hisoboti", 14, y);
   y += 10;
   doc.setFontSize(12);
   doc.text(`Sana: ${new Date().toLocaleDateString('uz-UZ')}`, 14, y);
@@ -122,7 +122,7 @@ export const exportToPDF = (
     styles: { fontSize: 10 },
   });
 
-  doc.save(`ShoxPosPro_Hisobot_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`OnDexMerchant_Hisobot_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 // Excel uchun umumiy funksiya
@@ -145,5 +145,5 @@ export const exportToExcel = (
 
   const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  saveAs(data, `ShoxPosPro_Hisobot_${new Date().toISOString().split('T')[0]}.xlsx`);
+  saveAs(data, `OnDexMerchant_Hisobot_${new Date().toISOString().split('T')[0]}.xlsx`);
 };

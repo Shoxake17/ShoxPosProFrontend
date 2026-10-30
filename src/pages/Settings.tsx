@@ -11,14 +11,11 @@ import { useAuthStore, PLAN_PERMISSIONS } from "../store/useAuthStore";
 import { useTranslation } from 'react-i18next';
 
 import Notification from "../components/settings/Notification";
-import ChangePassword from "../components/settings/ChangePassword";
-import Biometric from "../components/settings/Biometric";
 import Session from "../components/settings/Session";
 import DataExport from "../components/settings/DataExport";
 import Backup from "../components/settings/BackUp";
 import ClearData from "../components/settings/ClearData";
 import Logout from "../components/settings/Logout";
-import GoogleAuth from "../components/settings/Authentificator";
 import HandControl from "../components/settings/HandControl";
 import Languages from "../components/settings/Languages";
 import Theme from "../components/settings/Theme";
@@ -286,9 +283,6 @@ export default function POSSettingsPage() {
 
             {gIdx === 2 && hasAllSettingsFeatures && (
               <>
-                <ChangePassword theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="pw-card" />
-                <GoogleAuth theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="gauth-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
-                <Biometric theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="bio-card" currentLogin={currentLogin} showConfirm={showConfirm} showMessage={showSuccess} handleSessionExpired={handleSessionExpired} />
                 <Session theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="session-card" />
               </>
             )}

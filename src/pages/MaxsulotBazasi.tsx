@@ -24,6 +24,7 @@ import {
   syncPendingToMongoDB,
 } from '../hooks/useProductSync';
 import { api } from '../utils/api';
+import QurtProducts from '../components/QurtProducts';
 
 interface Product {
   _id?: string;
@@ -34,6 +35,8 @@ interface Product {
   quantity?: number;
   category: string;
   login?: string;
+  imageUrl?: string;
+  weightGrams?: number;
 }
 
 // ─── Kartochka komponenti ─────────────────────────────────────────────────────
@@ -540,7 +543,15 @@ export default function MaxsulotBazasi() {
       </div>
 
       {/* ── MOBILE: Kartochkalar ro'yxati ── */}
-      {isMobile ? (
+      {user?.storeCategory === 'qurt' ? (
+        <QurtProducts
+          products={products}
+          loading={loading}
+          isDark={isDark}
+          isMobile={isMobile}
+          onDelete={deleteProduct}
+        />
+      ) : isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: textSecondary }}>

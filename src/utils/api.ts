@@ -1,5 +1,6 @@
 import { clearAuthClientState } from "./clientSession";
 import { getMemoryCsrfToken, setMemoryCsrfToken } from "../api/axiosInstance";
+import { CATEGORY_FORBIDDEN, recoverFromCategoryForbidden } from "./categoryGuard";
 
 let isRefreshing = false;
 let refreshPromise: Promise<Response> | null = null;
@@ -103,6 +104,10 @@ export const api = async (
   if (response.status === 403 && !_isRetry) {
     try {
       const data = await response.clone().json().catch(() => ({}));
+      if (data?.code === CATEGORY_FORBIDDEN) {
+        // Do'kon turi bu bo'limga ruxsat bermaydi: eski menyu/kesh — o'zi tuzatiladi.
+        recoverFromCategoryForbidden();
+      }
       if (data?.message?.toLowerCase().includes('csrf')) {
         // 1. Yangi token olish
         const csrfRes = await fetch("/api/csrf-token", { method: "GET", credentials: "include" });

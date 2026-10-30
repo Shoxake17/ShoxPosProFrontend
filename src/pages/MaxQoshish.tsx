@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { QrCode } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { QrCode, ImagePlus, ChevronDown, Plus, Check } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import axiosInstance from '../api/axiosInstance';
 import { useTranslation } from 'react-i18next';
@@ -374,6 +374,102 @@ export default function MaxsulotQoshish() {
   const [uCats, setUCats] = useState<string[]>([]);
   const login = user?.login || '';
 
+  // ── QURT: mijoz ilovasidagi Qurt sahifasi uchun qo'shimcha maydonlar ──
+  const isQurt = user?.storeCategory === 'qurt';
+  const [description, setDescription] = useState('');
+  const [composition, setComposition] = useState('');
+  const [weight, setWeight]           = useState('');
+  const [imageUrl, setImageUrl]       = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading]     = useState(false);
+  // Qurt kategoriya ro'yxati: do'konning avvalgi kategoriyalari + shu yerda qo'shilganlar.
+  const [available, setAvailable] = useState(true);
+
+  // Tahrirlash rejimi: `/add-product?edit=<kalit>` — xuddi shu forma, mavjud mahsulot bilan to'ldiriladi.
+  const [searchParams] = useSearchParams();
+  const editBarcode = isQurt ? (searchParams.get('edit') || '') : '';
+  const isEdit = editBarcode !== '';
+  useEffect(() => {
+    if (!isEdit) return;
+    let alive = true;
+    (async () => {
+      const all = await getAllFromIDB(login);
+      const p = all.find((x: any) => x.barcode === editBarcode);
+      if (!alive) return;
+      if (!p) { navigate('/products'); return; }
+      setName(p.name || '');
+      setPrice(String(p.price ?? ''));
+      setBasePrice(p.basePrice ? String(p.basePrice) : '');
+      setQuantity(p.quantity > 0 ? String(p.quantity) : '1');
+      setAvailable((p.quantity ?? 0) > 0);
+      setCategory(p.category || '');
+      setWeight(p.weightGrams ? String(p.weightGrams) : '');
+      setDescription(p.description || '');
+      setComposition(p.composition || '');
+      setImageUrl(p.imageUrl || '');
+      setImagePreview(p.imageUrl || null);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, editBarcode, login]);
+  const [catOpen, setCatOpen] = useState(false);
+  const [newCat, setNewCat]   = useState('');
+  const [extraCats, setExtraCats] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`qurtCats:${(JSON.parse(sessionStorage.getItem('currentUser') || '{}')).login || ''}`) || '[]'); }
+    catch { return []; }
+  });
+  const addQurtCategory = () => {
+    const v = newCat.trim().slice(0, 64);
+    if (!v) return;
+    const known = [...uCats, ...extraCats].find(x => x.toLowerCase() === v.toLowerCase());
+    const final = known || v;
+    if (!known) {
+      const next = [...extraCats, final];
+      setExtraCats(next);
+      try { localStorage.setItem(`qurtCats:${login}`, JSON.stringify(next)); } catch { /* ixtiyoriy */ }
+    }
+    setCategory(final);
+    setNewCat('');
+    setCatOpen(false);
+  };
+
+  /** Rasmni OnDex omboriga yuklaydi (ShoxPos backend orqali) va manzilini saqlaydi. */
+  const handleQurtImage = async (file: File | undefined) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setMessage({ type: 'error', text: "Faqat jpg, png yoki webp rasm tanlang" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: "Rasm juda katta (maks 5 MB)" });
+      return;
+    }
+    if (!navigator.onLine) {
+      setMessage({ type: 'error', text: "Rasm yuklash uchun internet kerak" });
+      return;
+    }
+    setUploading(true); setMessage(null);
+    const preview = URL.createObjectURL(file);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      // `Content-Type` ni ANIQ multipart qilib beramiz: `axiosInstance` ning standart
+      // `application/json` sarlavhasi bilan axios FormData'ni JSON'ga aylantirib yuboradi
+      // va fayl yo'qoladi ("Rasm tanlanmadi"). Brauzer chegara (boundary) qismini o'zi qo'shadi.
+      const res = await axiosInstance.post('/products/qurt-image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setImageUrl(res.data.url);
+      setImagePreview(preview);
+    } catch (err: any) {
+      URL.revokeObjectURL(preview);
+      setImageUrl(''); setImagePreview(null);
+      setMessage({ type: 'error', text: err?.response?.data?.message || "Rasm yuklab bo'lmadi" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   /* load categories */
   useEffect(() => {
     (async () => {
@@ -517,34 +613,62 @@ export default function MaxsulotQoshish() {
   /* submit */
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    // Qurt sotuvchisida shtrix-kod yo'q: bo'sh qoldirsa mahsulot kaliti o'zi yaratiladi.
+    // Qurt sotuvchisida shtrix-kod maydoni umuman yo'q: mahsulot kaliti har doim o'zi yaratiladi.
+    const code = isEdit ? editBarcode : isQurt
+      ? `QURT-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase()
+      : barcode.trim();
     if (!name.trim())      { setMessage({ type: 'error', text: t('enterProductName') }); return; }
-    if (!barcode.trim())   { setMessage({ type: 'error', text: t('enterBarcode') }); return; }
-    if (!basePrice.trim()) { setMessage({ type: 'error', text: t('enterWholesalePrice') }); return; }
+    if (!code)             { setMessage({ type: 'error', text: t('enterBarcode') }); return; }
+    // Qurt: ulgurji narx ixtiyoriy (faqat sotuvchi ko'radi).
+    if (!isQurt && !basePrice.trim()) { setMessage({ type: 'error', text: t('enterWholesalePrice') }); return; }
     if (!price.trim())     { setMessage({ type: 'error', text: t('enterSalePrice') }); return; }
-    
-    const bp = Number(basePrice), sp = Number(price);
+
+    const bp = Number(basePrice || 0), sp = Number(price);
     if (bp > sp) {
       setMessage({ type: 'error', text: t('wholesaleHighError') });
       return;
     }
-    
+
+    // Qurt: mijoz ilovasida ko'rinishi uchun to'liq ma'lumot shart.
+    let qurtFields: Record<string, unknown> = {};
+    if (isQurt) {
+      const grams = Math.round(Number(weight));
+      if (!Number.isFinite(grams) || grams < 1 || grams > 100000) {
+        setMessage({ type: 'error', text: "Nechi grammligini kiriting (1 dan 100000 gacha)" }); return;
+      }
+      if (!category) { setMessage({ type: 'error', text: "Kategoriyani tanlang" }); return; }
+      if (available && !(Number(quantity) >= 1)) {
+        setMessage({ type: 'error', text: "Mavjud mahsulot uchun miqdor kamida 1 bo'lsin (yoki «Mavjud emas» ni tanlang)" }); return;
+      }
+      if (uploading) { setMessage({ type: 'error', text: "Rasm yuklanishini kuting" }); return; }
+      if (!imageUrl) { setMessage({ type: 'error', text: "Mahsulot rasmini tanlang" }); return; }
+      qurtFields = {
+        weightGrams: grams,
+        description: description.trim(),
+        composition: composition.trim(),
+        imageUrl,
+      };
+    }
 
     setLoading(true); setMessage(null);
     try {
       const idb = await getAllFromIDB(login);
-      const dup = idb.find((p: any) => String(p.barcode).toLowerCase() === barcode.trim().toLowerCase());
-      if (dup) {
+      const dup = idb.find((p: any) => String(p.barcode).toLowerCase() === code.toLowerCase());
+      if (dup && !isEdit) {
         setMessage({ type: 'error', text: `⚠️ ${t('wholesaleHighError')}` });
         return;
       }
       await addProductOfflineFirst({
-        name: name.trim() || barcode.trim(),
+        name: name.trim() || code,
         price: sp || 0, basePrice: bp || 0,
-        barcode: barcode.trim(),
+        barcode: code,
         category: category || 'general',
-        quantity: Number(quantity),
+        // Qurt: "Mavjud emas" = omborda 0 dona (OnDex'ga available=false bo'lib boradi).
+        quantity: isQurt && !available ? 0 : Number(quantity),
         login,
         addedAt: new Date().toISOString(),
+        ...qurtFields,
       });
       setMessage({ type: 'success', text: `✅ ${t('successMessage')}` });
       setTimeout(() => navigate('/products'), 1500);
@@ -589,7 +713,7 @@ export default function MaxsulotQoshish() {
       theme={theme}
       userImage={userImage}
       handleImageUpload={handleImageUpload}
-      title={t('newProduct')}
+      title={isEdit ? 'Mahsulotni tahrirlash' : t('newProduct')}
     >
       {showScan && <ScanOverlay onResult={handleScanResult} onClose={() => setShowScan(false)} />}
 
@@ -609,18 +733,23 @@ export default function MaxsulotQoshish() {
       <div
         className="mq-root"
         style={{
-          maxWidth: isMobile ? '100%' : 850,
+          maxWidth: isMobile ? '100%' : (isQurt ? 1180 : 850),
           margin: '0 auto',
           padding: isMobile ? `60px 16px ${BB_H + 40}px` : '10px 0 80px',
           minHeight: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 120px)',
           display: 'flex',
-          alignItems: isMobile ? 'flex-start' : 'center',
+          alignItems: isMobile || isQurt ? 'flex-start' : 'center',
           justifyContent: 'center',
         }}
       >
         <div
           className="mq-card"
-          style={{
+          style={isQurt ? {
+            // Qurt: tashqi qobiq yo'q — ichki kartalar to'liq kenglikdan foydalanadi.
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
             background: c.card,
             borderRadius: isMobile ? 24 : 32,
             padding: isMobile ? '32px 24px' : '60px 50px',
@@ -631,6 +760,273 @@ export default function MaxsulotQoshish() {
             flexDirection: 'column',
           }}
         >
+          {isQurt ? (
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
+            {(() => {
+              const card = (title: string, children: React.ReactNode) => (
+                <div style={{
+                  background: c.card, border: `1px solid ${c.cardB}`, borderRadius: 18,
+                  padding: isMobile ? 16 : 22, display: 'flex', flexDirection: 'column', gap: 16,
+                }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: c.text }}>{title}</div>
+                  {children}
+                </div>
+              );
+              const lbl = (text: string, hint?: string) => (
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ ...ls, marginBottom: 0, fontSize: 13.5 }}>{text}</label>
+                  {hint && <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>{hint}</div>}
+                </div>
+              );
+              const qfs = { ...fs, padding: '13px 14px', borderRadius: 12 };
+              const suffix = (s: string) => (
+                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: c.muted, fontWeight: 700, pointerEvents: 'none' }}>{s}</span>
+              );
+              const cols2 = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 } as const;
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    {card("Asosiy ma'lumotlar", (
+                      <>
+                        <div style={cols2}>
+                          <div>
+                            {lbl('Mahsulot nomi *')}
+                            <input className="mq-f" type="text" required maxLength={120} value={name}
+                              onChange={e => setName(e.target.value)} placeholder="Masalan: Sho'r qurt"
+                              style={qfs} />
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            {lbl('Kategoriya *')}
+                            <button
+                              type="button" onClick={() => setCatOpen(o => !o)}
+                              style={{
+                                ...qfs, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', textAlign: 'left' as const, gap: 8,
+                              }}
+                            >
+                              <span style={{ color: category ? c.text : '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {category || 'Kategoriyani tanlang'}
+                              </span>
+                              <ChevronDown size={18} color={c.muted} style={{ flexShrink: 0, transform: catOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                            </button>
+                            {catOpen && (
+                              <>
+                                <div onClick={() => setCatOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                                <div style={{
+                                  position: 'absolute', left: 0, right: 0, top: 'calc(100% + 6px)', zIndex: 41,
+                                  background: c.card, border: `1px solid ${c.cardB}`, borderRadius: 14,
+                                  boxShadow: '0 12px 32px rgba(0,0,0,.35)', padding: 8,
+                                }}>
+                                  <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                                    {Array.from(new Set([...uCats, ...extraCats].filter(Boolean))).length === 0 && (
+                                      <div style={{ padding: '10px 12px', fontSize: 13, color: c.muted }}>
+                                        Hali kategoriya yo'q — pastdan yangisini qo'shing
+                                      </div>
+                                    )}
+                                    {Array.from(new Set([...uCats, ...extraCats].filter(Boolean))).map(cat => (
+                                      <button
+                                        type="button" key={cat}
+                                        onClick={() => { setCategory(cat); setCatOpen(false); }}
+                                        style={{
+                                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                          padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                                          background: category === cat ? 'rgba(99,102,241,.16)' : 'transparent',
+                                          color: c.text, fontSize: 14, fontWeight: 600, textAlign: 'left' as const,
+                                          fontFamily: "'DM Sans', sans-serif",
+                                        }}
+                                      >
+                                        <span>{cat}</span>
+                                        {category === cat && <Check size={16} color="#818cf8" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${c.cardB}` }}>
+                                    <input
+                                      className="mq-f" type="text" maxLength={64} value={newCat}
+                                      onChange={e => setNewCat(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addQurtCategory(); } }}
+                                      placeholder="Yangi kategoriya"
+                                      style={{ ...qfs, padding: '10px 12px', fontSize: 14 }}
+                                    />
+                                    <button
+                                      type="button" onClick={addQurtCategory} disabled={!newCat.trim()}
+                                      aria-label="Kategoriya qo'shish"
+                                      style={{
+                                        flexShrink: 0, width: 44, borderRadius: 12, border: 'none',
+                                        cursor: newCat.trim() ? 'pointer' : 'not-allowed',
+                                        opacity: newCat.trim() ? 1 : 0.5,
+                                        background: '#6366f1', color: '#fff',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                    ><Plus size={20} /></button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ))}
+                    {card('Narx va hajm', (
+                      <>
+                        <div style={cols2}>
+                          <div>
+                            {lbl('Narxi *')}
+                            <div style={{ position: 'relative' }}>
+                              <input className="mq-f" type="number" min="0" value={price}
+                                onChange={e => setPrice(e.target.value)} placeholder="0"
+                                style={{ ...qfs, paddingRight: 52 }} />
+                              {suffix("so'm")}
+                            </div>
+                          </div>
+                          <div>
+                            {lbl('Ulgurji narx')}
+                            <div style={{ position: 'relative' }}>
+                              <input className="mq-f" type="number" min="0" value={basePrice}
+                                onChange={e => setBasePrice(e.target.value)} placeholder="0"
+                                style={{ ...qfs, paddingRight: 52 }} />
+                              {suffix("so'm")}
+                            </div>
+                            <div style={{ fontSize: 12, color: c.muted, marginTop: 6 }}>Ixtiyoriy, faqat siz ko'rasiz</div>
+                          </div>
+                        </div>
+                        <div style={cols2}>
+                          <div>
+                            {lbl('Nechi gramm *')}
+                            <div style={{ position: 'relative' }}>
+                              <input className="mq-f" type="number" min="1" max="100000" step="1" value={weight}
+                                onChange={e => setWeight(e.target.value)} placeholder="Masalan: 250"
+                                style={{ ...qfs, paddingRight: 40 }} />
+                              {suffix('g')}
+                            </div>
+                          </div>
+                          <div>
+                            {lbl('Miqdor (ombordagi soni)')}
+                            <input className="mq-f" type="number" min="0" value={quantity}
+                              disabled={!available}
+                              onChange={e => setQuantity(e.target.value)} style={{ ...qfs, opacity: available ? 1 : 0.5 }} />
+                          </div>
+                        </div>
+                      </>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {card('Rasm *', (
+                    <label
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        cursor: uploading ? 'wait' : 'pointer', textAlign: 'center',
+                        minHeight: 240, padding: 16, borderRadius: 14,
+                        border: `2px dashed ${imageUrl ? '#6366f1' : c.surfB}`, background: c.surf,
+                      }}
+                    >
+                      {imagePreview ? (
+                        // Cho'zinchoq 2.4:1 — mijoz ilovasida ham aynan shunday ko'rinadi.
+                        <img src={imagePreview} alt="" style={{ width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 10 }} />
+                      ) : (
+                        <div style={{
+                          width: '100%', aspectRatio: '2.4 / 1', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'rgba(99,102,241,.1)',
+                        }}>
+                          <ImagePlus size={34} color="#818cf8" strokeWidth={1.8} />
+                        </div>
+                      )}
+                      <div style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>
+                        {uploading ? 'Yuklanmoqda...' : imageUrl ? 'Almashtirish uchun bosing' : 'Rasm tanlash'}
+                      </div>
+                      <div style={{ color: c.muted, fontSize: 12 }}>JPG, PNG yoki WEBP, 5 MB gacha</div>
+                      <input
+                        type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                        style={{ display: 'none' }}
+                        onChange={e => { handleQurtImage(e.target.files?.[0]); e.target.value = ''; }}
+                      />
+                    </label>
+                  ))}
+                  {card('Holat', (
+                    <div>
+                      {lbl('Mavjudlik *', "«Mavjud emas» bo'lsa mahsulot mijozlarga ko'rinmaydi")}
+                      <div style={{ display: 'flex', flexDirection: 'row', gap: 10 }}>
+                        {([
+                          { v: true, label: 'Mavjud' },
+                          { v: false, label: 'Mavjud emas' },
+                        ] as const).map(o => {
+                          const sel = available === o.v;
+                          return (
+                            <button
+                              type="button" key={o.label} role="radio" aria-checked={sel}
+                              onClick={() => setAvailable(o.v)}
+                              style={{
+                                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 12px', borderRadius: 12,
+                                cursor: 'pointer', textAlign: 'left' as const, whiteSpace: 'nowrap' as const,
+                                border: `1.5px solid ${sel ? '#6366f1' : c.surfB}`,
+                                background: sel ? 'rgba(99,102,241,.12)' : c.surf,
+                                color: c.text, fontSize: 14.5, fontWeight: 600,
+                                fontFamily: "'DM Sans', sans-serif",
+                              }}
+                            >
+                              <span style={{
+                                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                                border: `2px solid ${sel ? '#6366f1' : c.muted}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {sel && <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#6366f1' }} />}
+                              </span>
+                              {o.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {message && (
+              <div className="mq-msg" style={{
+                padding: '11px 14px', borderRadius: 11,
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                background: MSGS[message.type].bg,
+                color: MSGS[message.type].col,
+                border: `1px solid ${MSGS[message.type].bdr}`,
+                fontSize: 13.5, fontWeight: 500, lineHeight: 1.5,
+              }}>
+                <span style={{ flexShrink: 0 }}>{MSGS[message.type].ico}</span>
+                <span>{message.text.replace(MSGS[message.type].ico, '').trim()}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexDirection: isMobile ? 'column-reverse' : 'row' }}>
+              <button
+                type="button" onClick={() => navigate('/products')}
+                style={{
+                  padding: '14px 26px', borderRadius: 14, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+                  background: 'transparent', color: c.text, border: `1.5px solid ${c.surfB}`,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >Bekor qilish</button>
+              <button
+                type="submit" disabled={loading || uploading} className="mq-save"
+                style={{
+                  padding: '14px 34px', borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700,
+                  cursor: loading || uploading ? 'not-allowed' : 'pointer',
+                  opacity: loading || uploading ? 0.7 : 1,
+                  background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                  boxShadow: '0 8px 24px rgba(99,102,241,.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                {loading ? (<><div className="mq-spin" /><span>Saqlanmoqda...</span></>) : <span>Saqlash</span>}
+              </button>
+            </div>
+          </form>
+          ) : (
           <form
             onSubmit={handleSubmit}
             style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 24 : 32, flex: 1 }}
@@ -802,7 +1198,7 @@ export default function MaxsulotQoshish() {
   </div>
 
               {/* ── KATEGORIYA trigger ── */}
-  <div>
+  {!isQurt && (<div>
     <label style={ls}>{t('category') || 'Kategoriya'}</label>
     <button
       type="button"
@@ -843,9 +1239,9 @@ export default function MaxsulotQoshish() {
         <polyline points="6 9 12 15 18 9"/>
       </svg>
     </button>
-  </div>
+  </div>)}
 
-  
+
 </div>
 
             {/* ── message ── */}
@@ -903,6 +1299,7 @@ export default function MaxsulotQoshish() {
             </div>
 
           </form>
+          )}
         </div>
       </div>
     </MainLayout>

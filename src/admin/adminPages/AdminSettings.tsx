@@ -6,8 +6,6 @@ import {
   Globe, Moon, Sun, Lock, ChevronRight,
 } from "lucide-react";
 import { getSessionLogin } from "../../utils/clientSession";
-import ChangePassword from "../adminComponents/adminSettings/AdminChangePassword";
-import Admin2FA from "../adminComponents/adminSettings/Admin2FA";
 import AdminProfile from "../adminComponents/adminSettings/AdminProfile";
 import { requestNotificationPermission, notificationStorage } from "../adminUtils/notificationUtils";
 import { toast } from "sonner";
@@ -32,8 +30,6 @@ export default function AdminSettings() {
   const { i18n, t } = useTranslation();
   const [notifications, setNotifications] = useState(notificationStorage.isEnabled());
   const [hoveredSetting, setHoveredSetting] = useState<string | null>(null);
-  const [isPassModalOpen, setIsPassModalOpen] = useState(false);
-  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const currentUserLogin = getSessionLogin() || "—";
@@ -91,25 +87,6 @@ export default function AdminSettings() {
               toast.info(t("notificationsDisabled") || "Bildirishnomalar o'chirildi");
             }
           },
-        },
-      ],
-    },
-    {
-      title: t("security") || "Xavfsizlik",
-      items: [
-        {
-          id: "password",
-          icon: Lock,
-          title: t("changePassword") || "Parolni o'zgartirish",
-          description: t("changePasswordDescriptionAdmin") || "Admin parolini yangilash",
-          onClick: () => setIsPassModalOpen(true),
-        },
-        {
-          id: "2fa",
-          icon: Shield,
-          title: t("twoFactor") || "Ikki faktorli autentifikatsiya",
-          description: t("twoFactorDescription") || "Qo'shimcha xavfsizlik qatlami",
-          onClick: () => setIs2FAModalOpen(true),
         },
       ],
     },
@@ -260,22 +237,6 @@ export default function AdminSettings() {
                 </div>
               </section>
             ))}
-
-            {isPassModalOpen && (
-              <ChangePassword
-                theme={theme}
-                tc={tc}
-                onClose={() => setIsPassModalOpen(false)}
-              />
-            )}
-
-            {is2FAModalOpen && (
-              <Admin2FA
-                theme={theme}
-                tc={tc}
-                onClose={() => setIs2FAModalOpen(false)}
-              />
-            )}
 
             {isProfileModalOpen && (
               <AdminProfile

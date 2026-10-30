@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/useAuthStore';
+import { isPageAllowed } from '../../utils/storeAccess';
 
 interface NavItem {
   id: string;
@@ -57,6 +58,8 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
   const ALL_ITEMS = isPharmacy ? PHARMACY_ITEMS : REGULAR_ITEMS;
   
   const FILTERED_ITEMS = ALL_ITEMS.filter(item => {
+    // Do'kon kategoriyasi (qurt): faqat ruxsat etilgan bo'limlar ko'rinadi.
+    if (user?.role?.toLowerCase() !== 'admin' && !isPageAllowed(user?.storeCategory, item.id)) return false;
     if (!item.requiresPlan) return true;
     const planOrder = ['free', 'basic', 'pro'];
     const itemPlanIndex = planOrder.indexOf(item.requiresPlan);

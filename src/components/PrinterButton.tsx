@@ -1,7 +1,6 @@
 // ShoxPosPro Frontend: PrinterButton.tsx
 import React, { useState, useRef } from 'react';
 import { Printer, PrinterCheck, PrinterX, ChevronRight } from 'lucide-react';
-import QRCode from 'qrcode';
 
 interface PrinterButtonProps {
   sales: any[];
@@ -34,67 +33,6 @@ function formatPrice(price: number): string {
     .replace(/,/g, ' ');
 }
 
-/**
- * --- Canvas QR -> ESC/POS bitmap -----------------
- * Printerning grafik rejimida tushunadigan formatiga o'tkazish
- */
-async function qrToBitmap(text: string, printWidth = 300): Promise<Uint8Array> {
-  const canvas = document.createElement('canvas');
-  canvas.width = printWidth;
-  canvas.height = printWidth;
-  const ctx = canvas.getContext('2d')!;
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, printWidth, printWidth);
-
-  await QRCode.toCanvas(canvas, text, {
-    width: printWidth,
-    margin: 2,
-    color: { dark: '#000000', light: '#FFFFFF' },
-    errorCorrectionLevel: 'M',
-  });
-
-  const imageData = ctx.getImageData(0, 0, printWidth, printWidth);
-  const pixels = imageData.data;
-  const byteWidth = Math.ceil(printWidth / 8);
-  const commands: number[] = [];
-
-  for (let y = 0; y < printWidth; y++) {
-    // ESC/POS bit image command
-    commands.push(0x1D, 0x76, 0x30, 0x00);
-    commands.push(byteWidth & 0xFF, (byteWidth >> 8) & 0xFF);
-    commands.push(1 & 0xFF, 0);
-
-    for (let x = 0; x < byteWidth; x++) {
-      let byte = 0;
-      for (let bit = 0; bit < 8; bit++) {
-        const px = x * 8 + bit;
-        if (px < printWidth) {
-          const idx = (y * printWidth + px) * 4;
-          const brightness = (pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3;
-          if (brightness < 128) byte |= (0x80 >> bit);
-        }
-      }
-      commands.push(byte);
-    }
-  }
-  return new Uint8Array(commands);
-}
-
-/**
- * Backenddan CSRF token olish
- */
-async function getCsrfToken(): Promise<string> {
-  try {
-    const res = await fetch('/api/csrf-token', { credentials: 'include' });
-    if (!res.ok) return '';
-    const data = await res.json();
-    return data.csrfToken || '';
-  } catch {
-    return '';
-  }
-}
-
 const PrinterButton: React.FC<PrinterButtonProps> = ({
   sales, totalPrice, theme, t, finalizeSale, setResultText, setResultStatus,
   customContent, printerConnected, printerModel, checkingPrinter, listenF8
@@ -121,37 +59,6 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
     }
   }, [listenF8, sales, totalPrice]); // Re-bind if sales/price change
 
-  /**
-   * --- Cashback ro'yxatga olish --- Backend Proxy orqali ---
-   */
-  const registerCashback = async (receiptId: string, totalAmount: number) => {
-    try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch('/api/cashback/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify({ receiptId, totalAmount, storeName: 'ShoxPosPro' }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        // Backenddan kelgan to'liq timestamp va signature'ni qaytaramiz
-        return { 
-          signature: data.signature, 
-          timestamp: data.timestamp 
-        };
-      }
-      return null;
-    } catch (err) {
-      console.error('--- Cashback API xatosi:', err);
-      return null;
-    }
-  };
-
   const handlePrint = async () => {
     if (sales.length === 0 || isPrinting) return;
     setIsPrinting(true);
@@ -162,19 +69,9 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
     const receiptId = generateReceiptId();
 
     try {
-      // --- 1. Avval Backendda ro'yxatga olamiz (Signature olish uchun) ---
-      // Bu qadam HMAC imzo yaratish uchun shart
-      const authInfo = await registerCashback(receiptId, totalPrice);
-      
-      if (!authInfo) {
-        throw new Error("Keshbek tizimi bilan bog'lanishda xatolik yuz berdi");
-      }
+      const printedAt = new Date();
 
-      // MUHIM: QR Payload formati (Backend tekshiruviga 100% mos)
-      // authInfo.timestamp qisqartirilmagan holda ishlatiladi
-      const qrPayload = `ID:${receiptId}|TS:${authInfo.timestamp}|SIG:${authInfo.signature}`;
-
-      // --- 2. USB printerga ulanish (WebUSB API) ---
+      // --- 1. USB printerga ulanish (WebUSB API) ---
       let device = cachedDevice.current;
       if (!device || !device.opened) {
         const paired = await (navigator as any).usb.getDevices();
@@ -187,17 +84,17 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
 
       setResultText(t('receiptPreparing'));
 
-      // --- 3. ESC/POS buyruqlarini shakllantirish ---
+      // --- 2. ESC/POS buyruqlarini shakllantirish ---
       const encoder = new TextEncoder();
       const esc = '\x1B', line = '--------------------------------\n';
       const parts: Uint8Array[] = [];
       const t2b = (s: string) => encoder.encode(s);
       
       // Chekda chiroyli ko'rinishi uchun lokal sana
-      const sanaLokal = new Date(authInfo.timestamp).toLocaleString('uz-UZ');
+      const sanaLokal = printedAt.toLocaleString('uz-UZ');
 
       parts.push(t2b(`${esc}@`)); // Reset printer
-      parts.push(t2b(`${esc}a\x01${esc}!\x30SHOXPOSPRO\n${esc}!\x00`)); // Center align + Double height
+      parts.push(t2b(`${esc}a\x01${esc}!\x30ONDEX MERCHANT\n${esc}!\x00`)); // Center align + Double height
       parts.push(t2b(`Sana:    ${sanaLokal}\nChek ID: ${receiptId}\n${line}`));
 
       // Mahsulotlar ro'yxati
@@ -208,15 +105,8 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
         ));
       }
 
-      const cashbackAmount = Math.round(totalPrice * 0.01);
       parts.push(t2b(`${line}${esc}a\x02${esc}E\x01JAMI: ${formatPrice(totalPrice)} so'm\n${esc}E\x00`));
-      parts.push(t2b(`\n${esc}a\x01${line}  1% CASHBACK: ${formatPrice(cashbackAmount)} so'm\n  ShoxPay ilovasida scan qiling:\n\n`));
-
-      // QR kodni generatsiya qilish va chekka qo'shish
-      const qrBitmap = await qrToBitmap(qrPayload, 280);
-      parts.push(qrBitmap);
-
-      parts.push(t2b(` Muddat: 24 soat\n${line}\n${esc}a\x01Xaridingiz uchun rahmat!\n\n\n\n`));
+      parts.push(t2b(`\n${esc}a\x01${line}Xaridingiz uchun rahmat!\n\n\n\n`));
       parts.push(new Uint8Array([0x1D, 0x56, 0x41, 0x00])); // Paper cut
 
       // Barcha qismlarni bitta massivga yig'ish
@@ -228,7 +118,7 @@ const PrinterButton: React.FC<PrinterButtonProps> = ({
       // Printerga yuborish
       await device.transferOut(1, merged);
 
-      // --- 4. Sotuvni ma'lumotlar bazasida yakunlash ---
+      // --- 3. Sotuvni ma'lumotlar bazasida yakunlash ---
       await finalizeSale();
 
       setResultText(t('receiptPrinted'));

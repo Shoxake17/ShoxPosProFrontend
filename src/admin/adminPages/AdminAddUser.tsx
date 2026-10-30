@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import axiosInstance from "../../api/axiosInstance";
 import AdminLayout from "../adminComponents/AdminLayout";
 import {
-  UserPlus, User, Lock, Save, Loader2, AlertCircle,
-  Eye, EyeOff, Store, Tag, ChevronDown, Plus, Check, X
+  UserPlus, Phone, Save, Loader2,
+  Store, Tag, ChevronDown, Plus, X
 } from "lucide-react";
 
 // ─── Turlar va kategoriyalar (To'liq Ro'yxat) ─────────────────────────────────
@@ -26,19 +26,17 @@ const AdminAddUser: React.FC = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading]           = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [shopTypes, setShopTypes]       = useState<ShopType[]>(DEFAULT_SHOP_TYPES);
 
   const [formData, setFormData] = useState({
-    login:          "",
-    password:       "",
+    ondexPhone:     "",
     shopName:       "",
     shopType:       "",
     shopCategories: [] as string[],
   });
 
   const [errors, setErrors] = useState({
-    login: "", password: "", shopName: "", shopType: "",
+    ondexPhone: "", shopName: "", shopType: "",
   });
 
   const [dropdownOpen, setDropdownOpen]     = useState(false);
@@ -124,9 +122,8 @@ const AdminAddUser: React.FC = () => {
 
   const validate = () => {
     let valid = true;
-    const e = { login: "", password: "", shopName: "", shopType: "" };
-    if (!formData.login.trim()) { e.login = "Login kiritish majburiy"; valid = false; }
-    if (!formData.password || formData.password.length < 8) { e.password = "Parol kamida 8 ta belgi"; valid = false; }
+    const e = { ondexPhone: "", shopName: "", shopType: "" };
+    if (!/^998\d{9}$/.test(formData.ondexPhone.replace(/\D/g, ""))) { e.ondexPhone = "Telefon noto'g'ri (+998 XX XXX XX XX)"; valid = false; }
     if (!formData.shopName.trim()) { e.shopName = "Do'kon nomi majburiy"; valid = false; }
     if (!formData.shopType) { e.shopType = "Do'kon turini tanlang"; valid = false; }
     setErrors(e);
@@ -141,8 +138,7 @@ const AdminAddUser: React.FC = () => {
     try {
       // Backendga barcha ma'lumotlarni yuborish
       const res = await axiosInstance.post("/register", {
-        login: formData.login,
-        password: formData.password,
+        ondexPhone: formData.ondexPhone,
         role: "cashier",
         shopName: formData.shopName,
         shopType: formData.shopType,
@@ -261,28 +257,17 @@ const AdminAddUser: React.FC = () => {
 
                   <hr style={{ border: "none", borderTop: `1px solid ${border}`, margin: "10px 0" }} />
 
-                  {/* Login/Password */}
+                  {/* OnDex telefon raqami */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label style={{ fontSize: "13px", fontWeight: 700, color: txtMuted }}><User size={14} /> Login</label>
+                    <label style={{ fontSize: "13px", fontWeight: 700, color: txtMuted }}><Phone size={14} /> OnDex telefon raqami</label>
                     <input
-                      type="text" value={formData.login}
-                      onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-                      style={{ padding: "14px", borderRadius: "12px", backgroundColor: inputBg, border: `2px solid ${errors.login ? "#ef4444" : border}`, color: txtMain, outline: "none" }}
+                      type="tel" inputMode="tel" placeholder="+998 90 123 45 67" value={formData.ondexPhone}
+                      onChange={(e) => setFormData({ ...formData, ondexPhone: e.target.value })}
+                      style={{ padding: "14px", borderRadius: "12px", backgroundColor: inputBg, border: `2px solid ${errors.ondexPhone ? "#ef4444" : border}`, color: txtMain, outline: "none" }}
                     />
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label style={{ fontSize: "13px", fontWeight: 700, color: txtMuted }}><Lock size={14} /> Parol</label>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        type={showPassword ? "text" : "password"} value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        style={{ width: "100%", padding: "14px", borderRadius: "12px", backgroundColor: inputBg, border: `2px solid ${errors.password ? "#ef4444" : border}`, color: txtMain, outline: "none", boxSizing: "border-box" }}
-                      />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: txtMuted, cursor: "pointer" }}>
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
+                    <span style={{ fontSize: "12px", color: errors.ondexPhone ? "#ef4444" : txtMuted }}>
+                      {errors.ondexPhone || "Hamkor shu raqam bilan OnDex orqali kiradi. Parol kerak emas."}
+                    </span>
                   </div>
 
                   <button

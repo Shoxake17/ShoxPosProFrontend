@@ -2,6 +2,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { invalidateAuthCache } from '../components/layout/ProtectedRoute';
 import { clearAuthClientState } from '../utils/clientSession';
+import { CATEGORY_FORBIDDEN, recoverFromCategoryForbidden } from '../utils/categoryGuard';
 
 // 🔒 CSRF MEMORY STORAGE
 let _csrfToken = '';
@@ -134,6 +135,11 @@ axiosInstance.interceptors.response.use(
     }
 
     // ── 403: Forbidden (CSRF Xatosi) qismi turaveradi... ────────────────────────
+    if (error.response.status === 403 && (error.response.data as { code?: string } | undefined)?.code === CATEGORY_FORBIDDEN) {
+      // Do'kon turi bu bo'limga ruxsat bermaydi: eski menyu/kesh — o'zi tuzatiladi.
+      recoverFromCategoryForbidden();
+      return Promise.reject(error);
+    }
     if (error.response.status === 403 && !originalRequest._retry) {
         // ... (oldingi kodingiz)
     }

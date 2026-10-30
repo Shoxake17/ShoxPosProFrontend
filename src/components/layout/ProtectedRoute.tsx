@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { ShieldCheck, ShieldAlert, Lock } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuthStore, PLAN_PERMISSIONS } from "../../store/useAuthStore";
+import { isPageAllowed, landingPath } from "../../utils/storeAccess";
 // react-i18next kutubxonasiga o'tamiz
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +20,7 @@ interface AuthState {
   isAuthenticated: boolean;
   userRole: string | null;
   userPlan: 'free' | 'basic' | 'pro' | null;
+  storeCategory: string;
   authError: boolean;
   redirecting: boolean;
   subscriptionError: boolean;
@@ -72,6 +74,7 @@ const useAuth = (pathname: string) => {
     isAuthenticated: false,
     userRole: null,
     userPlan: null,
+    storeCategory: '',
     authError: false,
     redirecting: false,
     subscriptionError: false,
@@ -102,6 +105,7 @@ const useAuth = (pathname: string) => {
               isAuthenticated: true,
               userRole: user.role.toLowerCase(),
               userPlan: user.subscription?.plan || 'free',
+              storeCategory: user.storeCategory || '',
               authError: false,
               isVerifying: false
             });
@@ -129,6 +133,7 @@ const useAuth = (pathname: string) => {
             name?: string;
             shopName?: string;
             shopType?: string;
+            storeCategory?: string;
             shopCategories?: string[];
             subscription?: { plan: 'free' | 'basic' | 'pro'; isTrial: boolean; trialEndDate?: string; startDate?: string };
           };
@@ -143,6 +148,7 @@ const useAuth = (pathname: string) => {
           name: data.user.name,
           shopName: data.user.shopName,
           shopType: data.user.shopType,
+          storeCategory: data.user.storeCategory || '',
           shopCategories: data.user.shopCategories,
           subscription: data.user.subscription || { plan: 'free', isTrial: false }
         };
@@ -162,6 +168,7 @@ const useAuth = (pathname: string) => {
             isAuthenticated: true,
             userRole: role,
             userPlan: plan,
+            storeCategory: completeUser.storeCategory,
             authError: false,
           });
           setTimeout(() => {
@@ -307,7 +314,7 @@ const SubscriptionBlockedScreen: React.FC = () => {
 // ✅ MAIN COMPONENT
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const location = useLocation();
-  const { isVerifying, isAuthenticated, userRole, userPlan, authError, redirecting } = useAuth(location.pathname);
+  const { isVerifying, isAuthenticated, userRole, userPlan, storeCategory, authError, redirecting } = useAuth(location.pathname);
 
   if (isVerifying) {
     return <LoadingScreen authError={authError} redirecting={redirecting} />;
@@ -318,12 +325,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-    if (userRole === "admin") return <Navigate to="/admin-panel" replace />;
-    return <Navigate to="/menu" replace />;
+    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
   }
 
   if (location.pathname.startsWith("/admin-") && userRole !== "admin") {
-    return <Navigate to="/menu" replace />;
+    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
+  }
+
+  // Do'kon kategoriyasi (qurt va h.k.): ruxsat etilmagan sahifaga kirib bo'lmaydi
+  // (URL'ni qo'lda yozsa ham). Backend ham shu ro'yxatni API darajasida majburlaydi.
+  const accessPageId = location.pathname.split('/')[1] || "menu";
+  if (userRole !== 'admin' && !isPageAllowed(storeCategory, accessPageId)) {
+    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
   }
 
   // Obuna rejasi tekshiruvi - ADMIN UCHUN CHEKLOV YO'Q!

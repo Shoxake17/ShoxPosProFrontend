@@ -14,6 +14,7 @@ interface User {
   name?: string;
   shopName?: string;
   shopType?: string;
+  storeCategory?: string;
   shopCategories?: string[];
   subscription?: Subscription;
 }

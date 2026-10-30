@@ -189,8 +189,13 @@ export default function MainLayout({
           </h1>
 
           <div style={{ display: "flex", gap: isMobile ? 8 : 16, alignItems: "center" }}>
-            <BatteryIndicator isCharging={isCharging} level={batteryLevel} isMobile={isMobile} theme={theme} />
-            <NetworkIndicator isOnline={isOnline} isMobile={isMobile} />
+            {/* Zaryadka va tarmoq belgisi faqat kompyuter versiyasida (telefonda tizim panelida bor). */}
+            {!isMobile && (
+              <>
+                <BatteryIndicator isCharging={isCharging} level={batteryLevel} isMobile={isMobile} theme={theme} />
+                <NetworkIndicator isOnline={isOnline} isMobile={isMobile} />
+              </>
+            )}
             <Notification theme={theme} />
           </div>
         </header>

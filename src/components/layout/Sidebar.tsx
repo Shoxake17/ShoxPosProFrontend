@@ -25,6 +25,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
+import { isPageAllowed } from "../../utils/storeAccess";
 
 type MenuItem = {
   id: string;
@@ -91,6 +92,9 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const filteredMenuItems = menuItems.filter(item => {
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
     if (userRole === 'admin') return true;
+
+    // Do'kon kategoriyasi (qurt): faqat ruxsat etilgan bo'limlar ko'rinadi.
+    if (!isPageAllowed(user?.storeCategory, item.id)) return false;
     
     if (!item.requiresPlan) return true;
     const planOrder = ['free', 'basic', 'pro'];
@@ -153,12 +157,19 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
           {(isOpen || isMobile) && (
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <img 
-                src="/ShoxPosPro.jpg" 
+                src="/ondexmerchant-192.png"
                 alt="POS icon" 
                 style={{ width: "40px", height: "40px", borderRadius: "50%" }} 
               />
-              <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: 'Roboto, sans-serif' }}>
-                {userRole === 'admin' ? 'ShoxPosPro' : userPlan === 'free' ? 'ShoxPosFree' : userPlan === 'basic' ? 'ShoxPosBasic' : 'ShoxPosPro'}
+              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+                <div style={{ fontSize: "18px", fontWeight: 700, fontFamily: 'Roboto, sans-serif' }}>
+                  OnDex Merchant
+                </div>
+                {userRole !== 'admin' && (userPlan === 'free' || userPlan === 'basic') && (
+                  <div style={{ fontSize: "11px", fontWeight: 500, opacity: 0.6 }}>
+                    {userPlan === 'free' ? 'Free' : 'Basic'}
+                  </div>
+                )}
               </div>
             </div>
           )}

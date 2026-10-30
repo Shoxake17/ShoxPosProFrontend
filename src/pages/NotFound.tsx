@@ -103,7 +103,7 @@ export default function NotFound() {
       <div style={{ position: 'absolute', bottom: '2rem', width: '100%', textAlign: 'center', opacity: 0.3 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '0.7rem' }}>
           <AlertTriangle size={14} />
-          <span style={{ fontFamily: 'monospace' }}>ERROR_CODE: 0x404_PAGE_NOT_FOUND // SYSTEM: SHOXPOSPRO_SECURE</span>
+          <span style={{ fontFamily: 'monospace' }}>ERROR_CODE: 0x404_PAGE_NOT_FOUND // SYSTEM: ONDEX_MERCHANT_SECURE</span>
         </div>
       </div>
 

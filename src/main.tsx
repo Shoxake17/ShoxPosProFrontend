@@ -8,6 +8,7 @@ import { registerSW } from 'virtual:pwa-register';
 import './i18n'; 
 
 import Login            from "./pages/Login";
+import AuthComplete     from "./pages/AuthComplete";
 import ProtectedRoute   from "./components/layout/ProtectedRoute";
 import NotFound         from "./pages/NotFound";
 
@@ -52,7 +53,11 @@ import { setupAuthCheck, handleLogout }        from "./utils/authUtils";
 import { invalidateAuthCache }                 from "./components/layout/ProtectedRoute";
 import { hydrateSessionUserFromCookie, getSessionLogin, clearAuthClientState } from "./utils/clientSession";
 import axiosInstance, { setMemoryCsrfToken } from "./api/axiosInstance";
+import { installCategoryGuard } from "./utils/categoryGuard";
 import { useAuthStore } from "./store/useAuthStore";
+
+// Do'kon turi ruxsat bermagan bo'limga so'rov ketsa (eski ochiq tab) — o'zi tuzatiladi.
+installCategoryGuard();
 
 const updateSW = registerSW({
   immediate: true,
@@ -200,6 +205,7 @@ function App() {
           <Routes>
               <Route path="/"       element={<Navigate to="/login" replace />} />
               <Route path="/login"  element={<Login />} />
+              <Route path="/auth/complete" element={<AuthComplete />} />
 
               {/* 🛒 Cashier Routes */}
               <Route path="/menu"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Menu /></ProtectedRoute></Suspense>} />
