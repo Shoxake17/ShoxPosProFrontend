@@ -30,6 +30,7 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
     { id: 'menu', label: t('home'), icon: (active: boolean) => <HomeIcon active={active} /> },
     { id: 'add-product', label: t('add'), icon: (active: boolean) => <AddIcon active={active} /> },
     { id: 'products', label: t('nav_products'), icon: (active: boolean) => <ProductIcon active={active} /> },
+    { id: 'qurt-orders', label: 'Buyurtma', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
     { id: 'scanner', label: t('nav_sell'), icon: (active: boolean) => <ScannerIcon active={active} /> },
     { id: 'sales', label: t('nav_sold'), icon: (active: boolean) => <SalesIcon active={active} /> },
     { id: 'reports', label: t('nav_report'), icon: (active: boolean) => <ReportIcon active={active} />, requiresPlan: 'pro' },
@@ -58,6 +59,8 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
   const ALL_ITEMS = isPharmacy ? PHARMACY_ITEMS : REGULAR_ITEMS;
   
   const FILTERED_ITEMS = ALL_ITEMS.filter(item => {
+    // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
+    if (item.id === 'qurt-orders') return user?.storeCategory === 'qurt';
     // Do'kon kategoriyasi (qurt): faqat ruxsat etilgan bo'limlar ko'rinadi.
     if (user?.role?.toLowerCase() !== 'admin' && !isPageAllowed(user?.storeCategory, item.id)) return false;
     if (!item.requiresPlan) return true;
@@ -190,6 +193,7 @@ const ScannerIcon = ({ active }: { active: boolean }) => <svg width="24" height=
 const SalesIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
 const ReportIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>;
 const KirimIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>;
+const OrdersIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
 const DebtIcon = ({ active }: { active: boolean }) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
 const BotIcon = ({ active }: { active: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

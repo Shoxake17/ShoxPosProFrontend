@@ -25,6 +25,7 @@ const Settings       = lazy(() => import("./pages/Settings"));
 const Chatbot        = lazy(() => import("./pages/Ai"));
 const Chat           = lazy(() => import("./pages/Chat"));
 const MaxQoshish     = lazy(() => import("./pages/MaxQoshish"));
+const QurtOrders     = lazy(() => import("./pages/QurtOrders"));
 const MaxsulotBazasi = lazy(() => import("./pages/MaxsulotBazasi"));
 const Scan           = lazy(() => import("./pages/Hisobotlar"));
 const Scanner        = lazy(() => import("./pages/Scanner"));
@@ -217,7 +218,8 @@ function App() {
               <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
               <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
               <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
-              <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
+              <Route path="/qurt-orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtOrders /></ProtectedRoute></Suspense>} />
+          <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
               <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
               <Route path="/subscription"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><SubscriptionPlans /></ProtectedRoute></Suspense>} />
               

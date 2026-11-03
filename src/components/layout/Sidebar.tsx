@@ -22,15 +22,19 @@ import {
   PlusCircle,
   Search,
   History,
-  TrendingUp
+  TrendingUp,
+  ClipboardList
 } from "lucide-react";
 import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
 import { isPageAllowed } from "../../utils/storeAccess";
+import { useQurtNewCount } from "../../hooks/useQurtOrders";
 
 type MenuItem = {
   id: string;
   icon: LucideIcon;
   labelKey: string;
+  /** Tarjima kaliti yo'q bo'limlar uchun to'g'ridan-to'g'ri nom. */
+  label?: string;
   requiresPlan?: 'basic' | 'pro';
 };
 
@@ -44,6 +48,7 @@ const regularMenuItems: MenuItem[] = [
   { id: "menu", icon: Home, labelKey: "dashboard" },
   { id: "add-product", icon: Plus, labelKey: "addProduct" },
   { id: "products", icon: Package, labelKey: "products" },
+  { id: "qurt-orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
@@ -74,6 +79,8 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const location = useLocation();
   const { t } = useTranslation('sidebar');
   const { user } = useAuthStore();
+  // Yangi qurt buyurtmalari soni (faqat qurt do'koni so'raydi).
+  const newOrders = useQurtNewCount(user?.storeCategory === 'qurt');
   
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
@@ -90,6 +97,8 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const menuItems = isPharmacy ? pharmacyMenuItems : regularMenuItems;
 
   const filteredMenuItems = menuItems.filter(item => {
+    // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
+    if (item.id === 'qurt-orders') return user?.storeCategory === 'qurt';
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
     if (userRole === 'admin') return true;
 
@@ -191,7 +200,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
           {filteredMenuItems.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
-            const label = t(item.labelKey);
+            const label = item.label ?? t(item.labelKey);
 
             return (
               <li key={item.id} style={{ marginBottom: "8px" }}>
@@ -222,6 +231,19 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
                       fontWeight: isActive ? 400 : 500, 
                     }}>
                       {label}
+                    </span>
+                  )}
+                  {item.id === 'qurt-orders' && newOrders > 0 && (
+                    <span
+                      aria-label={`yangi buyurtmalar: ${newOrders}`}
+                      style={{
+                        marginLeft: (isOpen || isMobile) ? 'auto' : 0, minWidth: 20, padding: '1px 6px',
+                        borderRadius: 999, background: '#ef4444', color: '#fff',
+                        fontSize: 12, fontWeight: 800, textAlign: 'center',
+                        ...((isOpen || isMobile) ? {} : { position: 'absolute', marginTop: -22, marginLeft: 18 }),
+                      }}
+                    >
+                      {newOrders > 99 ? '99+' : newOrders}
                     </span>
                   )}
                 </button>
