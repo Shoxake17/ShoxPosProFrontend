@@ -23,7 +23,8 @@ import {
   Search,
   History,
   TrendingUp,
-  ClipboardList
+  ClipboardList,
+  Truck,
 } from "lucide-react";
 import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
 import { isPageAllowed } from "../../utils/storeAccess";
@@ -49,6 +50,7 @@ const regularMenuItems: MenuItem[] = [
   { id: "add-product", icon: Plus, labelKey: "addProduct" },
   { id: "products", icon: Package, labelKey: "products" },
   { id: "qurt-orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
+  { id: "qurt-logistics", icon: Truck, labelKey: "qurtLogistics", label: "Logistika" }, // faqat QURT do'koni
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
@@ -98,7 +100,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
 
   const filteredMenuItems = menuItems.filter(item => {
     // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
-    if (item.id === 'qurt-orders') return user?.storeCategory === 'qurt';
+    if (item.id === 'qurt-orders' || item.id === 'qurt-logistics') return user?.storeCategory === 'qurt';
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
     if (userRole === 'admin') return true;
 

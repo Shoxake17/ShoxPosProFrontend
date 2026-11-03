@@ -32,6 +32,17 @@ export interface QurtOrder {
   history: { to: QurtOrderStatus; at: string }[];
   created_at: string;
   payment_method: string;
+  /** Logistika: do'kon biriktirgan kuryer va naqd pul holati. */
+  courier_id?: string;
+  cash_status?: 'held' | 'settled';
+  cash_tiyin?: number;
+}
+
+export interface QurtCourier {
+  id: string;
+  name: string;
+  phone: string;
+  summary: { held_tiyin: number; held_orders: number; active_orders: number };
 }
 
 /** Axios xatosidan foydalanuvchiga ko'rsatiladigan matn (server xabari bo'lsa o'sha). */
@@ -127,4 +138,35 @@ export function useQurtNewCount(enabled: boolean, pollMs = 60000): number {
     return () => { alive = false; clearInterval(timer); socket.off('qurtOrder', load); };
   }, [enabled, pollMs]);
   return count;
+}
+
+// ── Logistika: do'konning o'z kuryerlari ─────────────────────────────
+
+export async function fetchQurtCouriers(): Promise<QurtCourier[]> {
+  const res = await axiosInstance.get('/qurt-couriers');
+  return Array.isArray(res.data?.couriers) ? (res.data.couriers as QurtCourier[]) : [];
+}
+
+export async function addQurtCourier(name: string, phone: string): Promise<void> {
+  await axiosInstance.post('/qurt-couriers', { name, phone });
+}
+
+export async function removeQurtCourier(id: string): Promise<void> {
+  await axiosInstance.delete(`/qurt-couriers/${encodeURIComponent(id)}`);
+}
+
+/** Kuryerdagi naqd pulni qabul qiladi: {orders, total_tiyin}. */
+export async function settleQurtCourier(id: string): Promise<{ orders: number; total_tiyin: number }> {
+  const res = await axiosInstance.post(`/qurt-couriers/${encodeURIComponent(id)}/settle`, {});
+  return res.data.result;
+}
+
+/** Reysni (sana) yoki tanlangan buyurtmalarni kuryerga biriktiradi: {assigned, skipped}. */
+export async function assignQurtOrders(courierId: string, target: { date?: string; orderIds?: string[] }): Promise<{ assigned: number; skipped: number }> {
+  const res = await axiosInstance.post('/qurt-assign', { courierId, ...target });
+  return res.data.result;
+}
+
+export async function unassignQurtOrder(id: string): Promise<void> {
+  await axiosInstance.post(`/qurt-orders/${encodeURIComponent(id)}/unassign`, {});
 }
