@@ -121,7 +121,7 @@ export default function QurtOrderAlerts() {
       aria-live="polite"
       style={{
         position: 'fixed', right: 16, bottom: 96, zIndex: 3000, display: 'flex',
-        flexDirection: 'column', gap: 10, maxWidth: 'min(360px, calc(100vw - 32px))',
+        flexDirection: 'column', gap: 10, fontFamily: "'DM Sans', sans-serif", maxWidth: 'min(360px, calc(100vw - 32px))',
       }}
     >
       {needEnable && (
