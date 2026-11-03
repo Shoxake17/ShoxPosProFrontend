@@ -4,7 +4,9 @@ import { getDeviceId } from './deviceUtils';
 import { clearAuthClientState } from './clientSession';
 import { clearApiCache } from './api';
 
-const SOCKET_URL = (import.meta.env.VITE_API_URL as string) || '';
+// Dev'da bir manba (Vite `/socket.io` ni backendga yo'naltiradi); VITE_API_URL dev'da boshqa
+// serverga (Next.js :3000) ishora qilishi mumkin va jonli ulanish jimgina uzilib qolardi.
+const SOCKET_URL = import.meta.env.DEV ? '' : ((import.meta.env.VITE_API_URL as string) || '');
 
 let socket: Socket | null = null;
 let consecutiveErrors = 0;

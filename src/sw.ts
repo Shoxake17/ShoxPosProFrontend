@@ -43,7 +43,9 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/ondexmerchant-192.png',
     badge: '/ondexmerchant-192.png', // Small icon for notification bar
-    vibrate: [100, 50, 100],
+    vibrate: data.tag ? [200, 100, 200, 100, 400] : [100, 50, 100],
+    // tag bo'lsa (buyurtma): bir xil buyurtma takrorlanmaydi va do'kon bosmaguncha turadi
+    ...(data.tag ? { tag: data.tag, renotify: true, requireInteraction: true } : {}),
     data: {
       url: data.url || '/'
     },
@@ -69,11 +71,15 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // If a window is already open, focus it
+      const target = new URL(event.notification.data.url || '/', self.location.origin).href;
       for (const client of clientList) {
-        if (client.url === event.notification.data.url && 'focus' in client) {
+        if (client.url === target && 'focus' in client) {
           return client.focus();
         }
       }
+      // Panel boshqa sahifada ochiq bo'lsa — o'sha oynani kerakli sahifaga olib boramiz
+      const any = clientList.find((c) => 'navigate' in c && 'focus' in c) as WindowClient | undefined;
+      if (any) return any.navigate(target).then((c) => c && c.focus());
       // If no window is open, open a new one
       if (self.clients.openWindow) {
         return self.clients.openWindow(event.notification.data.url || '/');

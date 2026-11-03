@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { CheckCircle2, Package, PackageCheck, RefreshCw, Truck, XCircle, Clock, ImageOff } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import {
-  playNewOrderSound,
   qurtErrorText,
   transitionQurtOrder,
   useQurtOrders,
@@ -89,7 +88,7 @@ export default function QurtOrders() {
   const [reason, setReason] = useState('');
 
   const onNew = useCallback((fresh: QurtOrder[]) => {
-    playNewOrderSound();
+    // Ovoz/bildirishnoma — global QurtOrderAlerts'da (har sahifada ishlaydi).
     setNotice({ kind: 'ok', text: fresh.length === 1 ? `Yangi buyurtma: ${fresh[0].number}` : `${fresh.length} ta yangi buyurtma keldi` });
     setTab('new');
   }, []);

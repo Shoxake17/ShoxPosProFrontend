@@ -53,30 +53,6 @@ export async function transitionQurtOrder(id: string, to: 'confirmed' | 'rejecte
   return res.data.order as QurtOrder;
 }
 
-/** Yangi buyurtma kelganda qisqa ikki tonli signal (autoplay bloklangan bo'lsa jim o'tadi). */
-export function playNewOrderSound(): void {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const beep = (freq: number, at: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime + at);
-      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + 0.28);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + at);
-      osc.stop(ctx.currentTime + at + 0.3);
-    };
-    beep(880, 0);
-    beep(1175, 0.32);
-    setTimeout(() => ctx.close().catch(() => {}), 1200);
-  } catch {
-    /* ovoz ixtiyoriy */
-  }
-}
-
 /**
  * Buyurtmalar ro'yxati: davriy so'rov + jonli signal. `onNew` — oldin ko'rilmagan YANGI
  * (`new`) buyurtma paydo bo'lganda (birinchi yuklashda chaqirilmaydi).
@@ -113,7 +89,7 @@ export function useQurtOrders(pollMs = 20000, onNew?: (fresh: QurtOrder[]) => vo
 
   useEffect(() => {
     reload();
-    const timer = setInterval(() => { if (!document.hidden) reload(); }, pollMs);
+    const timer = setInterval(reload, pollMs);
     const onVisible = () => { if (!document.hidden) reload(); };
     document.addEventListener('visibilitychange', onVisible);
 
@@ -145,7 +121,7 @@ export function useQurtNewCount(enabled: boolean, pollMs = 60000): number {
       }
     };
     load();
-    const timer = setInterval(() => { if (!document.hidden) load(); }, pollMs);
+    const timer = setInterval(load, pollMs);
     const socket = getSocket();
     socket.on('qurtOrder', load);
     return () => { alive = false; clearInterval(timer); socket.off('qurtOrder', load); };
