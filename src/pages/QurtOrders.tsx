@@ -205,19 +205,19 @@ export default function QurtOrders() {
 
   const btn = (bg: string, color = '#fff', disabled = false): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: '12px 20px', borderRadius: 12, border: 'none', fontSize: 15, fontWeight: 700,
+    padding: '9px 14px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 700,
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
-    background: bg, color, fontFamily: "'DM Sans', sans-serif",
+    background: bg, color, fontFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
   });
 
   const panel: React.CSSProperties = { background: c.card, border: `1px solid ${c.cardB}`, borderRadius: 18 };
 
   // ── KPI ──────────────────────────────────────────────────────────────
   const kpis: { label: string; value: string; icon: React.ReactNode; color: string; pulse?: boolean }[] = [
-    { label: 'Yangi', value: String(counts.new), icon: <Inbox size={20} />, color: '#f59e0b', pulse: counts.new > 0 },
-    { label: 'Jarayonda', value: String(counts.active), icon: <Hourglass size={20} />, color: '#3b82f6' },
-    { label: 'Tovar (dona)', value: new Intl.NumberFormat('ru-RU').format(stats.pieces), icon: <Boxes size={20} />, color: '#6366f1' },
-    { label: 'Umumiy summa', value: formatSum(stats.sum), icon: <CircleDollarSign size={20} />, color: '#10b981' },
+    { label: 'Yangi', value: String(counts.new), icon: <Inbox size={17} />, color: '#f59e0b', pulse: counts.new > 0 },
+    { label: 'Jarayonda', value: String(counts.active), icon: <Hourglass size={17} />, color: '#3b82f6' },
+    { label: 'Tovar (dona)', value: new Intl.NumberFormat('ru-RU').format(stats.pieces), icon: <Boxes size={17} />, color: '#6366f1' },
+    { label: 'Umumiy summa', value: formatSum(stats.sum), icon: <CircleDollarSign size={17} />, color: '#10b981' },
   ];
 
   // ── Ro'yxat qatori ───────────────────────────────────────────────────
@@ -229,27 +229,27 @@ export default function QurtOrders() {
         key={o.id} type="button" onClick={() => openOrder(o)} className="qo-row"
         aria-label={`Buyurtma ${o.number}`} aria-current={active ? 'true' : undefined}
         style={{
-          width: '100%', textAlign: 'left', cursor: 'pointer', padding: '14px 16px', borderRadius: 14,
+          width: '100%', textAlign: 'left', cursor: 'pointer', padding: '10px 12px', borderRadius: 12,
           border: `1.5px solid ${active ? '#6366f1' : c.cardB}`,
           background: active ? 'rgba(99,102,241,.10)' : c.card, color: c.text,
-          display: 'flex', flexDirection: 'column', gap: 8, fontFamily: "'DM Sans', sans-serif",
+          display: 'flex', flexDirection: 'column', gap: 5, fontFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {o.status === 'new' && <span className="qo-dot" aria-hidden />}
-          <span style={{ fontSize: 16, fontWeight: 800 }}>№ {o.number}</span>
+          <span style={{ fontSize: 14, fontWeight: 800 }}>№ {o.number}</span>
           <span style={{
-            marginLeft: 'auto', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800,
+            marginLeft: 'auto', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800,
             background: `${col}22`, color: col,
           }}>{STATUS_LABEL[o.status]}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: c.muted, fontSize: 13 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: c.muted, fontSize: 11 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} /> {timeAgo(o.created_at, now)}</span>
           <span>·</span>
           <span>{countPieces(o)} dona</span>
-          <span style={{ marginLeft: 'auto', color: c.text, fontWeight: 800, fontSize: 15 }}>{formatSum(o.total_tiyin)}</span>
+          <span style={{ marginLeft: 'auto', color: c.text, fontWeight: 800, fontSize: 13 }}>{formatSum(o.total_tiyin)}</span>
         </div>
-        <div style={{ color: c.muted, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ color: c.muted, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Truck size={13} /> {formatDate(o.delivery_date)}
           {o.customer_name && <span style={{ marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '45%' }}>{o.customer_name}</span>}
         </div>
@@ -269,41 +269,41 @@ export default function QurtOrders() {
     ];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
-        <div style={{ padding: '20px 22px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {!wide && (
             <button type="button" onClick={() => setDetailOpen(false)} aria-label="Ro'yxatga qaytish"
               style={{ ...btn(c.surf, c.text), padding: '10px 12px', border: `1px solid ${c.surfB}` }}>
               <ArrowLeft size={18} />
             </button>
           )}
-          <div style={{ fontSize: 24, fontWeight: 800, color: c.text }}>№ {o.number}</div>
-          <span style={{ padding: '5px 14px', borderRadius: 999, fontSize: 13, fontWeight: 800, background: `${col}22`, color: col }}>
+          <div style={{ fontSize: 20.5, fontWeight: 800, color: c.text }}>№ {o.number}</div>
+          <span style={{ padding: '5px 14px', borderRadius: 999, fontSize: 11, fontWeight: 800, background: `${col}22`, color: col }}>
             {STATUS_LABEL[o.status]}
           </span>
         </div>
 
-        <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+        <div className="qo-scroll" style={{ padding: '12px 16px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
             {info.map((x) => (
-              <div key={x.label} style={{ background: c.surf, border: `1px solid ${c.surfB}`, borderRadius: 12, padding: '10px 14px' }}>
-                <div style={{ color: c.muted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{x.icon}{x.label}</div>
-                <div style={{ color: c.text, fontWeight: 700, fontSize: 14.5, marginTop: 4 }}>{x.value}</div>
+              <div key={x.label} style={{ background: c.surf, border: `1px solid ${c.surfB}`, borderRadius: 12, padding: '8px 12px' }}>
+                <div style={{ color: c.muted, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>{x.icon}{x.label}</div>
+                <div style={{ color: c.text, fontWeight: 700, fontSize: 12.5, marginTop: 4 }}>{x.value}</div>
               </div>
             ))}
           </div>
 
           <div>
-            <div style={{ color: c.muted, fontSize: 12.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 8 }}>
+            <div style={{ color: c.muted, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 8 }}>
               Tovarlar ({o.items.length})
             </div>
             <div style={{ border: `1px solid ${c.cardB}`, borderRadius: 14, overflow: 'hidden' }}>
               {o.items.map((it, i) => (
                 <div key={`${it.barcode}-${i}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
                   borderTop: i === 0 ? 'none' : `1px solid ${c.cardB}`,
                 }}>
                   <div style={{
-                    width: 64, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: c.surf,
+                    width: 52, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: c.surf,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {it.image_url
@@ -311,39 +311,39 @@ export default function QurtOrders() {
                       : <ImageOff size={18} color={c.muted} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: c.text, fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-                    <div style={{ color: c.muted, fontSize: 12.5 }}>
+                    <div style={{ color: c.text, fontWeight: 700, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                    <div style={{ color: c.muted, fontSize: 11 }}>
                       {formatSum(it.price_tiyin)}{it.weight_grams ? ` · ${it.weight_grams} g` : ''}
                     </div>
                   </div>
-                  <div style={{ color: c.muted, fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>× {it.qty}</div>
-                  <div style={{ color: c.text, fontWeight: 800, fontSize: 14.5, whiteSpace: 'nowrap', minWidth: 96, textAlign: 'right' }}>
+                  <div style={{ color: c.muted, fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>× {it.qty}</div>
+                  <div style={{ color: c.text, fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap', minWidth: 84, textAlign: 'right' }}>
                     {formatSum(it.qty * it.price_tiyin)}
                   </div>
                 </div>
               ))}
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px',
                 background: c.surf, borderTop: `1px solid ${c.cardB}`,
               }}>
                 <span style={{ color: c.muted, fontWeight: 600 }}>Jami ({countPieces(o)} dona)</span>
-                <span style={{ color: '#6366f1', fontWeight: 800, fontSize: 22 }}>{formatSum(o.total_tiyin)}</span>
+                <span style={{ color: '#6366f1', fontWeight: 800, fontSize: 19 }}>{formatSum(o.total_tiyin)}</span>
               </div>
             </div>
           </div>
 
           {o.reject_reason && (o.status === 'rejected' || o.status === 'cancelled' || o.status === 'failed') && (
-            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(239,68,68,.1)', color: '#ef4444', fontSize: 14, fontWeight: 600 }}>
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(239,68,68,.1)', color: '#ef4444', fontSize: 12, fontWeight: 600 }}>
               Sabab: {o.reject_reason}
             </div>
           )}
 
           {o.history.length > 0 && (
             <div>
-              <div style={{ color: c.muted, fontSize: 12.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 10 }}>Holatlar tarixi</div>
+              <div style={{ color: c.muted, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 10 }}>Holatlar tarixi</div>
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {o.history.map((h, i) => (
-                  <li key={`${h.to}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13.5 }}>
+                  <li key={`${h.to}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11.5 }}>
                     <span style={{ width: 10, height: 10, borderRadius: 99, background: STATUS_COLOR[h.to], flexShrink: 0 }} />
                     <span style={{ color: c.text, fontWeight: 700 }}>{STATUS_LABEL[h.to]}</span>
                     <span style={{ color: c.muted, marginLeft: 'auto' }}>{formatTime(h.at)}</span>
@@ -355,10 +355,10 @@ export default function QurtOrders() {
         </div>
 
         {/* Amallar paneli */}
-        <div style={{ padding: '14px 22px', borderTop: `1px solid ${c.cardB}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: c.card }}>
+        <div style={{ padding: '10px 16px', borderTop: `1px solid ${c.cardB}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: c.card }}>
           {o.status === 'new' && (
             <>
-              <div style={{ color: c.muted, fontSize: 12.5, flex: '1 1 220px' }}>
+              <div style={{ color: c.muted, fontSize: 11, flex: '1 1 220px' }}>
                 Qabul qilsangiz tovar ombordan avtomatik ayiriladi. Yetmasa qabul qilinmaydi — qoldiqni to'ldiring yoki rad eting.
               </div>
               <button type="button" disabled={busy !== null}
@@ -367,22 +367,22 @@ export default function QurtOrders() {
                 <XCircle size={18} /> Rad etish
               </button>
               <button type="button" disabled={busy !== null} onClick={() => act(o, 'confirmed')}
-                style={{ ...btn(ACCENT, '#fff', busy !== null), minWidth: 180 }}>
+                style={{ ...btn(ACCENT, '#fff', busy !== null), minWidth: 150 }}>
                 <CheckCircle2 size={18} /> {busy === o.id ? 'Bajarilmoqda...' : 'Qabul qilish'}
               </button>
             </>
           )}
           {o.status === 'confirmed' && (
             <>
-              <div style={{ color: c.muted, fontSize: 12.5, flex: '1 1 220px' }}>Tovarni yig'ib bo'lgach "Qadoqlandi" ni bosing.</div>
+              <div style={{ color: c.muted, fontSize: 11, flex: '1 1 220px' }}>Tovarni yig'ib bo'lgach "Qadoqlandi" ni bosing.</div>
               <button type="button" disabled={busy !== null} onClick={() => act(o, 'packed')}
-                style={{ ...btn(ACCENT, '#fff', busy !== null), minWidth: 180 }}>
+                style={{ ...btn(ACCENT, '#fff', busy !== null), minWidth: 150 }}>
                 <PackageCheck size={18} /> {busy === o.id ? 'Bajarilmoqda...' : 'Qadoqlandi'}
               </button>
             </>
           )}
           {!canAct && (
-            <div style={{ color: c.muted, fontSize: 13.5 }}>
+            <div style={{ color: c.muted, fontSize: 11.5 }}>
               {o.status === 'packed' ? "Logistika reys kuni do'kondan olib ketadi."
                 : o.status === 'collected' || o.status === 'out_for_delivery' ? "Buyurtma yo'lda — do'kondan amal talab qilinmaydi."
                   : o.status === 'delivered' ? 'Buyurtma yetkazilgan.'
@@ -413,7 +413,7 @@ export default function QurtOrders() {
           <div style={{ fontWeight: 700, color: c.text }}>
             {query ? 'Hech narsa topilmadi' : tab === 'new' ? "Yangi buyurtma yo'q" : "Bu bo'limda buyurtma yo'q"}
           </div>
-          <div style={{ fontSize: 13.5 }}>
+          <div style={{ fontSize: 11.5 }}>
             {query ? "Qidiruv so'zini o'zgartirib ko'ring." : "Mijoz OnDex ilovasidan buyurtma bersa, shu yerda ovoz bilan paydo bo'ladi."}
           </div>
         </div>
@@ -425,6 +425,10 @@ export default function QurtOrders() {
   return (
     <MainLayout theme={theme} userImage={userImage} title="Buyurtmalar">
       <style>{`
+        .qo-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .qo-scroll::-webkit-scrollbar { display: none; }
+        html { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
         .qo-row { transition: border-color .15s, background .15s, transform .1s; }
         .qo-row:hover { border-color: #6366f1 !important; }
         .qo-row:active { transform: scale(.995); }
@@ -435,19 +439,19 @@ export default function QurtOrders() {
         @media (prefers-reduced-motion: reduce) { .qo-dot, .qo-skel { animation: none; } }
       `}</style>
 
-      <div style={{ maxWidth: 1400, margin: '0 auto', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 20 }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', fontFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif", display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {kpis.map((k) => (
-            <div key={k.label} style={{ ...panel, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: `${k.color}1f`, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div key={k.label} style={{ ...panel, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${k.color}1f`, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {k.icon}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: c.muted, fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ color: c.muted, fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                   {k.label}{k.pulse && <span className="qo-dot" aria-hidden />}
                 </div>
-                <div style={{ color: c.text, fontSize: 20, fontWeight: 800, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{k.value}</div>
+                <div style={{ color: c.text, fontSize: 17, fontWeight: 800, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{k.value}</div>
               </div>
             </div>
           ))}
@@ -455,7 +459,7 @@ export default function QurtOrders() {
 
         {notice && (
           <div role="status" style={{
-            padding: '12px 14px', borderRadius: 12, fontSize: 14, fontWeight: 600,
+            padding: '12px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600,
             background: notice.kind === 'ok' ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)',
             color: notice.kind === 'ok' ? '#10b981' : '#ef4444',
             border: `1px solid ${notice.kind === 'ok' ? 'rgba(16,185,129,.3)' : 'rgba(239,68,68,.3)'}`,
@@ -464,12 +468,12 @@ export default function QurtOrders() {
 
         {/* Ish maydoni */}
         <div style={{
-          display: 'grid', gap: 16, alignItems: 'start',
+          display: 'grid', gap: 12, alignItems: 'start',
           gridTemplateColumns: wide ? 'minmax(400px, 460px) minmax(0, 1fr)' : 'minmax(0, 1fr)',
         }}>
           {/* Chap: ro'yxat */}
-          <section style={{ ...panel, padding: 14, display: 'flex', flexDirection: 'column', gap: 12, ...(wide ? { maxHeight: 'calc(100vh - 290px)', minHeight: 420 } : {}) }}>
-            <div role="tablist" aria-label="Buyurtma bo'limlari" style={{ display: 'flex', gap: 4, padding: 4, background: c.surf, borderRadius: 12, overflowX: 'auto' }}>
+          <section style={{ ...panel, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, ...(wide ? { maxHeight: 'calc(100vh - 290px)', minHeight: 420 } : {}) }}>
+            <div role="tablist" aria-label="Buyurtma bo'limlari" style={{ display: 'flex', gap: 4, padding: 4, background: c.surf, borderRadius: 12, overflowX: 'auto' }} className="qo-scroll">
               {TABS.map((t) => {
                 const active = tab === t.id;
                 const hot = t.id === 'new' && counts.new > 0;
@@ -477,18 +481,18 @@ export default function QurtOrders() {
                   <button
                     key={t.id} type="button" role="tab" aria-selected={active} onClick={() => setTab(t.id)}
                     style={{
-                      flex: '1 1 0', padding: '9px 6px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                      fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif",
+                      flex: '1 1 0', padding: '7px 6px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
                       background: active ? c.card : 'transparent', color: active ? c.text : c.muted,
                       boxShadow: active ? '0 1px 4px rgba(0,0,0,.25)' : 'none',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}
                   >
                     {t.label}
-                    <span style={{
-                      minWidth: 20, padding: '1px 6px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, textAlign: 'center',
+                    {(counts[t.id] > 0 || active) && <span style={{
+                      minWidth: 20, padding: '1px 6px', borderRadius: 999, fontSize: 11, fontWeight: 800, textAlign: 'center',
                       background: hot ? '#ef4444' : active ? '#6366f1' : 'transparent', color: hot || active ? '#fff' : c.muted,
-                    }}>{counts[t.id]}</span>
+                    }}>{counts[t.id]}</span>}
                   </button>
                 );
               })}
@@ -501,8 +505,8 @@ export default function QurtOrders() {
                   value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Raqam, mijoz yoki tovar..."
                   aria-label="Buyurtmalarni qidirish" maxLength={60}
                   style={{
-                    width: '100%', boxSizing: 'border-box', padding: '11px 12px 11px 36px', borderRadius: 12,
-                    border: `1px solid ${c.surfB}`, background: c.surf, color: c.text, fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                    width: '100%', boxSizing: 'border-box', padding: '8px 10px 8px 32px', borderRadius: 10,
+                    border: `1px solid ${c.surfB}`, background: c.surf, color: c.text, fontSize: 12, fontFamily: 'inherit', outline: 'none',
                   }}
                 />
               </label>
@@ -512,7 +516,7 @@ export default function QurtOrders() {
               </button>
             </div>
 
-            <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, paddingRight: 2 }}>{listBody}</div>
+            <div className="qo-scroll" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>{listBody}</div>
           </section>
 
           {/* O'ng: tafsilot (kompyuterda) */}
@@ -522,7 +526,7 @@ export default function QurtOrders() {
                 <div style={{ margin: 'auto', textAlign: 'center', color: c.muted, padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                   <ClipboardList size={44} />
                   <div style={{ fontWeight: 700, color: c.text }}>Buyurtmani tanlang</div>
-                  <div style={{ fontSize: 13.5 }}>Tafsilot va amallar shu yerda ko'rinadi.</div>
+                  <div style={{ fontSize: 11.5 }}>Tafsilot va amallar shu yerda ko'rinadi.</div>
                 </div>
               )}
             </section>
@@ -550,8 +554,8 @@ export default function QurtOrders() {
             onSubmit={(e) => { e.preventDefault(); act(rejecting, 'rejected', reason.trim()); }}
             style={{ ...panel, padding: 22, display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 460 }}
           >
-            <div style={{ fontSize: 18, fontWeight: 800, color: c.text }}>№ {rejecting.number} ni rad etish</div>
-            <label style={{ color: c.text, fontWeight: 600, fontSize: 14 }}>
+            <div style={{ fontSize: 15.5, fontWeight: 800, color: c.text }}>№ {rejecting.number} ni rad etish</div>
+            <label style={{ color: c.text, fontWeight: 600, fontSize: 12 }}>
               Sabab (mijozga ko'rsatiladi)
               <textarea
                 autoFocus value={reason} maxLength={200} rows={3}
@@ -559,7 +563,7 @@ export default function QurtOrders() {
                 placeholder="Masalan: mahsulot tugagan"
                 style={{
                   width: '100%', marginTop: 8, padding: 12, borderRadius: 12, border: `1.5px solid ${c.surfB}`,
-                  background: c.surf, color: c.text, fontSize: 15, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box',
+                  background: c.surf, color: c.text, fontSize: 13, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box',
                 }}
               />
             </label>
