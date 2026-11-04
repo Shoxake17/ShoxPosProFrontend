@@ -29,8 +29,8 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
   const REGULAR_ITEMS: NavItem[] = [
     { id: 'menu', label: t('home'), icon: (active: boolean) => <HomeIcon active={active} /> },
     { id: 'products', label: t('nav_products'), icon: (active: boolean) => <ProductIcon active={active} /> },
-    { id: 'qurt-orders', label: 'Buyurtma', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
-    { id: 'qurt-logistics', label: 'Logistika', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
+    { id: 'orders', label: 'Buyurtma', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
+    { id: 'logistics', label: 'Logistika', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
     { id: 'scanner', label: t('nav_sell'), icon: (active: boolean) => <ScannerIcon active={active} /> },
     { id: 'sales', label: t('nav_sold'), icon: (active: boolean) => <SalesIcon active={active} /> },
     { id: 'reports', label: t('nav_report'), icon: (active: boolean) => <ReportIcon active={active} />, requiresPlan: 'pro' },
@@ -60,7 +60,7 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
   
   const FILTERED_ITEMS = ALL_ITEMS.filter(item => {
     // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
-    if (item.id === 'qurt-orders' || item.id === 'qurt-logistics') return user?.storeCategory === 'qurt';
+    if (item.id === 'orders' || item.id === 'logistics') return user?.storeCategory === 'qurt';
     // Do'kon kategoriyasi (qurt): faqat ruxsat etilgan bo'limlar ko'rinadi.
     if (user?.role?.toLowerCase() !== 'admin' && !isPageAllowed(user?.storeCategory, item.id)) return false;
     if (!item.requiresPlan) return true;

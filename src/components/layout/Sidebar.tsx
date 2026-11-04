@@ -47,8 +47,8 @@ type SidebarProps = {
 const regularMenuItems: MenuItem[] = [
   { id: "menu", icon: Home, labelKey: "dashboard" },
   { id: "products", icon: Package, labelKey: "products" },
-  { id: "qurt-orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
-  { id: "qurt-logistics", icon: Truck, labelKey: "qurtLogistics", label: "Logistika" }, // faqat QURT do'koni
+  { id: "orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
+  { id: "logistics", icon: Truck, labelKey: "qurtLogistics", label: "Logistika" }, // faqat QURT do'koni
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
@@ -98,7 +98,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
 
   const filteredMenuItems = menuItems.filter(item => {
     // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
-    if (item.id === 'qurt-orders' || item.id === 'qurt-logistics') return user?.storeCategory === 'qurt';
+    if (item.id === 'orders' || item.id === 'logistics') return user?.storeCategory === 'qurt';
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
     if (userRole === 'admin') return true;
 
@@ -233,7 +233,7 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
                       {label}
                     </span>
                   )}
-                  {item.id === 'qurt-orders' && newOrders > 0 && (
+                  {item.id === 'orders' && newOrders > 0 && (
                     <span
                       aria-label={`yangi buyurtmalar: ${newOrders}`}
                       style={{

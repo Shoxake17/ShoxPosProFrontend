@@ -10,11 +10,11 @@
 const PAGES_BY_CATEGORY: Record<string, readonly string[]> = {
   // Mahsulot qo'shish, Mahsulotlar bazasi, Sotuvlar, Kirim bazasi,
   // Savdo statistikasi, Qarzlar, Sozlamalar.
-  qurt: ["add-product", "products", "qurt-orders", "qurt-logistics", "sales", "kirim-bazasi", "reports", "debts", "settings"],
+  qurt: ["add-product", "products", "orders", "logistics", "sales", "kirim-bazasi", "reports", "debts", "settings"],
 };
 
 /** Faqat QURT do'konida bor sahifalar: boshqa kategoriyada (cheklanmagan) ham yashirin. */
-const QURT_ONLY_PAGES: readonly string[] = ["qurt-orders", "qurt-logistics"];
+const QURT_ONLY_PAGES: readonly string[] = ["orders", "logistics"];
 
 /** Sahifa (URL'ning birinchi qismi, masalan "products") ruxsat etilganmi. */
 export function isPageAllowed(category: string | undefined | null, pageId: string): boolean {

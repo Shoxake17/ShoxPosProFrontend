@@ -111,7 +111,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  * Tizim bildirishnomasini ko'rsatadi (ruxsat berilgan bo'lsa). Service worker bo'lsa u orqali
  * (telefonda ham ishlaydi), aks holda oddiy `Notification`.
  */
-export async function showSystemNotification(title: string, body: string, tag: string, url = '/qurt-orders'): Promise<boolean> {
+export async function showSystemNotification(title: string, body: string, tag: string, url = '/orders'): Promise<boolean> {
   if (notificationPermission() !== 'granted') return false;
   const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
     body,

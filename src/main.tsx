@@ -219,8 +219,11 @@ function App() {
               <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
               <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
               <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
-              <Route path="/qurt-orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtOrders /></ProtectedRoute></Suspense>} />
-              <Route path="/qurt-logistics"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtLogistics /></ProtectedRoute></Suspense>} />
+              <Route path="/orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtOrders /></ProtectedRoute></Suspense>} />
+              <Route path="/logistics"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtLogistics /></ProtectedRoute></Suspense>} />
+              {/* Eski manzillar (saqlangan bildirishnoma/PWA): yangi manzilga */}
+              <Route path="/qurt-orders" element={<Navigate to="/orders" replace />} />
+              <Route path="/qurt-logistics" element={<Navigate to="/logistics" replace />} />
           <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
               <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
               <Route path="/subscription"     element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><SubscriptionPlans /></ProtectedRoute></Suspense>} />

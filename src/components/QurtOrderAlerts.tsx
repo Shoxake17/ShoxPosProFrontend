@@ -152,7 +152,7 @@ export default function QurtOrderAlerts() {
           {t.kind === 'new' && (
             <button
               type="button"
-              onClick={() => { setToasts((p) => p.filter((x) => x.key !== t.key)); navigate('/qurt-orders'); }}
+              onClick={() => { setToasts((p) => p.filter((x) => x.key !== t.key)); navigate('/orders'); }}
               style={{ background: '#fff', color: '#4f46e5', border: 'none', borderRadius: 10, padding: '7px 12px', fontWeight: 800, cursor: 'pointer' }}
             >Ko'rish</button>
           )}
