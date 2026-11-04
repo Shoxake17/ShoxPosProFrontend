@@ -14,6 +14,7 @@ import {
   type MerchantOrder,
   type MerchantOrderStatus,
 } from '../hooks/useMerchantOrders';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
 
 /**
  * Do'kon "Logistika" sahifasi — sotuvchi yetkazishni O'ZI boshqaradi:
@@ -93,11 +94,9 @@ export default function Logistics() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(true), 30000);
-    return () => clearInterval(t);
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
+  // Jonli: buyurtma/kuryer/pul o'zgarishi socket orqali keladi; so'rov faqat soket uzilganda vaqtincha.
+  useLiveRefresh(() => load(true));
 
   /** Amal: band bo'lsa ikkinchisi boshlanmaydi; natija xabarda, oxirida yangilanadi. */
   const run = async (action: () => Promise<string>) => {

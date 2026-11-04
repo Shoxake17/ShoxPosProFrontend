@@ -1,11 +1,11 @@
 // Buyurtmalar (do'kon paneli): so'rovlar va jonli yangilanish.
 //
 // Buyurtmalar OnDex'da saqlanadi; ShoxPos backend ularni do'konga beradi (mijozning
-// manzili va telefonisiz). Yangilanish: davriy so'rov (asosiy, har doim ishlaydi) +
-// OnDex'dan kelgan jonli signal (socket `storeOrder`) — u faqat tezlashtiradi.
+// manzili va telefonisiz). Yangilanish JONLI: OnDex'dan kelgan signal (socket `storeOrder`) darrov
+// ro'yxatni yangilaydi; so'rov (polling) faqat jonli ulanish uzilgan paytda vaqtincha ishlaydi.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
-import getSocket from '../utils/socket';
+import { useLiveRefresh } from './useLiveRefresh';
 
 export type MerchantOrderStatus =
   | 'new' | 'confirmed' | 'rejected' | 'packed' | 'collected'
@@ -68,7 +68,7 @@ export async function transitionMerchantOrder(id: string, to: 'confirmed' | 'rej
  * Buyurtmalar ro'yxati: davriy so'rov + jonli signal. `onNew` — oldin ko'rilmagan YANGI
  * (`new`) buyurtma paydo bo'lganda (birinchi yuklashda chaqirilmaydi).
  */
-export function useMerchantOrders(pollMs = 20000, onNew?: (fresh: MerchantOrder[]) => void) {
+export function useMerchantOrders(pollMs = 10000, onNew?: (fresh: MerchantOrder[]) => void) {
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,48 +98,36 @@ export function useMerchantOrders(pollMs = 20000, onNew?: (fresh: MerchantOrder[
     }
   }, []);
 
+  // Birinchi yuklash + ekranga qaytganda bir marta yangilash (vaqt bo'yicha so'rov YO'Q).
   useEffect(() => {
     reload();
-    const timer = setInterval(reload, pollMs);
     const onVisible = () => { if (!document.hidden) reload(); };
     document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [reload]);
 
-    const socket = getSocket();
-    const onSignal = () => reload();
-    socket.on('storeOrder', onSignal);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-      socket.off('storeOrder', onSignal);
-    };
-  }, [reload, pollMs]);
-
+  // Jonli signal; so'rov faqat soket uzilganda (vaqtincha).
+  useLiveRefresh(reload, { fallbackMs: pollMs });
   return { orders, setOrders, loading, error, reload };
 }
 
-/** Yon menyudagi belgi uchun: yangi buyurtmalar soni (faqat `enabled` bo'lsa so'raydi). */
-export function useNewOrdersCount(enabled: boolean, pollMs = 60000): number {
+/** Yon menyudagi belgi uchun: yangi buyurtmalar soni (faqat `enabled` bo'lsa so'raydi). Jonli yangilanadi. */
+export function useNewOrdersCount(enabled: boolean, pollMs = 10000): number {
   const [count, setCount] = useState(0);
+  const load = useCallback(async () => {
+    try {
+      setCount((await fetchMerchantOrders('new')).length);
+    } catch {
+      /* belgi ixtiyoriy */
+    }
+  }, []);
   useEffect(() => {
     if (!enabled) { setCount(0); return; }
-    let alive = true;
-    const load = async () => {
-      try {
-        const list = await fetchMerchantOrders('new');
-        if (alive) setCount(list.length);
-      } catch {
-        /* belgi ixtiyoriy */
-      }
-    };
-    load();
-    const timer = setInterval(load, pollMs);
-    const socket = getSocket();
-    socket.on('storeOrder', load);
-    return () => { alive = false; clearInterval(timer); socket.off('storeOrder', load); };
-  }, [enabled, pollMs]);
+    void load();
+  }, [enabled, load]);
+  useLiveRefresh(load, { fallbackMs: pollMs, enabled });
   return count;
 }
-
 // ── Logistika: do'konning o'z kuryerlari ─────────────────────────────
 
 export async function fetchCouriers(): Promise<MerchantCourier[]> {

@@ -137,7 +137,7 @@ export default function Orders() {
     setTab('new');
   }, []);
 
-  const { orders, setOrders, loading, error, reload } = useMerchantOrders(20000, onNew);
+  const { orders, setOrders, loading, error, reload } = useMerchantOrders(10000, onNew);
 
   useEffect(() => { if (!loading) setUpdatedAt(Date.now()); }, [orders, loading]);
 

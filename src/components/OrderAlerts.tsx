@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import getSocket from '../utils/socket';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import { hasOnlineOrders } from '../utils/storeAccess';
 import { fetchMerchantOrders } from '../hooks/useMerchantOrders';
 import {
@@ -34,7 +35,6 @@ interface Toast {
   kind: 'new' | 'info';
 }
 
-const POLL_MS = 30000;
 const TOAST_MS = 20000;
 
 export default function OrderAlerts() {
@@ -63,6 +63,22 @@ export default function OrderAlerts() {
     pushToast({ key: orderId, text: `Yangi buyurtma № ${number}`, kind: 'new' });
   }, [pushToast]);
 
+  // Server holati bilan solishtirish. Birinchi javob faqat "bor narsa" ni eslab qoladi (ovozsiz);
+  // keyingilarida ilgari ko'rilmagan yangi buyurtma e'lon qilinadi (announceNew takrorni o'tkazmaydi).
+  const poll = useCallback(async () => {
+    try {
+      const list = await fetchMerchantOrders('new');
+      if (!primed.current) {
+        list.forEach((o) => announced.current.add(o.id));
+        primed.current = true;
+        return;
+      }
+      list.forEach((o) => announceNew(o.id, o.number));
+    } catch {
+      /* keyingi signal/urinishda */
+    }
+  }, [announceNew]);
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -81,32 +97,16 @@ export default function OrderAlerts() {
     };
     socket.on('storeOrder', onSignal);
 
-    // Zaxira: davriy so'rov. Birinchi javob faqat "bor narsa" ni eslab qoladi (ovozsiz).
-    let alive = true;
-    const poll = async () => {
-      try {
-        const list = await fetchMerchantOrders('new');
-        if (!alive) return;
-        if (!primed.current) {
-          list.forEach((o) => announced.current.add(o.id));
-          primed.current = true;
-          return;
-        }
-        list.forEach((o) => announceNew(o.id, o.number));
-      } catch {
-        /* keyingi urinishda */
-      }
-    };
     void poll();
-    const timer = setInterval(poll, POLL_MS);
 
     return () => {
-      alive = false;
       detach();
-      clearInterval(timer);
       socket.off('storeOrder', onSignal);
-    };
-  }, [enabled, announceNew, pushToast]);
+    };  }, [enabled, announceNew, pushToast, poll]);
+
+  // Jonli: har bir signalda ro'yxat tekshiriladi (takror ovoz yo'q); soket uzilsa — vaqtincha so'rov,
+  // qayta ulanganda uzilish paytida kelgan buyurtmalar darrov aniqlanadi.
+  useLiveRefresh(poll, { fallbackMs: 10000, enabled });
 
   if (!enabled) return null;
 
