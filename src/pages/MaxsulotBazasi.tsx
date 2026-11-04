@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import axiosInstance from '../api/axiosInstance';
-import { Search, Trash2, Edit2, Filter } from 'lucide-react';
+import { Search, Trash2, Edit2, Filter, Plus } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../context/CurrencyContext';
@@ -478,6 +478,29 @@ export default function MaxsulotBazasi() {
         >
           <Filter size={14} />
           Filtr
+        </button>
+
+        {/* Mahsulot qo'shish — alohida sahifa (yon menyuda endi yo'q) */}
+        <button
+          type="button"
+          onClick={() => navigate('/add-product')}
+          style={{
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            border: 'none',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            color: '#fff',
+            fontSize: '13px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Plus size={15} />
+          Mahsulot qo'shish
         </button>
       </div>
 

@@ -28,7 +28,6 @@ const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ theme, onScanClick })
 
   const REGULAR_ITEMS: NavItem[] = [
     { id: 'menu', label: t('home'), icon: (active: boolean) => <HomeIcon active={active} /> },
-    { id: 'add-product', label: t('add'), icon: (active: boolean) => <AddIcon active={active} /> },
     { id: 'products', label: t('nav_products'), icon: (active: boolean) => <ProductIcon active={active} /> },
     { id: 'qurt-orders', label: 'Buyurtma', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni
     { id: 'qurt-logistics', label: 'Logistika', icon: (active: boolean) => <OrdersIcon active={active} /> }, // faqat QURT do'koni

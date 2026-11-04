@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, Banknote, CalendarClock, CheckCircle2, ClipboardList, Clock, ImageOff, Inbox,
-  PackageCheck, RefreshCw, Search, Truck, User, XCircle, Boxes, CircleDollarSign, Hourglass,
+  ArrowLeft, CheckCircle2, ClipboardList, Clock, ImageOff, Inbox,
+  PackageCheck, RefreshCw, Search, Truck, XCircle, Boxes, CircleDollarSign, Hourglass,
 } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import {
@@ -261,12 +261,6 @@ export default function QurtOrders() {
   const detail = (o: QurtOrder) => {
     const col = STATUS_COLOR[o.status];
     const canAct = o.status === 'new' || o.status === 'confirmed';
-    const info: { icon: React.ReactNode; label: string; value: string }[] = [
-      { icon: <CalendarClock size={16} />, label: 'Reys sanasi', value: formatDate(o.delivery_date) },
-      { icon: <User size={16} />, label: 'Mijoz', value: o.customer_name || '—' },
-      { icon: <Banknote size={16} />, label: "To'lov", value: 'Naqd (yetkazilganda)' },
-      { icon: <Clock size={16} />, label: 'Buyurtma vaqti', value: formatTime(o.created_at) },
-    ];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
         <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -283,15 +277,6 @@ export default function QurtOrders() {
         </div>
 
         <div className="qo-scroll" style={{ padding: '12px 16px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-            {info.map((x) => (
-              <div key={x.label} style={{ background: c.surf, border: `1px solid ${c.surfB}`, borderRadius: 12, padding: '8px 12px' }}>
-                <div style={{ color: c.muted, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>{x.icon}{x.label}</div>
-                <div style={{ color: c.text, fontWeight: 700, fontSize: 12.5, marginTop: 4 }}>{x.value}</div>
-              </div>
-            ))}
-          </div>
-
           <div>
             <div style={{ color: c.muted, fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 8 }}>
               Tovarlar ({o.items.length})
@@ -299,16 +284,18 @@ export default function QurtOrders() {
             <div style={{ border: `1px solid ${c.cardB}`, borderRadius: 14, overflow: 'hidden' }}>
               {o.items.map((it, i) => (
                 <div key={`${it.barcode}-${i}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
                   borderTop: i === 0 ? 'none' : `1px solid ${c.cardB}`,
                 }}>
+                  {/* Mahsulot rasmi — chegarali blokda */}
                   <div style={{
-                    width: 52, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: c.surf,
+                    width: 64, height: 64, borderRadius: 12, flexShrink: 0, boxSizing: 'border-box', padding: 4,
+                    border: `1.5px solid ${c.surfB}`, background: c.surf, overflow: 'hidden',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {it.image_url
-                      ? <img src={it.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      : <ImageOff size={18} color={c.muted} />}
+                      ? <img src={it.image_url} alt={it.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8 }} />
+                      : <ImageOff size={22} color={c.muted} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: c.text, fontWeight: 700, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>

@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
-  Plus,
   Package,
   DollarSign,
   BarChart3,
@@ -47,7 +46,6 @@ type SidebarProps = {
 
 const regularMenuItems: MenuItem[] = [
   { id: "menu", icon: Home, labelKey: "dashboard" },
-  { id: "add-product", icon: Plus, labelKey: "addProduct" },
   { id: "products", icon: Package, labelKey: "products" },
   { id: "qurt-orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
   { id: "qurt-logistics", icon: Truck, labelKey: "qurtLogistics", label: "Logistika" }, // faqat QURT do'koni
