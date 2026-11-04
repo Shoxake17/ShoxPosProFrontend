@@ -26,8 +26,8 @@ import {
   Truck,
 } from "lucide-react";
 import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
-import { isPageAllowed } from "../../utils/storeAccess";
-import { useQurtNewCount } from "../../hooks/useQurtOrders";
+import { hasOnlineOrders, isPageAllowed } from "../../utils/storeAccess";
+import { useNewOrdersCount } from "../../hooks/useMerchantOrders";
 
 type MenuItem = {
   id: string;
@@ -47,8 +47,8 @@ type SidebarProps = {
 const regularMenuItems: MenuItem[] = [
   { id: "menu", icon: Home, labelKey: "dashboard" },
   { id: "products", icon: Package, labelKey: "products" },
-  { id: "orders", icon: ClipboardList, labelKey: "qurtOrders", label: "Buyurtmalar" }, // faqat QURT do'koni
-  { id: "logistics", icon: Truck, labelKey: "qurtLogistics", label: "Logistika" }, // faqat QURT do'koni
+  { id: "orders", icon: ClipboardList, labelKey: "orders", label: "Buyurtmalar" }, // onlayn buyurtma moduli yoqilgan do'konda
+  { id: "logistics", icon: Truck, labelKey: "logistics", label: "Logistika" },
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
@@ -79,8 +79,8 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const location = useLocation();
   const { t } = useTranslation('sidebar');
   const { user } = useAuthStore();
-  // Yangi qurt buyurtmalari soni (faqat qurt do'koni so'raydi).
-  const newOrders = useQurtNewCount(user?.storeCategory === 'qurt');
+  // Yangi buyurtmalar soni (faqat onlayn buyurtma moduli yoqilgan do'kon so'raydi).
+  const newOrders = useNewOrdersCount(hasOnlineOrders(user?.storeCategory));
   
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
@@ -97,12 +97,12 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   const menuItems = isPharmacy ? pharmacyMenuItems : regularMenuItems;
 
   const filteredMenuItems = menuItems.filter(item => {
-    // Buyurtmalar bo'limi faqat qurt do'konida (adminda ham ko'rinmaydi).
-    if (item.id === 'orders' || item.id === 'logistics') return user?.storeCategory === 'qurt';
+    // Buyurtmalar/Logistika faqat onlayn buyurtma moduli yoqilgan do'konda (adminda ham ko'rinmaydi).
+    if (item.id === 'orders' || item.id === 'logistics') return hasOnlineOrders(user?.storeCategory);
     // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
     if (userRole === 'admin') return true;
 
-    // Do'kon kategoriyasi (qurt): faqat ruxsat etilgan bo'limlar ko'rinadi.
+    // Do'kon kategoriyasi: faqat ruxsat etilgan bo'limlar ko'rinadi.
     if (!isPageAllowed(user?.storeCategory, item.id)) return false;
     
     if (!item.requiresPlan) return true;

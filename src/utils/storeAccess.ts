@@ -13,12 +13,21 @@ const PAGES_BY_CATEGORY: Record<string, readonly string[]> = {
   qurt: ["add-product", "products", "orders", "logistics", "sales", "kirim-bazasi", "reports", "debts", "settings"],
 };
 
-/** Faqat QURT do'konida bor sahifalar: boshqa kategoriyada (cheklanmagan) ham yashirin. */
-const QURT_ONLY_PAGES: readonly string[] = ["orders", "logistics"];
+/**
+ * Onlayn buyurtma (OnDex orqali kelgan) moduli yoqilgan kategoriyalar. Hozircha faqat `qurt`;
+ * boshqa kategoriya ulanganda shu YAGONA joyga qo'shiladi (menyu, ogohlantirish, ruxsat — hammasi shundan).
+ */
+const ONLINE_ORDER_CATEGORIES: readonly string[] = ["qurt"];
+
+export const hasOnlineOrders = (category: string | undefined | null): boolean =>
+  !!category && ONLINE_ORDER_CATEGORIES.includes(category);
+
+/** Buyurtmalar va Logistika sahifalari: faqat onlayn buyurtma moduli yoqilgan do'konda. */
+const ORDER_PAGES: readonly string[] = ["orders", "logistics"];
 
 /** Sahifa (URL'ning birinchi qismi, masalan "products") ruxsat etilganmi. */
 export function isPageAllowed(category: string | undefined | null, pageId: string): boolean {
-  if (QURT_ONLY_PAGES.includes(pageId)) return category === "qurt";
+  if (ORDER_PAGES.includes(pageId)) return hasOnlineOrders(category);
   const pages = category ? PAGES_BY_CATEGORY[category] : undefined;
   if (!pages) return true; // cheklanmagan kategoriya
   return pages.includes(pageId);

@@ -5,15 +5,15 @@ import {
 } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import {
-  qurtErrorText,
-  transitionQurtOrder,
-  useQurtOrders,
-  type QurtOrder,
-  type QurtOrderStatus,
-} from '../hooks/useQurtOrders';
+  orderErrorText,
+  transitionMerchantOrder,
+  useMerchantOrders,
+  type MerchantOrder,
+  type MerchantOrderStatus,
+} from '../hooks/useMerchantOrders';
 
 /**
- * Qurt do'koni "Buyurtmalar" sahifasi (POS uslubidagi buyurtma boshqaruvi).
+ * Do'kon "Buyurtmalar" sahifasi (POS uslubidagi buyurtma boshqaruvi).
  *
  * Kompyuterda ikki panel: chapda ro'yxat (qidiruv + bo'limlar), o'ngda tanlangan buyurtma
  * tafsiloti va amallar. Telefonda ro'yxat, buyurtmaga bosilsa — to'liq ekranli tafsilot.
@@ -28,14 +28,14 @@ import {
 
 type Tab = 'new' | 'active' | 'done' | 'closed';
 
-const TABS: { id: Tab; label: string; statuses: QurtOrderStatus[] }[] = [
+const TABS: { id: Tab; label: string; statuses: MerchantOrderStatus[] }[] = [
   { id: 'new', label: 'Yangi', statuses: ['new'] },
   { id: 'active', label: 'Jarayonda', statuses: ['confirmed', 'packed', 'collected', 'out_for_delivery', 'failed'] },
   { id: 'done', label: 'Yetkazilgan', statuses: ['delivered'] },
   { id: 'closed', label: 'Yopilgan', statuses: ['rejected', 'cancelled'] },
 ];
 
-const STATUS_LABEL: Record<QurtOrderStatus, string> = {
+const STATUS_LABEL: Record<MerchantOrderStatus, string> = {
   new: 'Yangi',
   confirmed: 'Qabul qilindi',
   rejected: 'Rad etildi',
@@ -47,7 +47,7 @@ const STATUS_LABEL: Record<QurtOrderStatus, string> = {
   cancelled: 'Bekor qilindi',
 };
 
-const STATUS_COLOR: Record<QurtOrderStatus, string> = {
+const STATUS_COLOR: Record<MerchantOrderStatus, string> = {
   new: '#f59e0b',
   confirmed: '#3b82f6',
   packed: '#6366f1',
@@ -90,7 +90,7 @@ function timeAgo(iso: string, now: number): string {
 }
 
 const formatSum = (tiyin: number) => `${new Intl.NumberFormat('ru-RU').format(Math.round(tiyin / 100))} so'm`;
-const countPieces = (o: QurtOrder) => o.items.reduce((s, it) => s + it.qty, 0);
+const countPieces = (o: MerchantOrder) => o.items.reduce((s, it) => s + it.qty, 0);
 
 function useIsWide(minPx: number): boolean {
   const query = `(min-width: ${minPx}px)`;
@@ -109,7 +109,7 @@ const LT = { bg: '#f8f9ff', card: '#ffffff', cardB: '#e2e8f0', surf: '#f1f5f9', 
 
 const ACCENT = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
 
-export default function QurtOrders() {
+export default function Orders() {
   const [userImage] = useState<string | null>(localStorage.getItem('userImage'));
   const [theme] = useState<'dark' | 'light'>((localStorage.getItem('theme') as 'dark' | 'light') || 'dark');
   const c = theme === 'dark' ? DK : LT;
@@ -121,7 +121,7 @@ export default function QurtOrders() {
   const [detailOpen, setDetailOpen] = useState(false); // faqat telefonda
   const [busy, setBusy] = useState<string | null>(null); // amal bajarilayotgan buyurtma ID'si
   const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [rejecting, setRejecting] = useState<QurtOrder | null>(null);
+  const [rejecting, setRejecting] = useState<MerchantOrder | null>(null);
   const [reason, setReason] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -131,13 +131,13 @@ export default function QurtOrders() {
     return () => clearInterval(t);
   }, []);
 
-  const onNew = useCallback((fresh: QurtOrder[]) => {
-    // Ovoz/bildirishnoma — global QurtOrderAlerts'da (har sahifada ishlaydi).
+  const onNew = useCallback((fresh: MerchantOrder[]) => {
+    // Ovoz/bildirishnoma — global OrderAlerts'da (har sahifada ishlaydi).
     setNotice({ kind: 'ok', text: fresh.length === 1 ? `Yangi buyurtma: ${fresh[0].number}` : `${fresh.length} ta yangi buyurtma keldi` });
     setTab('new');
   }, []);
 
-  const { orders, setOrders, loading, error, reload } = useQurtOrders(20000, onNew);
+  const { orders, setOrders, loading, error, reload } = useMerchantOrders(20000, onNew);
 
   useEffect(() => { if (!loading) setUpdatedAt(Date.now()); }, [orders, loading]);
 
@@ -176,12 +176,12 @@ export default function QurtOrders() {
 
   const selected = useMemo(() => orders.find((o) => o.id === selectedId) ?? null, [orders, selectedId]);
 
-  const act = async (order: QurtOrder, to: 'confirmed' | 'rejected' | 'packed', why?: string) => {
+  const act = async (order: MerchantOrder, to: 'confirmed' | 'rejected' | 'packed', why?: string) => {
     if (busy) return; // qo'sh bosish himoyasi
     setBusy(order.id);
     setNotice(null);
     try {
-      const updated = await transitionQurtOrder(order.id, to, why);
+      const updated = await transitionMerchantOrder(order.id, to, why);
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       setNotice({
         kind: 'ok',
@@ -194,14 +194,14 @@ export default function QurtOrders() {
       setReason('');
       setDetailOpen(false);
     } catch (e) {
-      setNotice({ kind: 'err', text: qurtErrorText(e, "Amalni bajarib bo'lmadi. Qayta urinib ko'ring") });
+      setNotice({ kind: 'err', text: orderErrorText(e, "Amalni bajarib bo'lmadi. Qayta urinib ko'ring") });
       reload(); // holat boshqa joyda o'zgargan bo'lishi mumkin
     } finally {
       setBusy(null);
     }
   };
 
-  const openOrder = (o: QurtOrder) => { setSelectedId(o.id); if (!wide) setDetailOpen(true); };
+  const openOrder = (o: MerchantOrder) => { setSelectedId(o.id); if (!wide) setDetailOpen(true); };
 
   const btn = (bg: string, color = '#fff', disabled = false): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -221,7 +221,7 @@ export default function QurtOrders() {
   ];
 
   // ── Ro'yxat qatori ───────────────────────────────────────────────────
-  const row = (o: QurtOrder) => {
+  const row = (o: MerchantOrder) => {
     const active = wide && o.id === selectedId;
     const col = STATUS_COLOR[o.status];
     return (
@@ -258,7 +258,7 @@ export default function QurtOrders() {
   };
 
   // ── Tafsilot ─────────────────────────────────────────────────────────
-  const detail = (o: QurtOrder) => {
+  const detail = (o: MerchantOrder) => {
     const col = STATUS_COLOR[o.status];
     const canAct = o.status === 'new' || o.status === 'confirmed';
     return (

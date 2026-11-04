@@ -25,8 +25,8 @@ const Settings       = lazy(() => import("./pages/Settings"));
 const Chatbot        = lazy(() => import("./pages/Ai"));
 const Chat           = lazy(() => import("./pages/Chat"));
 const MaxQoshish     = lazy(() => import("./pages/MaxQoshish"));
-const QurtOrders     = lazy(() => import("./pages/QurtOrders"));
-const QurtLogistics  = lazy(() => import("./pages/QurtLogistics"));
+const Orders     = lazy(() => import("./pages/Orders"));
+const Logistics  = lazy(() => import("./pages/Logistics"));
 const MaxsulotBazasi = lazy(() => import("./pages/MaxsulotBazasi"));
 const Scan           = lazy(() => import("./pages/Hisobotlar"));
 const Scanner        = lazy(() => import("./pages/Scanner"));
@@ -219,8 +219,8 @@ function App() {
               <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
               <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
               <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
-              <Route path="/orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtOrders /></ProtectedRoute></Suspense>} />
-              <Route path="/logistics"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><QurtLogistics /></ProtectedRoute></Suspense>} />
+              <Route path="/orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Orders /></ProtectedRoute></Suspense>} />
+              <Route path="/logistics"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Logistics /></ProtectedRoute></Suspense>} />
               {/* Eski manzillar (saqlangan bildirishnoma/PWA): yangi manzilga */}
               <Route path="/qurt-orders" element={<Navigate to="/orders" replace />} />
               <Route path="/qurt-logistics" element={<Navigate to="/logistics" replace />} />

@@ -10,7 +10,7 @@ import Notification from "../NotificationBar";
 import { useTranslation } from 'react-i18next';
 import { useHandTrackingContext } from "../../context/HandTrackingContext";
 import MobileBottomBar from "./MobileBottomBar"; // ✅ Import qilindi
-import QurtOrderAlerts from "../QurtOrderAlerts";
+import OrderAlerts from "../OrderAlerts";
 
 // ─────────────────────────────────────────────
 // Types & Helpers
@@ -207,8 +207,8 @@ export default function MainLayout({
         </div>
       </main>
 
-      {/* Qurt do'koni: yangi buyurtma ovozi/bildirishnomasi har sahifada (boshqa do'konlarga hech narsa chizmaydi) */}
-      <QurtOrderAlerts />
+      {/* Onlayn buyurtma moduli yoqilgan do'kon: yangi buyurtma ovozi/bildirishnomasi har sahifada (boshqa do'konlarga hech narsa chizmaydi) */}
+      <OrderAlerts />
 
       {/* ✅ Faqat mobileda MobileBottomBar ko'rsatiladi */}
       {isMobile && (

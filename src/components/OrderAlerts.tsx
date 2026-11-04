@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import getSocket from '../utils/socket';
-import { fetchQurtOrders } from '../hooks/useQurtOrders';
+import { hasOnlineOrders } from '../utils/storeAccess';
+import { fetchMerchantOrders } from '../hooks/useMerchantOrders';
 import {
   attachAudioUnlock,
   flashTitle,
@@ -13,13 +14,13 @@ import {
   ring,
   showSystemNotification,
   unlockAudio,
-} from '../utils/qurtAlert';
+} from '../utils/orderAlert';
 
 /**
- * Qurt do'koni uchun YANGI BUYURTMA signali — har qanday sahifada (MainLayout ichida turadi):
+ * Onlayn buyurtma moduli yoqilgan do'kon uchun YANGI BUYURTMA signali — har qanday sahifada (MainLayout ichida turadi):
  * qo'ng'iroq ovozi, tizim bildirishnomasi, sarlavha miltillashi va sahifa ustidagi xabar.
  *
- * Manba: OnDex -> ShoxPos jonli signal (socket `qurtOrder`) + zaxira: har 30 soniyada
+ * Manba: OnDex -> ShoxPos jonli signal (socket `storeOrder`) + zaxira: har 30 soniyada
  * yangi buyurtmalarni so'rab, ilgari ko'rilmaganini aniqlash (socket uzilsa ham signal yo'qolmasin).
  * Bir buyurtma uchun signal BIR MARTA (ikkala manba ham bo'lsa takrorlanmaydi).
  *
@@ -36,9 +37,9 @@ interface Toast {
 const POLL_MS = 30000;
 const TOAST_MS = 20000;
 
-export default function QurtOrderAlerts() {
+export default function OrderAlerts() {
   const { user } = useAuthStore();
-  const enabled = user?.storeCategory === 'qurt';
+  const enabled = hasOnlineOrders(user?.storeCategory);
   const navigate = useNavigate();
 
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -57,7 +58,7 @@ export default function QurtOrderAlerts() {
     if (announced.current.size > 500) announced.current.delete(announced.current.values().next().value as string);
 
     ring(3);
-    void showSystemNotification('🛒 Yangi buyurtma', `№ ${number} — qabul qilish uchun oching`, `qurt-${orderId}`);
+    void showSystemNotification('🛒 Yangi buyurtma', `№ ${number} — qabul qilish uchun oching`, `order-${orderId}`);
     flashTitle('🔔 Yangi buyurtma!');
     pushToast({ key: orderId, text: `Yangi buyurtma № ${number}`, kind: 'new' });
   }, [pushToast]);
@@ -78,13 +79,13 @@ export default function QurtOrderAlerts() {
         pushToast({ key: `x-${p.orderId}`, text: `Buyurtma № ${p.number} bekor qilindi`, kind: 'info' });
       }
     };
-    socket.on('qurtOrder', onSignal);
+    socket.on('storeOrder', onSignal);
 
     // Zaxira: davriy so'rov. Birinchi javob faqat "bor narsa" ni eslab qoladi (ovozsiz).
     let alive = true;
     const poll = async () => {
       try {
-        const list = await fetchQurtOrders('new');
+        const list = await fetchMerchantOrders('new');
         if (!alive) return;
         if (!primed.current) {
           list.forEach((o) => announced.current.add(o.id));
@@ -103,7 +104,7 @@ export default function QurtOrderAlerts() {
       alive = false;
       detach();
       clearInterval(timer);
-      socket.off('qurtOrder', onSignal);
+      socket.off('storeOrder', onSignal);
     };
   }, [enabled, announceNew, pushToast]);
 

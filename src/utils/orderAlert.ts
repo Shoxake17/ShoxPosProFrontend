@@ -1,4 +1,4 @@
-// Qurt buyurtmasi signali: ovoz, tizim bildirishnomasi va sarlavha miltillashi.
+// Yangi buyurtma signali: ovoz, tizim bildirishnomasi va sarlavha miltillashi.
 //
 // BRAUZER QOIDASI: ovoz (AudioContext) va bildirishnoma ruxsati faqat FOYDALANUVCHI HARAKATIDAN
 // (bosish/tugma) KEYIN ishlaydi. Shuning uchun birinchi bosishda ovoz "ochiladi" (`unlockAudio`);
@@ -9,7 +9,7 @@ let ringTimer: ReturnType<typeof setTimeout> | null = null;
 let titleTimer: ReturnType<typeof setInterval> | null = null;
 let baseTitle = '';
 
-type WinWithAudio = Window & { webkitAudioContext?: typeof AudioContext; __qurtRings?: number };
+type WinWithAudio = Window & { webkitAudioContext?: typeof AudioContext; __orderRings?: number };
 
 function audioCtor(): typeof AudioContext | undefined {
   const w = window as WinWithAudio;
@@ -68,7 +68,7 @@ function beepOnce(c: AudioContext, freq: number, at: number): void {
  */
 export function ring(times = 3): boolean {
   const w = window as WinWithAudio;
-  w.__qurtRings = (w.__qurtRings || 0) + 1; // sinov/diagnostika uchun
+  w.__orderRings = (w.__orderRings || 0) + 1; // sinov/diagnostika uchun
   if (!ctx || ctx.state !== 'running') {
     if (!unlockAudio() || !ctx || ctx.state !== 'running') return false;
   }

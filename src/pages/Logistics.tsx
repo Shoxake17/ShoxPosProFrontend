@@ -2,21 +2,21 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Banknote, CircleDollarSign, Plus, RefreshCw, Trash2, Truck, UserPlus, Users, Hourglass, PackageX } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import {
-  addQurtCourier,
-  assignQurtOrders,
-  fetchQurtCouriers,
-  fetchQurtOrders,
-  qurtErrorText,
-  removeQurtCourier,
-  settleQurtCourier,
-  unassignQurtOrder,
-  type QurtCourier,
-  type QurtOrder,
-  type QurtOrderStatus,
-} from '../hooks/useQurtOrders';
+  addCourier,
+  assignOrders,
+  fetchCouriers,
+  fetchMerchantOrders,
+  orderErrorText,
+  removeCourier,
+  settleCourier,
+  unassignOrder,
+  type MerchantCourier,
+  type MerchantOrder,
+  type MerchantOrderStatus,
+} from '../hooks/useMerchantOrders';
 
 /**
- * Qurt do'koni "Logistika" sahifasi — sotuvchi yetkazishni O'ZI boshqaradi:
+ * Do'kon "Logistika" sahifasi — sotuvchi yetkazishni O'ZI boshqaradi:
  *   • o'z kuryerlarini qo'shadi (ular OnDexGO ilovasiga shu telefon bilan kiradi);
  *   • reysni (yetkazish kuni) yoki alohida buyurtmalarni o'z kuryeriga biriktiradi;
  *   • kuryer yetkazib mijozdan olgan naqd pulni topshirganda "Pulni qabul qilish" bilan hisobni yopadi.
@@ -29,7 +29,7 @@ type View = 'trips' | 'couriers';
 
 const ACTIVE = 'confirmed,packed,collected,out_for_delivery,failed';
 
-const STATUS_LABEL: Partial<Record<QurtOrderStatus, string>> = {
+const STATUS_LABEL: Partial<Record<MerchantOrderStatus, string>> = {
   confirmed: 'Qabul qilingan',
   packed: 'Qadoqlangan',
   collected: 'Kuryer oldi',
@@ -37,7 +37,7 @@ const STATUS_LABEL: Partial<Record<QurtOrderStatus, string>> = {
   failed: 'Yetkazilmadi',
 };
 
-const STATUS_COLOR: Partial<Record<QurtOrderStatus, string>> = {
+const STATUS_COLOR: Partial<Record<MerchantOrderStatus, string>> = {
   confirmed: '#3b82f6',
   packed: '#6366f1',
   collected: '#06b6d4',
@@ -62,14 +62,14 @@ const LT = { card: '#ffffff', cardB: '#e2e8f0', surf: '#f1f5f9', surfB: '#cbd5e1
 const ACCENT = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
 const FONT = "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif";
 
-export default function QurtLogistics() {
+export default function Logistics() {
   const [userImage] = useState<string | null>(localStorage.getItem('userImage'));
   const [theme] = useState<'dark' | 'light'>((localStorage.getItem('theme') as 'dark' | 'light') || 'dark');
   const c = theme === 'dark' ? DK : LT;
 
   const [view, setView] = useState<View>('trips');
-  const [orders, setOrders] = useState<QurtOrder[]>([]);
-  const [couriers, setCouriers] = useState<QurtCourier[]>([]);
+  const [orders, setOrders] = useState<MerchantOrder[]>([]);
+  const [couriers, setCouriers] = useState<MerchantCourier[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -82,12 +82,12 @@ export default function QurtLogistics() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [o, k] = await Promise.all([fetchQurtOrders(ACTIVE), fetchQurtCouriers()]);
+      const [o, k] = await Promise.all([fetchMerchantOrders(ACTIVE), fetchCouriers()]);
       setOrders(o);
       setCouriers(k);
       setError('');
     } catch (e) {
-      setError(qurtErrorText(e, "Ma'lumotni yuklab bo'lmadi"));
+      setError(orderErrorText(e, "Ma'lumotni yuklab bo'lmadi"));
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export default function QurtLogistics() {
     try {
       setNotice({ kind: 'ok', text: await action() });
     } catch (e) {
-      setNotice({ kind: 'err', text: qurtErrorText(e, "Amalni bajarib bo'lmadi. Qayta urinib ko'ring") });
+      setNotice({ kind: 'err', text: orderErrorText(e, "Amalni bajarib bo'lmadi. Qayta urinib ko'ring") });
     } finally {
       setBusy(false);
     }
@@ -117,7 +117,7 @@ export default function QurtLogistics() {
   const courierName = (id?: string) => (id ? couriers.find((x) => x.id === id)?.name ?? 'Kuryer' : '');
 
   const byDate = useMemo(() => {
-    const m = new Map<string, QurtOrder[]>();
+    const m = new Map<string, MerchantOrder[]>();
     for (const o of orders) {
       const list = m.get(o.delivery_date) ?? [];
       list.push(o);
@@ -147,7 +147,7 @@ export default function QurtLogistics() {
     const { target } = picker;
     setPicker(null);
     void run(async () => {
-      const r = await assignQurtOrders(pickedId, target);
+      const r = await assignOrders(pickedId, target);
       return r.assigned > 0
         ? `${r.assigned} ta buyurtma ${courierName(pickedId)} ga biriktirildi`
         : "Biriktirib bo'lmadi (boshqa kuryerga biriktirilgan yoki yakunlangan bo'lishi mumkin)";
@@ -158,24 +158,24 @@ export default function QurtLogistics() {
     e.preventDefault();
     setAdding(false);
     void run(async () => {
-      await addQurtCourier(form.name.trim(), form.phone.trim());
+      await addCourier(form.name.trim(), form.phone.trim());
       setForm({ name: '', phone: '+998' });
       return "Kuryer qo'shildi. U OnDexGO ilovasiga shu raqam bilan kiradi";
     });
   };
 
-  const settle = (k: QurtCourier) => {
+  const settle = (k: MerchantCourier) => {
     if (!window.confirm(`${k.name} sizga ${formatSum(k.summary.held_tiyin)} (${k.summary.held_orders} ta buyurtma) topshirdimi? Tasdiqlagach hisob yopiladi.`)) return;
     void run(async () => {
-      const r = await settleQurtCourier(k.id);
+      const r = await settleCourier(k.id);
       return `${formatSum(r.total_tiyin)} qabul qilindi`;
     });
   };
 
-  const remove = (k: QurtCourier) => {
+  const remove = (k: MerchantCourier) => {
     if (!window.confirm(`${k.name} kuryerlar ro'yxatidan olib tashlansinmi? U ilovadan chiqariladi.`)) return;
     void run(async () => {
-      await removeQurtCourier(k.id);
+      await removeCourier(k.id);
       return 'Kuryer olib tashlandi';
     });
   };
@@ -289,7 +289,7 @@ export default function QurtLogistics() {
                         )}
                         {canTake && (
                           <button type="button" disabled={busy}
-                            onClick={() => void run(async () => { await unassignQurtOrder(o.id); return 'Kuryerdan olindi'; })}
+                            onClick={() => void run(async () => { await unassignOrder(o.id); return 'Kuryerdan olindi'; })}
                             style={{ ...btn('transparent', c.muted, busy), border: `1px solid ${c.surfB}`, padding: '5px 10px', fontSize: 12 }}>
                             Kuryerdan olish
                           </button>
