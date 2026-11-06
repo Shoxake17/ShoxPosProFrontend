@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { ShieldCheck, ShieldAlert, Lock } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuthStore, PLAN_PERMISSIONS } from "../../store/useAuthStore";
-import { isPageAllowed, landingPath } from "../../utils/storeAccess";
+import { isOrderPage, isPageAllowed, landingPath } from "../../utils/storeAccess";
 // react-i18next kutubxonasiga o'tamiz
 import { useTranslation } from 'react-i18next';
 
@@ -341,7 +341,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
   // Obuna rejasi tekshiruvi - ADMIN UCHUN CHEKLOV YO'Q!
   const pageId = location.pathname.split('/')[1] || "menu";
-  if (userRole !== 'admin' && userPlan && !hasPageAccess(userPlan, pageId)) {
+  // Buyurtmalar/Logistika: kirish yuqorida kategoriya bo'yicha tekshirildi — reja bo'yicha to'silmaydi.
+  if (userRole !== 'admin' && userPlan && !isOrderPage(pageId) && !hasPageAccess(userPlan, pageId)) {
     return <SubscriptionBlockedScreen />;
   }
 

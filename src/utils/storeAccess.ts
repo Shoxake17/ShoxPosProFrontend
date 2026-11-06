@@ -25,6 +25,12 @@ export const hasOnlineOrders = (category: string | undefined | null): boolean =>
 /** Buyurtmalar va Logistika sahifalari: faqat onlayn buyurtma moduli yoqilgan do'konda. */
 const ORDER_PAGES: readonly string[] = ["orders", "logistics"];
 
+/** Onlayn buyurtma sahifasimi (Buyurtmalar, Logistika). Ularga kirish do'kon kategoriyasi bilan
+ *  belgilanadi, obuna rejasi bilan EMAS (reja ro'yxatida yo'q — aks holda "obunani yangilang" chiqardi). */
+export function isOrderPage(pageId: string): boolean {
+  return ORDER_PAGES.includes(pageId);
+}
+
 /** Sahifa (URL'ning birinchi qismi, masalan "products") ruxsat etilganmi. */
 export function isPageAllowed(category: string | undefined | null, pageId: string): boolean {
   if (ORDER_PAGES.includes(pageId)) return hasOnlineOrders(category);
