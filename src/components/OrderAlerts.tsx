@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, X } from 'lucide-react';
+import { Bell, BellOff, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import getSocket from '../utils/socket';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
@@ -10,10 +10,14 @@ import {
   attachAudioUnlock,
   flashTitle,
   isAudioReady,
+  isSoundEnabled,
   notificationPermission,
   requestNotificationPermission,
   ring,
+  setSoundEnabled,
   showSystemNotification,
+  startLoop,
+  stopLoop,
   unlockAudio,
 } from '../utils/orderAlert';
 
@@ -46,6 +50,10 @@ export default function OrderAlerts() {
   const [needEnable, setNeedEnable] = useState(false);
   const announced = useRef<Set<string>>(new Set());
   const primed = useRef(false);
+  // Qabul qilinmagan (`new`) buyurtmalar soni: > 0 bo'lsa qo'ng'iroq TO'XTAMAY takrorlanadi.
+  const [pending, setPending] = useState(0);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [unlockTick, setUnlockTick] = useState(0); // ovoz ochilganda qo'ng'iroqni qayta urinish uchun
 
   const pushToast = useCallback((t: Toast) => {
     setToasts((prev) => [...prev.filter((x) => x.key !== t.key), t].slice(-4));
@@ -57,7 +65,7 @@ export default function OrderAlerts() {
     announced.current.add(orderId);
     if (announced.current.size > 500) announced.current.delete(announced.current.values().next().value as string);
 
-    ring(3);
+    setPending((n) => Math.max(n, 1)); // darrov jiringlasin; aniq sonni keyingi so'rov qo'yadi
     void showSystemNotification('🛒 Yangi buyurtma', `№ ${number} — qabul qilish uchun oching`, `order-${orderId}`);
     flashTitle('🔔 Yangi buyurtma!');
     pushToast({ key: orderId, text: `Yangi buyurtma № ${number}`, kind: 'new' });
@@ -68,6 +76,7 @@ export default function OrderAlerts() {
   const poll = useCallback(async () => {
     try {
       const list = await fetchMerchantOrders('new');
+      setPending(list.length);
       if (!primed.current) {
         list.forEach((o) => announced.current.add(o.id));
         primed.current = true;
@@ -84,8 +93,12 @@ export default function OrderAlerts() {
 
     setNeedEnable(notificationPermission() === 'default' || !isAudioReady());
     const detach = attachAudioUnlock(() => {
+      setUnlockTick((t) => t + 1);
       void requestNotificationPermission().finally(() => setNeedEnable(notificationPermission() === 'default'));
     });
+    // Buyurtma shu panelning o'zida qabul/rad etilsa ovoz DARHOL to'xtashi uchun (signalni kutmasdan).
+    const onChanged = () => { void poll(); };
+    window.addEventListener('merchant-orders-changed', onChanged);
 
     const socket = getSocket();
     const onSignal = (p: { event?: string; orderId?: string; number?: string }) => {
@@ -101,8 +114,24 @@ export default function OrderAlerts() {
 
     return () => {
       detach();
+      window.removeEventListener('merchant-orders-changed', onChanged);
       socket.off('storeOrder', onSignal);
-    };  }, [enabled, announceNew, pushToast, poll]);
+      stopLoop();
+    };
+  }, [enabled, announceNew, pushToast, poll]);
+
+  // Qo'ng'iroq: qabul qilinmagan buyurtma bor va ovoz yoqiq ekan — to'xtamay; yo'q bo'lsa jim.
+  // Brauzer bloklasa (sahifa hali bosilmagan) "Yoqish" ko'rsatiladi va bosilishi bilan qayta uriniladi.
+  useEffect(() => {
+    if (!enabled) return;
+    if (pending > 0 && soundOn) {
+      void startLoop().then((ok) => {
+        if (!ok && isSoundEnabled()) { setNeedEnable(true); ring(3); }
+      });
+    } else {
+      stopLoop();
+    }
+  }, [enabled, pending, soundOn, unlockTick]);
 
   // Jonli: har bir signalda ro'yxat tekshiriladi (takror ovoz yo'q); soket uzilsa — vaqtincha so'rov,
   // qayta ulanganda uzilish paytida kelgan buyurtmalar darrov aniqlanadi.
@@ -113,8 +142,15 @@ export default function OrderAlerts() {
   const enableNow = async () => {
     unlockAudio();
     await requestNotificationPermission();
-    ring(1); // tekshiruv: ovoz eshitilishi kerak
+    if (pending === 0) ring(1); // tekshiruv: ovoz eshitilishi kerak (buyurtma bo'lsa qo'ng'iroq o'zi boshlanadi)
+    setUnlockTick((t) => t + 1);
     setNeedEnable(false);
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundEnabled(next);
+    setSoundOn(next);
   };
 
   return (
@@ -137,6 +173,26 @@ export default function OrderAlerts() {
             type="button" onClick={enableNow}
             style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 12px', fontWeight: 700, cursor: 'pointer' }}
           >Yoqish</button>
+        </div>
+      )}
+      {pending > 0 && (
+        <div style={{
+          background: '#b45309', color: '#fff', borderRadius: 14, padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700,
+          boxShadow: '0 12px 32px rgba(0,0,0,.45)',
+        }}>
+          <Bell size={18} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>{pending} ta yangi buyurtma qabul qilishni kutmoqda</span>
+          <button
+            type="button" onClick={() => navigate('/orders')}
+            style={{ background: '#fff', color: '#b45309', border: 'none', borderRadius: 10, padding: '7px 12px', fontWeight: 800, cursor: 'pointer' }}
+          >Ko'rish</button>
+          <button
+            type="button" onClick={toggleSound}
+            aria-label={soundOn ? "Ovozni o'chirish" : 'Ovozni yoqish'}
+            title={soundOn ? "Ovozni o'chirish" : 'Ovozni yoqish'}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}
+          >{soundOn ? <Bell size={16} /> : <BellOff size={16} />}</button>
         </div>
       )}
       {toasts.map((t) => (

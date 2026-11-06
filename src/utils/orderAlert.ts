@@ -16,22 +16,77 @@ function audioCtor(): typeof AudioContext | undefined {
   return window.AudioContext || w.webkitAudioContext;
 }
 
+// OnDex ilovalaridagi (restaurant_panel) bilan BIR XIL qo'ng'iroq: `ding.mp3` qabul qilinmagan
+// buyurtma qolmaguncha to'xtamay takrorlanadi (qisqa signal qulog'iga tegmay qolishi mumkin).
+const SOUND_URL = '/sounds/ding.mp3';
+const SOUND_KEY = 'merchant.newOrderSound';
+let loopEl: HTMLAudioElement | null = null;
+let loopUnlocked = false;
+
+function loopAudio(): HTMLAudioElement {
+  if (!loopEl) {
+    loopEl = new Audio(SOUND_URL);
+    loopEl.loop = true;
+    loopEl.preload = 'auto';
+  }
+  return loopEl;
+}
+
+/** "Yangi buyurtma ovozi" sozlamasi (standart: yoqiq). */
+export function isSoundEnabled(): boolean {
+  try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setSoundEnabled(on: boolean): void {
+  try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* xotira yopiq */ }
+  if (!on) stopLoop();
+}
+
 /** Ovoz ishlashga tayyormi (foydalanuvchi sahifa bilan o'zaro ishlagan). */
 export function isAudioReady(): boolean {
-  return ctx !== null && ctx.state === 'running';
+  return loopUnlocked || (ctx !== null && ctx.state === 'running');
 }
 
 /** Ovozni "ochadi". Faqat foydalanuvchi harakati ichida chaqiriladi. */
 export function unlockAudio(): boolean {
+  let ok = false;
+  try {
+    const a = loopAudio();
+    if (!loopUnlocked) {
+      a.muted = true;
+      a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; loopUnlocked = true; }).catch(() => { a.muted = false; });
+    }
+    ok = true;
+  } catch { /* quyidagi AudioContext ham sinab ko'riladi */ }
   try {
     const Ctor = audioCtor();
-    if (!Ctor) return false;
+    if (!Ctor) return ok;
     if (!ctx) ctx = new Ctor();
     if (ctx.state === 'suspended') void ctx.resume();
-    return ctx.state !== 'closed';
+    return ok || ctx.state !== 'closed';
   } catch {
-    return false;
+    return ok;
   }
+}
+
+/** Qo'ng'iroqni TO'XTAMAY boshlaydi (qabul qilinmagan buyurtma bor). `false` — brauzer bloklagan. */
+export async function startLoop(): Promise<boolean> {
+  if (!isSoundEnabled()) return false;
+  try {
+    const a = loopAudio();
+    a.muted = false;
+    if (!a.paused) return true;
+    await a.play();
+    loopUnlocked = true;
+    return true;
+  } catch {
+    return false; // foydalanuvchi sahifani hali bosmagan — "Yoqish" ko'rsatiladi
+  }
+}
+
+export function stopLoop(): void {
+  if (loopEl) { loopEl.pause(); loopEl.currentTime = 0; }
+  stopRing();
 }
 
 /** Birinchi bosish/teginishda ovozni ochadi (bir marta). Qaytaradi: tinglovchilarni olib tashlash. */

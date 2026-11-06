@@ -61,6 +61,8 @@ export async function fetchMerchantOrders(status?: string): Promise<MerchantOrde
 
 export async function transitionMerchantOrder(id: string, to: 'confirmed' | 'rejected' | 'packed', reason?: string): Promise<MerchantOrder> {
   const res = await axiosInstance.post(`/store-orders/${encodeURIComponent(id)}/transition`, { to, reason: reason ?? '' });
+  // Qo'ng'iroq (OrderAlerts) darrov to'xtashi uchun.
+  window.dispatchEvent(new Event('merchant-orders-changed'));
   return res.data.order as MerchantOrder;
 }
 
