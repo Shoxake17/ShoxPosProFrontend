@@ -5,7 +5,7 @@ import { getSocket } from '../utils/socket';
 import { clearAuthClientState } from '../utils/clientSession';
 import MainLayout from "../components/layout/MainLayout";
 import Profile from "../components/settings/Profile";
-import { useAuthStore, PLAN_PERMISSIONS } from "../store/useAuthStore";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ✅ Professional i18next importi
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,6 @@ import DataExport from "../components/settings/DataExport";
 import Backup from "../components/settings/BackUp";
 import ClearData from "../components/settings/ClearData";
 import Logout from "../components/settings/Logout";
-import HandControl from "../components/settings/HandControl";
 import Languages from "../components/settings/Languages";
 import Theme from "../components/settings/Theme";
 import Currency from "../components/settings/Valyuta";
@@ -107,15 +106,6 @@ export default function POSSettingsPage() {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
-  const userPlan = user?.subscription?.plan || 'free';
-  const permissions = PLAN_PERMISSIONS[userPlan] || PLAN_PERMISSIONS.free;
-  const hasAllSettingsFeatures = permissions.settingsFeatures.includes('all');
-  const hasCurrencyFeature = permissions.settingsFeatures.includes('currency');
-  const hasSettingsFeature = (feature: string) => {
-    if (hasAllSettingsFeatures) return true;
-    return permissions.settingsFeatures.includes(feature);
-  };
-
   const [isConfirmOpen, setIsConfirmOpen]     = useState(false);
   const [confirmTitle, setConfirmTitle]       = useState("");
   const [confirmMessage, setConfirmMessage]   = useState("");
@@ -218,10 +208,7 @@ export default function POSSettingsPage() {
       <ToastContainer position="top-right" autoClose={4000} theme={theme === 'dark' ? 'dark' : 'light'} />
 
       {settingsGroups.map((group, gIdx) => {
-        // Free rejimda faqat general va account guruhlarini ko'rsatamiz
-        const shouldShowGroup = userPlan !== 'free' || gIdx === 0 || gIdx === 4;
-        if (!shouldShowGroup) return null;
-        
+        if (gIdx === 1) return null; // bo'sh guruh (avval faqat HandControl edi)
         return (
         <section key={gIdx} style={{ marginBottom: '32px' }}>
           {group.title && (
@@ -270,23 +257,19 @@ export default function POSSettingsPage() {
 
             {gIdx === 0 && (
               <>
-                {hasSettingsFeature('languages') && <Languages theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />}
-                {hasCurrencyFeature && <Currency theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />}
-                {hasSettingsFeature('theme') && <Theme theme={theme} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />}
-                {hasAllSettingsFeatures && <Notification theme={theme} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />}
+                {<Languages theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="lang-card" />}
+                {<Currency theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="currency-card" />}
+                {<Theme theme={theme} setTheme={setTheme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="theme-card" />}
+                {<Notification theme={theme} notifications={notifications} setNotifications={setNotifications} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="notif-card" />}
               </>
             )}
             
-            {gIdx === 1 && hasAllSettingsFeatures && (
-              <HandControl theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="hand-card" />
-            )}
-
-            {gIdx === 2 && hasAllSettingsFeatures && (
+            {gIdx === 2 && (
               <>
                 <Session theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="session-card" />
               </>
             )}
-            {gIdx === 3 && hasAllSettingsFeatures && (
+            {gIdx === 3 && (
               <>
                 <DataExport theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="export-card" />
                 <Backup theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="backup-card" />
@@ -295,7 +278,7 @@ export default function POSSettingsPage() {
             )}
             {gIdx === 4 && (
               <>
-                {hasSettingsFeature('logout') && <Logout theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />}
+                {<Logout theme={theme} hoveredSetting={hoveredSetting} setHoveredSetting={setHoveredSetting} idx="logout-card" showMessage={showSuccess} />}
               </>
             )}
           </div>

@@ -11,10 +11,8 @@ import {
   Archive,
   LucideIcon,
   ShoppingCart,
-  Bot,
   PanelRightOpen,
   PanelRightClose,
-  MessageCircleMore,
   Home,
   Crown,
   Pill,
@@ -25,7 +23,7 @@ import {
   ClipboardList,
   Truck,
 } from "lucide-react";
-import { useAuthStore, hasPageAccess } from "../../store/useAuthStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { hasOnlineOrders, isPageAllowed } from "../../utils/storeAccess";
 import { useNewOrdersCount } from "../../hooks/useMerchantOrders";
 
@@ -35,7 +33,6 @@ type MenuItem = {
   labelKey: string;
   /** Tarjima kaliti yo'q bo'limlar uchun to'g'ridan-to'g'ri nom. */
   label?: string;
-  requiresPlan?: 'basic' | 'pro';
 };
 
 type SidebarProps = {
@@ -52,10 +49,8 @@ const regularMenuItems: MenuItem[] = [
   { id: "scanner", icon: ShoppingCart, labelKey: "scanner" },
   { id: "sales", icon: DollarSign, labelKey: "sales" },
   { id: "kirim-bazasi", icon: Archive, labelKey: "kirimBazasi" },
-  { id: "reports", icon: BarChart3, labelKey: "reports", requiresPlan: 'pro' },
-  { id: "debts", icon: CreditCard, labelKey: "debts", requiresPlan: 'basic' },
-  { id: "ai", icon: Bot, labelKey: "ai", requiresPlan: 'pro' },
-  { id: "chat", icon: MessageCircleMore, labelKey: "chat", requiresPlan: 'basic' },
+  { id: "reports", icon: BarChart3, labelKey: "reports" },
+  { id: "debts", icon: CreditCard, labelKey: "debts" },
   { id: "settings", icon: Settings, labelKey: "settings" },
 ];
 
@@ -69,8 +64,6 @@ const pharmacyMenuItems: MenuItem[] = [
     { id: "pharm-kirim-base", icon: TrendingUp, labelKey: "products" },
     { id: "pharm-info", icon: Search, labelKey: "reports" },
     { id: "pharm-qarzlar", icon: CreditCard, labelKey: "debts" },
-    { id: "pharm-ai", icon: Bot, labelKey: "ai" },
-    { id: "pharm-chat", icon: MessageCircleMore, labelKey: "chat" },
     { id: "settings", icon: Settings, labelKey: "settings" },
   ];
 
@@ -91,25 +84,15 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
   }, []);
 
   const currentPage = location.pathname.split('/')[1] || "menu";
-  const userPlan = user?.subscription?.plan || 'free';
-  const userRole = user?.role?.toLowerCase();
   const isPharmacy = user?.shopType === 'dorixona';
   const menuItems = isPharmacy ? pharmacyMenuItems : regularMenuItems;
 
   const filteredMenuItems = menuItems.filter(item => {
     // Buyurtmalar/Logistika faqat onlayn buyurtma moduli yoqilgan do'konda (adminda ham ko'rinmaydi).
     if (item.id === 'orders' || item.id === 'logistics') return hasOnlineOrders(user?.storeCategory);
-    // ADMIN UCHUN BARCHA CHEKLOV YO'Q!
-    if (userRole === 'admin') return true;
 
     // Do'kon kategoriyasi: faqat ruxsat etilgan bo'limlar ko'rinadi.
-    if (!isPageAllowed(user?.storeCategory, item.id)) return false;
-    
-    if (!item.requiresPlan) return true;
-    const planOrder = ['free', 'basic', 'pro'];
-    const itemPlanIndex = planOrder.indexOf(item.requiresPlan);
-    const userPlanIndex = planOrder.indexOf(userPlan);
-    return userPlanIndex >= itemPlanIndex;
+    return isPageAllowed(user?.storeCategory, item.id);
   });
 
   if (isMobile && !isOpen) {
@@ -174,11 +157,6 @@ export default function Sidebar({ theme, isOpen, setIsOpen }: SidebarProps) {
                 <div style={{ fontSize: "18px", fontWeight: 700, fontFamily: 'Roboto, sans-serif' }}>
                   OnDex Merchant
                 </div>
-                {userRole !== 'admin' && (userPlan === 'free' || userPlan === 'basic') && (
-                  <div style={{ fontSize: "11px", fontWeight: 500, opacity: 0.6 }}>
-                    {userPlan === 'free' ? 'Free' : 'Basic'}
-                  </div>
-                )}
               </div>
             </div>
           )}

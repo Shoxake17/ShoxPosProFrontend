@@ -8,7 +8,6 @@ import {
 import { useResponsive } from "../../hooks/useResponsive";
 import Notification from "../NotificationBar";
 import { useTranslation } from 'react-i18next';
-import { useHandTrackingContext } from "../../context/HandTrackingContext";
 import MobileBottomBar from "./MobileBottomBar"; // ✅ Import qilindi
 import OrderAlerts from "../OrderAlerts";
 
@@ -138,8 +137,6 @@ export default function MainLayout({
   const { isMobile, sidebarOpen, setSidebarOpen } = useResponsive();
   const { isOnline, batteryLevel, isCharging } = useDeviceStatus();
   const { t } = useTranslation('common');
-
-  useHandTrackingContext();
 
   const isDark = theme === "dark";
 

@@ -13,8 +13,6 @@ import uzSotilgan from './locales/uz/sotilgan.json';
 import uzHisobot from './locales/uz/hisobotlar.json';
 import uzKirim from './locales/uz/kirimBazasi.json'; 
 import uzQarzlar from './locales/uz/qarzlar.json';
-import uzAi from './locales/uz/ai.json';
-import uzChat from './locales/uz/chat.json';
 import uzSettings from './locales/uz/settings.json';
 
 // ─── Rus tili ───
@@ -28,8 +26,6 @@ import ruSotilgan from './locales/ru/sotilgan.json';
 import ruHisobot from './locales/ru/hisobotlar.json';
 import ruKirim from './locales/ru/kirimBazasi.json';
 import ruQarzlar from './locales/ru/qarzlar.json';
-import ruAi from './locales/ru/ai.json';
-import ruChat from './locales/ru/chat.json';
 import ruSettings from './locales/ru/settings.json';
 
 // ─── Ingliz tili ───
@@ -43,8 +39,6 @@ import enSotilgan from './locales/eng/sotilgan.json';
 import enHisobot from './locales/eng/hisobotlar.json';
 import enKirim from './locales/eng/kirimBazasi.json';
 import enQarzlar from './locales/eng/qarzlar.json';
-import enAi from './locales/eng/ai.json';
-import enChat from './locales/eng/chat.json';
 import enSettings from './locales/eng/settings.json';
 
 // Default tilni localStorage da 'uz' ga o'rnatish
@@ -69,8 +63,6 @@ i18n
         hisobotlar: uzHisobot,
         kirim: uzKirim,
         qarzlar: uzQarzlar,
-        ai: uzAi,
-        chat: uzChat,
         settings: uzSettings,
       },
       ru: {
@@ -84,8 +76,6 @@ i18n
         hisobotlar: ruHisobot,
         kirim: ruKirim,
         qarzlar: ruQarzlar,
-        ai: ruAi,
-        chat: ruChat,
         settings: ruSettings,
       },
       en: { 
@@ -99,8 +89,6 @@ i18n
         hisobotlar: enHisobot,
         kirim: enKirim,
         qarzlar: enQarzlar,
-        ai: enAi,
-        chat: enChat,
         settings: enSettings,
       }
     },
@@ -109,7 +97,7 @@ i18n
     fallbackLng: 'uz',
     
     // ✅ NAMESPACE LARNI TO'G'IRLASH
-    ns: ['sidebar', 'common', 'menu', 'products', 'database', 'scanner', 'sotilgan', 'hisobotlar', 'kirim', 'qarzlar', 'ai', 'chat', 'settings'], 
+    ns: ['sidebar', 'common', 'menu', 'products', 'database', 'scanner', 'sotilgan', 'hisobotlar', 'kirim', 'qarzlar', 'settings'], 
     defaultNS: 'common',
     
     debug: true, // Xatolar console da chiqishi uchun

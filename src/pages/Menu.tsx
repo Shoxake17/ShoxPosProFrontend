@@ -1,22 +1,16 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
-// ✅ Professional i18next importi
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from "../hooks/useResponsive";
-import { useNavigate } from 'react-router-dom';
 
 import DataBase from "../components/menu/DataBase";
 import UserProductsCount from "../components/menu/LoginDataBase";
-import Chat from "../components/menu/Chat";
-import AdminProfile from "../admin/adminComponents/adminSettings/AdminProfile";
-import Tolov from "../components/menu/Tolov";
-import { getSessionLogin } from "../utils/clientSession";
 import Hisobot from "../components/menu/Hisobot";
 import Sotuvlar from "../components/menu/Sotuvlar";
-import Qr from "../components/menu/Qr";
 
+// Chat, "To'lov" va "QR" kartalari OLIB TASHLANDI: chat — OnDex support servisida,
+// qolgan ikkisi hech narsa qilmaydigan "Tez orada" tugmalari edi (soxta tugma taqiqlangan).
 export default function Menu() {
-  // ✅ 'menu' namespace'dan foydalanamiz
   const { t } = useTranslation('menu');
   const { isMobile } = useResponsive();
 
@@ -24,9 +18,7 @@ export default function Menu() {
   const [theme] = useState<"dark" | "light">(
     (localStorage.getItem("theme") as "dark" | "light") || "dark"
   );
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const currentUserLogin = getSessionLogin();
-  const navigate = useNavigate();
+
   return (
     <MainLayout theme={theme} userImage={userImage} title={t("dashboard")}>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 20, marginBottom: 30 }}>
@@ -36,21 +28,8 @@ export default function Menu() {
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
         <div data-clickable><Sotuvlar theme={theme} /></div>
-        <div data-clickable><Qr theme={theme} /></div>
-        <div data-clickable><Tolov theme={theme} /></div>
         <div data-clickable><Hisobot theme={theme} /></div>
-        <div data-clickable><Chat theme={theme} /></div>
       </div>
-
-      {isProfileModalOpen && (
-        <AdminProfile
-          theme={theme}
-          tc={(d, l) => theme === 'dark' ? d : l}
-          currentUserLogin={currentUserLogin || ''}
-          onClose={() => setIsProfileModalOpen(false)}
-        />
-      )}
-
     </MainLayout>
   );
 }

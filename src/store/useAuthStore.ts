@@ -1,12 +1,8 @@
 import { create } from 'zustand';
 
-interface Subscription {
-  plan: 'free' | 'basic' | 'pro';
-  trialEndDate?: string;
-  isTrial: boolean;
-  startDate?: string;
-}
-
+// Obuna rejalari (free/basic/pro) OLIB TASHLANDI: OnDex Merchant'da sahifaga
+// kirish faqat do'kon kategoriyasi bo'yicha (utils/storeAccess.ts), backend ham
+// shu ro'yxatni majburlaydi. Narx/obuna — OnDex markaziy billing servisida.
 interface User {
   id: string;
   login: string;
@@ -16,7 +12,6 @@ interface User {
   shopType?: string;
   storeCategory?: string;
   shopCategories?: string[];
-  subscription?: Subscription;
 }
 
 interface AuthState {
@@ -32,24 +27,3 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   clearAuth: () => set({ user: null, isAuthenticated: false }),
 }));
-
-export const PLAN_PERMISSIONS = {
-  free: {
-    pages: ['menu', 'add-product', 'products', 'scanner', 'sales', 'kirim-bazasi', 'settings'],
-    settingsFeatures: ['languages', 'theme', 'logout']
-  },
-  basic: {
-    pages: ['menu', 'add-product', 'products', 'scanner', 'sales', 'debts', 'kirim-bazasi', 'settings', 'chat'],
-    settingsFeatures: ['all']
-  },
-  pro: {
-    pages: ['all'],
-    settingsFeatures: ['all', 'currency']
-  }
-};
-
-export const hasPageAccess = (plan: 'free' | 'basic' | 'pro', pageId: string) => {
-  const permissions = PLAN_PERMISSIONS[plan] || PLAN_PERMISSIONS.free;
-  if (permissions.pages.includes('all')) return true;
-  return permissions.pages.includes(pageId);
-};

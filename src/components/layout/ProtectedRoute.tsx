@@ -1,9 +1,9 @@
 import React, { ReactNode, useEffect, useState, useCallback } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { ShieldCheck, ShieldAlert, Lock } from "lucide-react";
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 import { api } from "../../utils/api";
-import { useAuthStore, PLAN_PERMISSIONS } from "../../store/useAuthStore";
-import { isOrderPage, isPageAllowed, landingPath } from "../../utils/storeAccess";
+import { useAuthStore } from "../../store/useAuthStore";
+import { isPageAllowed, landingPath } from "../../utils/storeAccess";
 // react-i18next kutubxonasiga o'tamiz
 import { useTranslation } from 'react-i18next';
 
@@ -19,39 +19,14 @@ interface AuthState {
   isVerifying: boolean;
   isAuthenticated: boolean;
   userRole: string | null;
-  userPlan: 'free' | 'basic' | 'pro' | null;
   storeCategory: string;
   authError: boolean;
   redirecting: boolean;
-  subscriptionError: boolean;
 }
 
 const VERIFY_SUCCESS_DELAY = 800;
 const ERROR_SHOW_DELAY = 2500;
 const ERROR_REDIRECT_DELAY = 1500;
-
-// Sahifa ID larini rejalarga moslash
-const PAGE_ID_MAP: Record<string, string> = {
-  'menu': 'menu',
-  'add-product': 'add-product',
-  'products': 'products',
-  'scanner': 'scanner',
-  'sales': 'sales',
-  'reports': 'reports',
-  'kirim-bazasi': 'kirim-bazasi',
-  'debts': 'debts',
-  'ai': 'ai',
-  'chat': 'chat',
-  'settings': 'settings'
-};
-
-const hasPageAccess = (plan: 'free' | 'basic' | 'pro', pageId: string) => {
-  const permissions = PLAN_PERMISSIONS[plan] || PLAN_PERMISSIONS.free;
-  if (permissions.pages.includes('all')) return true;
-  
-  const mappedPageId = PAGE_ID_MAP[pageId] || pageId;
-  return permissions.pages.includes(mappedPageId);
-};
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -68,16 +43,14 @@ export const invalidateAuthCache = () => {
 // ─────────────────────────────────────────────
 // AUTH HOOK
 // ─────────────────────────────────────────────
-const useAuth = (pathname: string) => {
+const useAuth = () => {
   const [state, setState] = useState<AuthState>({
     isVerifying: true,
     isAuthenticated: false,
     userRole: null,
-    userPlan: null,
     storeCategory: '',
     authError: false,
     redirecting: false,
-    subscriptionError: false,
   });
 
   const { setUser } = useAuthStore();
@@ -92,10 +65,9 @@ const useAuth = (pathname: string) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
-      const isAdminRoute = pathname.startsWith("/admin-");
       const cached = sessionStorage.getItem("authCache");
-      
-      if (cached && !isAdminRoute) {
+
+      if (cached) {
         try {
           const { user, timestamp } = JSON.parse(cached);
           const age = Date.now() - timestamp;
@@ -104,7 +76,6 @@ const useAuth = (pathname: string) => {
             updateState({
               isAuthenticated: true,
               userRole: user.role.toLowerCase(),
-              userPlan: user.subscription?.plan || 'free',
               storeCategory: user.storeCategory || '',
               authError: false,
               isVerifying: false
@@ -114,10 +85,6 @@ const useAuth = (pathname: string) => {
         } catch (e) {
           sessionStorage.removeItem("authCache");
         }
-      }
-
-      if (isAdminRoute) {
-        sessionStorage.removeItem("authCache");
       }
 
       try {
@@ -135,7 +102,6 @@ const useAuth = (pathname: string) => {
             shopType?: string;
             storeCategory?: string;
             shopCategories?: string[];
-            subscription?: { plan: 'free' | 'basic' | 'pro'; isTrial: boolean; trialEndDate?: string; startDate?: string };
           };
         };
         if (!data?.success || !data?.user) throw new Error("Invalid Session");
@@ -150,11 +116,9 @@ const useAuth = (pathname: string) => {
           shopType: data.user.shopType,
           storeCategory: data.user.storeCategory || '',
           shopCategories: data.user.shopCategories,
-          subscription: data.user.subscription || { plan: 'free', isTrial: false }
         };
 
         const role = completeUser.role.toLowerCase() || null;
-        const plan = completeUser.subscription?.plan || 'free';
 
         if (isMounted) {
           setUser(completeUser);
@@ -167,7 +131,6 @@ const useAuth = (pathname: string) => {
           updateState({
             isAuthenticated: true,
             userRole: role,
-            userPlan: plan,
             storeCategory: completeUser.storeCategory,
             authError: false,
           });
@@ -291,30 +254,10 @@ const LoadingScreen: React.FC<{ authError: boolean; redirecting: boolean; }> = (
   );
 };
 
-const SubscriptionBlockedScreen: React.FC = () => {
-  const { t } = useTranslation('common');
-  
-  return (
-    <div style={{
-      height: "100vh", width: "100vw", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", backgroundColor: "#020617",
-      color: "white", position: "fixed", top: 0, left: 0, zIndex: 9999,
-    }}>
-      <Lock size={64} color="#f59e0b" style={{ marginBottom: '1.5rem' }} />
-      <h2 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem", color: "#fbbf24" }}>
-        Obuna Rejasini Yangilang
-      </h2>
-      <p style={{ fontSize: "1rem", color: "#94a3b8", textAlign: "center", maxWidth: "400px" }}>
-        Bu saxifaga kirish uchun obuna rejangizni yangilashingiz kerak.
-      </p>
-    </div>
-  );
-};
-
 // ✅ MAIN COMPONENT
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const location = useLocation();
-  const { isVerifying, isAuthenticated, userRole, userPlan, storeCategory, authError, redirecting } = useAuth(location.pathname);
+  const { isVerifying, isAuthenticated, userRole, storeCategory, authError, redirecting } = useAuth();
 
   if (isVerifying) {
     return <LoadingScreen authError={authError} redirecting={redirecting} />;
@@ -328,22 +271,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <Navigate to={landingPath(userRole, storeCategory)} replace />;
   }
 
-  if (location.pathname.startsWith("/admin-") && userRole !== "admin") {
-    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
-  }
-
   // Do'kon kategoriyasi (qurt va h.k.): ruxsat etilmagan sahifaga kirib bo'lmaydi
   // (URL'ni qo'lda yozsa ham). Backend ham shu ro'yxatni API darajasida majburlaydi.
   const accessPageId = location.pathname.split('/')[1] || "menu";
-  if (userRole !== 'admin' && !isPageAllowed(storeCategory, accessPageId)) {
+  if (!isPageAllowed(storeCategory, accessPageId)) {
     return <Navigate to={landingPath(userRole, storeCategory)} replace />;
-  }
-
-  // Obuna rejasi tekshiruvi - ADMIN UCHUN CHEKLOV YO'Q!
-  const pageId = location.pathname.split('/')[1] || "menu";
-  // Buyurtmalar/Logistika: kirish yuqorida kategoriya bo'yicha tekshirildi — reja bo'yicha to'silmaydi.
-  if (userRole !== 'admin' && userPlan && !isOrderPage(pageId) && !hasPageAccess(userPlan, pageId)) {
-    return <SubscriptionBlockedScreen />;
   }
 
   return <>{children}</>;
