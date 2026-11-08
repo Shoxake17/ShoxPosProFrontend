@@ -44,12 +44,12 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@types/file-saver": "^2.0.7",
     "@zxing/library": "^0.21.3",
-    "axios": "^1.16.0",
+    "axios": "^1.21.0",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "dompurify": "^3.4.0",
+    "dompurify": "^3.4.17",
     "embla-carousel-react": "^8.6.0",
     "file-saver": "^2.0.5",
     "i18next": "^25.10.10",
@@ -103,6 +103,8 @@
   "overrides": {
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "socket.io-parser": "^4.2.7",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "follow-redirects": "^1.16.2",
+    "dompurify": "^3.4.17"
   }
 }
