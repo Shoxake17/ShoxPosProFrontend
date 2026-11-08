@@ -45,13 +45,31 @@ export default function Login() {
 
   const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
   const returnTo = safeReturn(from ? `${from.pathname || "/"}${from.search || ""}` : "/");
+  const target = `/api/auth/oidc/login?return=${encodeURIComponent(returnTo)}`;
 
   const login = () => {
     if (going) return;
     setGoing(true);
     // To'liq sahifa yo'naltirishi (fetch emas): OnDex sahifasi o'z domenida ochiladi.
-    window.location.assign(`/api/auth/oidc/login?return=${encodeURIComponent(returnTo)}`);
+    window.location.assign(target);
   };
+
+  // Oraliq sahifa YO'Q (egasi qarori, 2026-11-08): xato bo'lmasa darhol OnDex ID
+  // (passport.ondex.uz) ga. `replace` — orqaga tugmasi bu sahifaga qaytarmaydi.
+  // Xato bilan qaytilgan bo'lsa (`?error=`) avtomatik yo'naltirilMAYDI — aks holda
+  // cheksiz aylana bo'lardi; xabar va "Qaytadan urinish" ko'rsatiladi.
+  useEffect(() => {
+    if (!error) window.location.replace(target);
+  }, [error, target]);
+
+  if (!error) {
+    return (
+      <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#14161b", color: "#a3a9b3", fontFamily: "system-ui, sans-serif" }}>
+        OnDex ID'ga o'tilmoqda…
+      </div>
+    );
+  }
 
   const isDark = theme === "dark";
   const layoutStyles = getLayoutStyles(theme);
@@ -115,7 +133,7 @@ export default function Login() {
           )}
 
           <button type="button" className="submit-btn" onClick={login} disabled={going} autoFocus>
-            {going ? "OnDex'ga o'tilmoqda..." : "OnDex orqali kirish"}
+            {going ? "OnDex'ga o'tilmoqda..." : "Qaytadan urinish"}
             {!going && <ArrowRight size={18} />}
           </button>
 
