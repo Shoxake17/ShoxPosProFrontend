@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { LogOut, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { clearAuthClientState } from '../../utils/clientSession';
+import { api } from '../../utils/api';
 
 interface LogoutProps {
   theme: 'dark' | 'light';
@@ -16,30 +16,25 @@ const Logout: React.FC<LogoutProps> = ({
   theme, hoveredSetting, setHoveredSetting, idx, showMessage
 }) => {
   const { t } = useTranslation(['settings', 'common']);
-  const navigate = useNavigate();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const handleLogoutConfirm = () => {
-    // ✅ TUZATISH: localStorage.clear() O'CHIRILDI
-    // clear() barcha narsani o'chiradi — deviceId, theme, language ham ketadi
-    // Natija: login sahifasida deviceId yo'q → biometric-status false qaytaradi
-    // → biometrik "O'chirilgan" ko'rinadi (holbuki DB da yoqilgan)
-
-    clearAuthClientState({ clearAiChats: true });
-
-    // ── SAQLANIB QOLADI (o'chirilmaydi) ──────────────────────────────────────
-    // localStorage: deviceId  — biometrik login uchun zarur
-    // localStorage: theme     — foydalanuvchi sozlamasi
-    // localStorage: language  — foydalanuvchi sozlamasi
-
-    if (showMessage) {
-      showMessage(t('logoutSuccess'), 'success');
+  // Chiqish SERVERDA (A4c.5): BFF sessiya + OnDex markaziy sessiyasi yopiladi,
+  // keyin brauzer OnDex end_session'ga o'tadi (SSO cookie ham o'chadi).
+  // Ilgari faqat brauzer holati tozalanardi — sessiya serverda tirik qolardi.
+  const handleLogoutConfirm = async () => {
+    let redirect = '/login';
+    try {
+      const res = await api('/api/auth/oidc/logout', { method: 'POST', body: '{}' });
+      const data = await res.json().catch(() => ({}));
+      if (typeof data?.redirect === 'string' && data.redirect) redirect = data.redirect;
+    } catch {
+      // tarmoq xatosi: mahalliy holat baribir tozalanadi; server sessiyasi
+      // OnDex refresh'ida (≤10 daqiqa) yoki keyingi chiqishda yopiladi.
     }
-
+    clearAuthClientState({ clearAiChats: true });
+    if (showMessage) showMessage(t('logoutSuccess'), 'success');
     setIsConfirmOpen(false);
-    setTimeout(() => {
-      navigate('/login', { replace: true });
-    }, 500);
+    window.location.assign(redirect);
   };
 
   const renderConfirmModal = () => (

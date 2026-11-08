@@ -2,9 +2,6 @@ import { clearAuthClientState } from "./clientSession";
 import { getMemoryCsrfToken, setMemoryCsrfToken } from "../api/axiosInstance";
 import { CATEGORY_FORBIDDEN, recoverFromCategoryForbidden } from "./categoryGuard";
 
-let isRefreshing = false;
-let refreshPromise: Promise<Response> | null = null;
-
 // 🚀 Senior Level Professional Request Deduplication & Caching
 interface PendingRequest {
   promise: Promise<Response>;
@@ -125,35 +122,12 @@ export const api = async (
     }
   }
 
-  if (response.status === 401 && !_isRetry) {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      refreshPromise = fetch("/api/refresh", {
-        method: "POST",
-        credentials: "include",
-      }).finally(() => {
-        isRefreshing = false;
-        refreshPromise = null;
-      });
-    }
-
-    try {
-      const refreshRes = await refreshPromise!;
-
-      if (refreshRes && refreshRes.ok) {
-        return api(url, options, true);
-      } else {
-        clearAuthClientState();
-        clearApiCache();
-        window.location.href = "/login";
-        throw new Error("Sessiya tugadi");
-      }
-    } catch {
-      clearAuthClientState();
-      clearApiCache();
-      window.location.href = "/login";
-      throw new Error("Sessiya tugadi");
-    }
+  // 401: OnDex sessiyasi tugagan. Tokenni server (BFF) o'zi yangilaydi —
+  // bu yerda yangilash YO'Q (A4c.5); demak qayta kirish kerak.
+  if (response.status === 401 && !url.includes("/api/auth/oidc/")) {
+    clearAuthClientState();
+    clearApiCache();
+    if (window.location.pathname !== "/login") window.location.replace("/login");
   }
 
     // 🚀 3. FAJRINF: Cache successful GET responses

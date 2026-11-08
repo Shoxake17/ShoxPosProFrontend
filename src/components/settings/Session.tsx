@@ -7,11 +7,6 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getSocket } from '../../utils/socket';
 import { clearAuthClientState } from '../../utils/clientSession';
-import { getDeviceId } from '../../utils/deviceUtils';
-
-// ✅ deviceId ni asinxron olish (deviceUtils dan)
-const getCurrentDeviceId = async (): Promise<string> =>
-  (await getDeviceId()) || '';
 
 const getDeviceIcon = (type: string, os: string) => {
   if (type === 'desktop') return <Laptop size={28} />;
@@ -65,12 +60,13 @@ function DevicesModal({
       const res = await axiosInstance.get('/user-devices');
       if (!isMounted.current) return;
 
+      // Qurilmalar = OnDex markaziy sessiyalari (A4c.5); joriysini server belgilaydi
+      // (`current`) — brauzerdagi deviceId bilan solishtirilMAYDI.
       const activeDevices  = (res.data.devices || []).filter((d: any) => d.isActive === true);
-      const cId = await getCurrentDeviceId();
-      setCurrentDeviceId(cId);
-      const isStillActive  = activeDevices.some((d: any) => d.deviceId === cId);
+      const cur = (activeDevices as Array<{ deviceId: string; current?: boolean }>).find((d) => d.current === true);
+      setCurrentDeviceId(cur ? cur.deviceId : '');
 
-      if (cId && !isStillActive && activeDevices.length > 0) {
+      if (!cur && activeDevices.length > 0) {
         if (pollRef.current) clearInterval(pollRef.current);
         forceLogout(t('sessionKickedError'), theme);
         return;

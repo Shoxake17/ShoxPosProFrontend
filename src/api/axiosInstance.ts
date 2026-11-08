@@ -18,7 +18,7 @@ export const getMemoryCsrfToken = (): string => _csrfToken;
 // 📦 AXIOS INSTANCE CONFIGURATION
 const axiosInstance = axios.create({
   baseURL: '/api',
-  withCredentials: true, // HttpOnly cookie-lar (accessToken/refreshToken) uchun shart
+  withCredentials: true, // HttpOnly sessiya cookie'si (OnDex BFF) uchun shart
   headers: {
     'Content-Type': 'application/json',
   },
@@ -58,23 +58,9 @@ axiosInstance.interceptors.request.use(
   (error: AxiosError) => Promise.reject(error)
 );
 
-// 🔄 RESPONSE INTERCEPTOR (Token Refresh & Error Handling)
-let isRefreshing = false;
-interface QueueItem {
-  resolve: (value?: unknown) => void;
-  reject: (reason?: unknown) => void;
-}
-let failedQueue: QueueItem[] = [];
-const MAX_QUEUE_SIZE = 10;
-
-const processQueue = (error: AxiosError | null): void => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve();
-  });
-  failedQueue = [];
-};
-
+// 🔄 RESPONSE INTERCEPTOR
+// 401 — OnDex sessiyasi tugagan (chiqish, boshqa qurilmadan yopildi, muddat).
+// Token yangilash YO'Q: uni server (BFF) o'zi qiladi (A4c.5). Qayta kirish kerak.
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -86,52 +72,9 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // ── 401: Unauthorized (Token muddati tugagan) ─────────────────────────
-    if (error.response.status === 401 && !originalRequest._retry) {
-      
-      // MUHIM: Agar /refresh so'rovining o'zi 401 bersa yoki allaqachon login sahifasida bo'lsak
-      if (originalRequest.url === '/refresh' || originalRequest.url === '/api/refresh') {
-        processQueue(error);
-        clearSessionAndRedirect();
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(() => axiosInstance(originalRequest))
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        // ✅ YECHIM: axiosInstance emas, toza axios ishlating!
-        // Bu interceptor cheksiz aylanishini (loop) to'xtatadi
-        await axios.post('/api/refresh', {}, { withCredentials: true });
-
-        // 2. Yangi CSRF token olish
-        try {
-          const csrfRes = await axios.get('/api/csrf-token', { withCredentials: true });
-          if (csrfRes.data?.csrfToken) {
-            setMemoryCsrfToken(csrfRes.data.csrfToken);
-          }
-        } catch (e) {
-          console.warn('CSRF refresh failed after token rotation');
-        }
-
-        processQueue(null);
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        // Agar Refresh so'rovi Catch'ga tushsa, demak hammasi tugadi (Sessiya o'lgan)
-        processQueue(refreshError as AxiosError);
-        clearSessionAndRedirect();
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+    if (error.response.status === 401) {
+      clearSessionAndRedirect();
+      return Promise.reject(error);
     }
 
     // ── 403: Forbidden (CSRF Xatosi) qismi turaveradi... ────────────────────────
