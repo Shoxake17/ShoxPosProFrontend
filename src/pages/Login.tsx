@@ -50,6 +50,7 @@ export default function Login() {
   const login = () => {
     if (going) return;
     setGoing(true);
+    try { sessionStorage.removeItem("oidcAutoRedirect"); } catch { /* bloklangan saqlash */ }
     // To'liq sahifa yo'naltirishi (fetch emas): OnDex sahifasi o'z domenida ochiladi.
     window.location.assign(target);
   };
@@ -58,11 +59,30 @@ export default function Login() {
   // (passport.ondex.uz) ga. `replace` — orqaga tugmasi bu sahifaga qaytarmaydi.
   // Xato bilan qaytilgan bo'lsa (`?error=`) avtomatik yo'naltirilMAYDI — aks holda
   // cheksiz aylana bo'lardi; xabar va "Qaytadan urinish" ko'rsatiladi.
-  useEffect(() => {
-    if (!error) window.location.replace(target);
-  }, [error, target]);
+  // Aylana himoyasi: 2 daqiqa ichida 3-marta avtomatik yo'naltirish bo'lsa —
+  // TO'XTAYMIZ va xabar ko'rsatamiz (biror sabab bilan sessiya o'rnatilmasa ham
+  // brauzer cheksiz OnDex <-> panel orasida aylanib qolmasin).
+  const [looping] = useState(() => {
+    try {
+      const now = Date.now();
+      const hits = (JSON.parse(sessionStorage.getItem("oidcAutoRedirect") || "[]") as number[])
+        .filter((t) => now - t < 120_000);
+      if (!error) hits.push(now);
+      sessionStorage.setItem("oidcAutoRedirect", JSON.stringify(hits));
+      return hits.length > 2;
+    } catch {
+      return false;
+    }
+  });
+  const shownError = error || (looping
+    ? "Kirish yakunlanmadi: panel sessiyani qabul qilmadi. Brauzer cookie'larni bloklamaganini tekshiring va qaytadan urinib ko'ring."
+    : "");
 
-  if (!error) {
+  useEffect(() => {
+    if (!shownError) window.location.replace(target);
+  }, [shownError, target]);
+
+  if (!shownError) {
     return (
       <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
         background: "#14161b", color: "#a3a9b3", fontFamily: "system-ui, sans-serif" }}>
@@ -121,14 +141,14 @@ export default function Login() {
             </p>
           </div>
 
-          {error && (
+          {shownError && (
             <div role="alert" style={{
               padding: "12px 14px", borderRadius: "12px",
               background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
               color: "#ef4444", fontSize: "14px", display: "flex", gap: "8px", alignItems: "flex-start",
             }}>
               <XCircle size={16} style={{ flexShrink: 0, marginTop: "1px" }} />
-              <span style={{ wordBreak: "break-word" }}>{error}</span>
+              <span style={{ wordBreak: "break-word" }}>{shownError}</span>
             </div>
           )}
 

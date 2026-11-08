@@ -136,7 +136,11 @@ function App() {
           <GlobalSocketListener />
 
           <Routes>
-              <Route path="/"       element={<Navigate to="/login" replace />} />
+              {/* "/" — sessiya BOR bo'lsa panel bosh sahifasi (ruxsatsiz bo'limni ProtectedRoute
+                  do'kon turiga mos landingPath'ga buradi), YO'Q bo'lsa ProtectedRoute o'zi /login ga.
+                  Ilgari "/" doim /login ga o'tardi — OnDex'dan qaytgan foydalanuvchi cheksiz
+                  aylanaga tushardi (2026-11-09). */}
+              <Route path="/"       element={<ProtectedRoute><Navigate to="/menu" replace /></ProtectedRoute>} />
               <Route path="/login"  element={<Login />} />
 
               {/* 🛒 Do'kon moduli (OnDex Merchant web) */}
