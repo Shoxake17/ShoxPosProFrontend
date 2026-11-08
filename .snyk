@@ -4,7 +4,10 @@ version: v1.25.1
 ignore:
   SNYK-JS-XLSX-6252523:
     - '*':
-        reason: 'No upstream fix available, using official CDN build'
-        expires: 2026-10-16T19:46:02.187Z
+        reason: >-
+          CVE-2024-22363 (ReDoS) SheetJS 0.20.2 da tuzatilgan; loyiha xlsx 0.20.3 ni
+          rasmiy SheetJS CDN'dan oladi (npm reestrida yo'q - Snyk versiyani noto'g'ri
+          baholaydi). Muddat tugaganda qayta tekshiriladi (2026-11-08 uzaytirildi).
+        expires: 2027-02-08T00:00:00.000Z
         created: 2026-09-16T19:46:02.191Z
 patch: {}
