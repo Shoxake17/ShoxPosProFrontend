@@ -188,7 +188,9 @@ export const getDeviceId = async (): Promise<string | null> => {
   if (cachedDeviceId) return cachedDeviceId;
   try {
     // FingerprintJS v3+ load() funksiyasini ishlatadi
-    const fpPromise = FingerprintJS.load();
+    // monitoring: false — kutubxona uchinchi tomonga (openfpcdn.io) telemetriya
+    // yubormasin (CSP baribir bloklaydi; maxfiylik).
+    const fpPromise = FingerprintJS.load({ monitoring: false });
     const fp = await fpPromise;
     const result = await fp.get();
     cachedDeviceId = result.visitorId;

@@ -93,12 +93,6 @@ export default defineConfig(({ mode }) => {
           target: 'ws://localhost:3300',
           ws: true,
         },
-        '/ip-api': {
-          target: 'https://freeipapi.com/api',
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/ip-api/, ''),
-        },
       },
       headers: {
         'X-Content-Type-Options': 'nosniff',
@@ -110,11 +104,13 @@ export default defineConfig(({ mode }) => {
           "base-uri 'self'",
           "frame-ancestors 'none'",
           "object-src 'none'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+          // Faqat DEV: Vite HMR / React Refresh inline skript va eval talab qiladi.
+          // Prod CSP â€” nginx.conf (script-src 'self').
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://generativelanguage.googleapis.com  https://cbu.uz",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cbu.uz",
         ].join('; '),
       },
     },
@@ -133,11 +129,12 @@ export default defineConfig(({ mode }) => {
           "base-uri 'self'",
           "frame-ancestors 'none'",
           "object-src 'none'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+          // Preview = build natijasi: prod (nginx.conf) bilan bir xil script-src.
+          "script-src 'self'",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cdn.jsdelivr.net https://freeipapi.com https://ipapi.co https://flagcdn.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://cbu.uz",
+          "connect-src 'self' ws: wss: http://localhost:3000 http://127.0.0.1:3000 https://cbu.uz",
         ].join('; '),
       },
       proxy: {
@@ -154,12 +151,6 @@ export default defineConfig(({ mode }) => {
           secure: false,
           ws: true,
           headers: { 'Origin': 'http://localhost:3000' },
-        },
-        '/ip-api': {
-          target: 'https://freeipapi.com/api',
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/ip-api/, ''),
         },
       },
     },
