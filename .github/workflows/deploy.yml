@@ -109,7 +109,8 @@ jobs:
           fetch-depth: 0 
 
       - name: SonarCloud Analysiss
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        # v6+ (GHSA-5xq9-5g24-4g6f, GHSA-f79p-9c5r-xg88 - v5.x da HIGH; backend bilan bir xil)
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
