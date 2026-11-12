@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 
-// Obuna rejalari (free/basic/pro) OLIB TASHLANDI: OnDex Merchant'da sahifaga
-// kirish faqat do'kon kategoriyasi bo'yicha (utils/storeAccess.ts), backend ham
-// shu ro'yxatni majburlaydi. Narx/obuna — OnDex markaziy billing servisida.
+// Obuna rejalari va rollar OLIB TASHLANDI (2026-11-12): sahifaga kirish faqat
+// do'kon kategoriyasi bo'yicha (utils/storeAccess.ts), ma'lumot esa faqat o'z
+// login'i bo'yicha (backend majburlaydi).
 interface User {
   id: string;
   login: string;
-  role: string;
   name?: string;
   shopName?: string;
   shopType?: string;

@@ -144,31 +144,31 @@ function App() {
               <Route path="/login"  element={<Login />} />
 
               {/* 🛒 Do'kon moduli (OnDex Merchant web) */}
-              <Route path="/menu"           element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Menu /></ProtectedRoute></Suspense>} />
-              <Route path="/settings"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Settings /></ProtectedRoute></Suspense>} />
-              <Route path="/add-product"    element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxQoshish /></ProtectedRoute></Suspense>} />
-              <Route path="/products"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><MaxsulotBazasi /></ProtectedRoute></Suspense>} />
-              <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scan /></ProtectedRoute></Suspense>} />
-              <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Scanner /></ProtectedRoute></Suspense>} />
-              <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Sotilgan /></ProtectedRoute></Suspense>} />
-              <Route path="/orders"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Orders /></ProtectedRoute></Suspense>} />
-              <Route path="/logistics"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Logistics /></ProtectedRoute></Suspense>} />
+              <Route path="/menu"           element={<Suspense fallback={null}><ProtectedRoute><Menu /></ProtectedRoute></Suspense>} />
+              <Route path="/settings"       element={<Suspense fallback={null}><ProtectedRoute><Settings /></ProtectedRoute></Suspense>} />
+              <Route path="/add-product"    element={<Suspense fallback={null}><ProtectedRoute><MaxQoshish /></ProtectedRoute></Suspense>} />
+              <Route path="/products"       element={<Suspense fallback={null}><ProtectedRoute><MaxsulotBazasi /></ProtectedRoute></Suspense>} />
+              <Route path="/reports"        element={<Suspense fallback={null}><ProtectedRoute><Scan /></ProtectedRoute></Suspense>} />
+              <Route path="/scanner"        element={<Suspense fallback={null}><ProtectedRoute><Scanner /></ProtectedRoute></Suspense>} />
+              <Route path="/sales"          element={<Suspense fallback={null}><ProtectedRoute><Sotilgan /></ProtectedRoute></Suspense>} />
+              <Route path="/orders"  element={<Suspense fallback={null}><ProtectedRoute><Orders /></ProtectedRoute></Suspense>} />
+              <Route path="/logistics"  element={<Suspense fallback={null}><ProtectedRoute><Logistics /></ProtectedRoute></Suspense>} />
               {/* Eski manzillar (saqlangan bildirishnoma/PWA): yangi manzilga */}
               <Route path="/qurt-orders" element={<Navigate to="/orders" replace />} />
               <Route path="/qurt-logistics" element={<Navigate to="/logistics" replace />} />
-          <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><Qarzlar /></ProtectedRoute></Suspense>} />
-              <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><KirimBazasi /></ProtectedRoute></Suspense>} />
+          <Route path="/debts"          element={<Suspense fallback={null}><ProtectedRoute><Qarzlar /></ProtectedRoute></Suspense>} />
+              <Route path="/kirim-bazasi"   element={<Suspense fallback={null}><ProtectedRoute><KirimBazasi /></ProtectedRoute></Suspense>} />
 
               {/* 💊 Pharmacy Routes */}
-              <Route path="/pharm-menu"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmMenu /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-add"        element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmAdd /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-base"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmBase /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-scanner"   element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmScanner /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-sale"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmSale /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-info"       element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmInformation /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-kirim-base"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmKirimBase /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-hisobotlar"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmHisobotlar /></ProtectedRoute></Suspense>} />
-              <Route path="/pharm-qarzlar"  element={<Suspense fallback={null}><ProtectedRoute allowedRoles={['cashier']}><PharmQarzlar /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-menu"        element={<Suspense fallback={null}><ProtectedRoute><PharmMenu /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-add"        element={<Suspense fallback={null}><ProtectedRoute><PharmAdd /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-base"       element={<Suspense fallback={null}><ProtectedRoute><PharmBase /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-scanner"   element={<Suspense fallback={null}><ProtectedRoute><PharmScanner /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-sale"       element={<Suspense fallback={null}><ProtectedRoute><PharmSale /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-info"       element={<Suspense fallback={null}><ProtectedRoute><PharmInformation /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-kirim-base"  element={<Suspense fallback={null}><ProtectedRoute><PharmKirimBase /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-hisobotlar"  element={<Suspense fallback={null}><ProtectedRoute><PharmHisobotlar /></ProtectedRoute></Suspense>} />
+              <Route path="/pharm-qarzlar"  element={<Suspense fallback={null}><ProtectedRoute><PharmQarzlar /></ProtectedRoute></Suspense>} />
 
               {/* AI, chat, obuna, admin — OnDex markaziy servislarida (ADR-000/002) */}
               <Route path="*" element={<NotFound />} />

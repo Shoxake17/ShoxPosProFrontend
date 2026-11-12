@@ -40,8 +40,7 @@ export function isPageAllowed(category: string | undefined | null, pageId: strin
 }
 
 /** Kirgandan keyin (yoki taqiqlangan sahifadan) yo'naltiriladigan sahifa. */
-// role chaqiruvchilar bilan moslik uchun qoldi: admin bu panelga kira olmaydi (backend 403).
-export function landingPath(_role: string | undefined | null, category?: string | null): string {
+export function landingPath(category?: string | null): string {
   const pages = category ? PAGES_BY_CATEGORY[category] : undefined;
   return pages ? `/${pages[0] === "add-product" ? "products" : pages[0]}` : "/menu";
 }

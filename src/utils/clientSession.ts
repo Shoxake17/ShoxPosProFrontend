@@ -81,7 +81,7 @@ export async function hydrateSessionUserFromCookie(): Promise<void> {
       return;
     }
     
-    const d = (await r.json()) as { user?: { id?: string; login?: string; role?: string } };
+    const d = (await r.json()) as { user?: { id?: string; login?: string } };
     
     // Cache'ga saqlash
     hydrateCache = {

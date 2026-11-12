@@ -323,7 +323,7 @@ export default function MaxsulotBazasi() {
     setLoading(true);
     try {
       let data = await loadProductsOfflineFirst(login);
-      if (user.role === 'cashier' && userCategories.length > 0) {
+      if (userCategories.length > 0) {
         data = data.filter(p => userCategories.includes(p.category));
       }
       setAllProducts(data);
@@ -333,7 +333,7 @@ export default function MaxsulotBazasi() {
     } finally {
       setLoading(false);
     }
-  }, [login, user.role, userCategories]);
+  }, [login, userCategories]);
 
   useEffect(() => {
     if (!user?.login) { navigate('/'); return; }

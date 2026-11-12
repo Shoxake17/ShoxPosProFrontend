@@ -1,15 +1,4 @@
 
-export enum Role {
-  USER = 'user',
-  AI = 'ai'
-}
-
-export interface Message {
-  role: Role;
-  content: string;
-  timestamp: Date;
-}
-
 export interface Product {
   id: string;
   name: string;

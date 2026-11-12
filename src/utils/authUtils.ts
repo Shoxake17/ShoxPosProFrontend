@@ -176,7 +176,7 @@ export function setupAuthCheck(navigate: NavigateFunction): () => void {
 
       const body = await sessionRes.json() as {
         valid?: boolean;
-        user?: { login?: string; id?: string; role?: string };
+        user?: { login?: string; id?: string };
       };
 
       if (body?.valid !== true) return;

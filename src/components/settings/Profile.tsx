@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, User, Phone, Edit2, Save, Camera, Hash } from "lucide-react";
+import { X, User, Phone, Edit2, Save, Camera } from "lucide-react";
 // ✅ 1. To'g'ri import: Standart react-i18next hooki
 import { useTranslation } from 'react-i18next';
 import { api } from "../../utils/api";
@@ -25,8 +25,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
     firstName: "",
     lastName: "",
     phoneNumber: "",
-    avatarUrl: "",
-    uniqueChatId: ""
+    avatarUrl: ""
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -44,8 +43,7 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             phoneNumber: data.phoneNumber || "",
-            avatarUrl: data.avatarUrl || "",
-            uniqueChatId: data.uniqueChatId || ""
+            avatarUrl: data.avatarUrl || ""
           });
           setPreviewUrl(data.avatarUrl);
         }
@@ -246,24 +244,6 @@ export default function Profile({ isOpen, onClose, theme }: ProfileProps) {
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>{t("settings:chatIdLabel")}</label>
-            <div style={{ position: "relative" }}>
-              <Hash style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "#6366f1", pointerEvents: "none" }} size={20} />
-              <input
-                type="text"
-                value={formData.uniqueChatId}
-                readOnly
-                style={{
-                  ...inputStyle,
-                  paddingLeft: "48px",
-                  background: theme === "dark" ? "#091020" : "#f1f5f9",
-                  color: "#6366f1",
-                  fontWeight: 700
-                }}
-              />
-            </div>
-          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginTop: "32px" }}>

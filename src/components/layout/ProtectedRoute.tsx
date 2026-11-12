@@ -12,13 +12,11 @@ import { useTranslation } from 'react-i18next';
 // ─────────────────────────────────────────────
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: string[];
 }
 
 interface AuthState {
   isVerifying: boolean;
   isAuthenticated: boolean;
-  userRole: string | null;
   storeCategory: string;
   authError: boolean;
   redirecting: boolean;
@@ -47,7 +45,6 @@ const useAuth = () => {
   const [state, setState] = useState<AuthState>({
     isVerifying: true,
     isAuthenticated: false,
-    userRole: null,
     storeCategory: '',
     authError: false,
     redirecting: false,
@@ -71,11 +68,10 @@ const useAuth = () => {
         try {
           const { user, timestamp } = JSON.parse(cached);
           const age = Date.now() - timestamp;
-          if (age < 30000 && user?.role) {
+          if (age < 30000 && user?.login) {
             setUser(user);
             updateState({
               isAuthenticated: true,
-              userRole: user.role.toLowerCase(),
               storeCategory: user.storeCategory || '',
               authError: false,
               isVerifying: false
@@ -96,7 +92,6 @@ const useAuth = () => {
           user?: { 
             id?: string;
             login?: string; 
-            role?: string; 
             name?: string;
             shopName?: string;
             shopType?: string;
@@ -110,15 +105,12 @@ const useAuth = () => {
         const completeUser = {
           id: data.user.id || '',
           login: data.user.login || '',
-          role: data.user.role || 'cashier',
           name: data.user.name,
           shopName: data.user.shopName,
           shopType: data.user.shopType,
           storeCategory: data.user.storeCategory || '',
           shopCategories: data.user.shopCategories,
         };
-
-        const role = completeUser.role.toLowerCase() || null;
 
         if (isMounted) {
           setUser(completeUser);
@@ -130,7 +122,6 @@ const useAuth = () => {
 
           updateState({
             isAuthenticated: true,
-            userRole: role,
             storeCategory: completeUser.storeCategory,
             authError: false,
           });
@@ -255,9 +246,9 @@ const LoadingScreen: React.FC<{ authError: boolean; redirecting: boolean; }> = (
 };
 
 // ✅ MAIN COMPONENT
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const location = useLocation();
-  const { isVerifying, isAuthenticated, userRole, storeCategory, authError, redirecting } = useAuth();
+  const { isVerifying, isAuthenticated, storeCategory, authError, redirecting } = useAuth();
 
   if (isVerifying) {
     return <LoadingScreen authError={authError} redirecting={redirecting} />;
@@ -267,15 +258,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
-  }
-
   // Do'kon kategoriyasi (qurt va h.k.): ruxsat etilmagan sahifaga kirib bo'lmaydi
   // (URL'ni qo'lda yozsa ham). Backend ham shu ro'yxatni API darajasida majburlaydi.
   const accessPageId = location.pathname.split('/')[1] || "menu";
   if (!isPageAllowed(storeCategory, accessPageId)) {
-    return <Navigate to={landingPath(userRole, storeCategory)} replace />;
+    return <Navigate to={landingPath(storeCategory)} replace />;
   }
 
   return <>{children}</>;
