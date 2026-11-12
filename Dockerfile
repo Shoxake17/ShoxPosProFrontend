@@ -20,6 +20,7 @@ FROM nginx:alpine
 # to'xtatdi). OnDex web image'i bilan bir xil yondashuv.
 RUN apk upgrade --no-cache
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
