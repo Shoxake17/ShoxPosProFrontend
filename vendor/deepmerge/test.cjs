@@ -1,0 +1,13 @@
+const assert = require('assert');
+const dm = require('./dist/cjs.js');
+const evil = JSON.parse('{"__proto__": {"polluted": true}, "a": {"b": 1}}');
+const out = dm({ a: { c: 2 } }, evil);
+assert.strictEqual(Object.getPrototypeOf(out), Object.prototype, 'prototip zaharlandi');
+assert.strictEqual(out.polluted, undefined);
+assert.strictEqual({}.polluted, undefined);
+assert.deepStrictEqual(out.a, { c: 2, b: 1 });
+assert.deepStrictEqual(dm.all([{ x: [1] }, { x: [2] }, { y: 1 }]), { x: [1, 2], y: 1 });
+const viaTarget = dm(JSON.parse('{"__proto__": {"polluted": 1}}'), { a: 1 });
+assert.strictEqual(Object.getPrototypeOf(viaTarget), Object.prototype, 'target orqali zaharlandi');
+assert.strictEqual(viaTarget.polluted, undefined);
+console.log('deepmerge patch OK');

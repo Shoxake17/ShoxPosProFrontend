@@ -1,0 +1,8 @@
+{
+    "name":  "deepmerge",
+    "version":  "4.3.1-ondex.1",
+    "description":  "deepmerge 4.3.1 + prototype poisoning tuzatishi (GHSA-gcqx-w48m-w2h4). Upstream yamoq chiqsa olib tashlanadi.",
+    "license":  "MIT",
+    "main":  "dist/cjs.js",
+    "types":  "index.d.ts"
+}
